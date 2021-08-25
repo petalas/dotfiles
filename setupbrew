@@ -1,0 +1,30 @@
+#!/bin/bash
+
+if [[ $(command -v brew) == "" ]]; then
+    echo "Installing Hombrew"
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> $HOME/.zprofile
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+else
+    echo "Updating Homebrew"
+    brew update && brew upgrade
+fi
+
+## Install dependencies
+declare -a deps=("htop" "nvm" "jq" "ffmpeg" "youtube-dl" "watch")
+
+echo "Checking dependencies..."
+for i in "${deps[@]}"
+do
+	if [[ $(command -v $i) == "" ]]; then
+		echo "Installing $i"
+		brew install $i
+	else
+		echo "$i is already installed."
+	fi
+done
+
+if [ ! -d "$HOME/.nvm" ]; then
+	echo "Creating nvm dir: $HOME/.nvm"
+	mkdir $HOME/.nvm
+fi
