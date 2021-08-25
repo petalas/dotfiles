@@ -24,7 +24,7 @@ do
 done
 
 echo "Checking cask dependencies..."
-declare -a caskdeps=("keepassxc")
+declare -a caskdeps=("keepassxc" "dropbox" "microsoft-teams")
 for i in "${caskdeps[@]}"
 do
 	if [[ $(command -v $i) == "" ]]; then
