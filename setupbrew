@@ -11,9 +11,8 @@ else
 fi
 
 ## Install dependencies
-declare -a deps=("htop" "nvm" "jq" "ffmpeg" "youtube-dl" "watch")
-
 echo "Checking dependencies..."
+declare -a deps=("htop" "nvm" "jq" "ffmpeg" "youtube-dl" "watch")
 for i in "${deps[@]}"
 do
 	if [[ $(command -v $i) == "" ]]; then
@@ -24,6 +23,19 @@ do
 	fi
 done
 
+echo "Checking cask dependencies..."
+declare -a caskdeps=("keepassxc")
+for i in "${caskdeps[@]}"
+do
+	if [[ $(command -v $i) == "" ]]; then
+		echo "Installing $i"
+		brew install --cask $i
+	else
+		echo "$i is already installed."
+	fi
+done
+
+## not managed by homebrew, have to create .nvm dir manually on first install
 if [ ! -d "$HOME/.nvm" ]; then
 	echo "Creating nvm dir: $HOME/.nvm"
 	mkdir $HOME/.nvm
