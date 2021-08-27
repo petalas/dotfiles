@@ -12,7 +12,7 @@ fi
 
 ## Install dependencies
 echo "Checking dependencies..."
-declare -a deps=("htop" "nvm" "jq" "ffmpeg" "youtube-dl" "watch")
+declare -a deps=("java" "htop" "nvm" "jq" "ffmpeg" "youtube-dl" "watch")
 for i in "${deps[@]}"
 do
 	if [[ $(command -v $i) == "" ]]; then
@@ -24,7 +24,7 @@ do
 done
 
 echo "Checking cask dependencies..."
-declare -a caskdeps=("keepassxc" "dropbox" "microsoft-teams")
+declare -a caskdeps=("keepassxc" "dropbox" "microsoft-teams" "openvpn-connect")
 for i in "${caskdeps[@]}"
 do
 	if [[ $(command -v $i) == "" ]]; then
