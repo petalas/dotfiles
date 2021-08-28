@@ -24,7 +24,7 @@ do
 done
 
 echo "Checking cask dependencies..."
-declare -a caskdeps=("keepassxc" "dropbox" "microsoft-teams" "openvpn-connect")
+declare -a caskdeps=("keepassxc" "dropbox" "microsoft-teams" "openvpn-connect" "docker")
 for i in "${caskdeps[@]}"
 do
 	if [[ $(command -v $i) == "" ]]; then
