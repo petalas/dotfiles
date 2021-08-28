@@ -124,6 +124,11 @@ if [ -f '/Users/nick/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/nick/googl
 # The next line enables shell command completion for gcloud.
 if [ -f '/Users/nick/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/nick/google-cloud-sdk/completion.zsh.inc'; fi
 
+# kill port
+function killport() {
+  sudo lsof -i :$1 | grep LISTEN | awk '{ print $2 }' | xargs kill -9
+}
+
 # for homebrew installed jdk
 # 1) brew reinstall java
 # 2) sudo ln -sfn /opt/homebrew/opt/openjdk/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk.jdk
