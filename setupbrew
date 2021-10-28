@@ -12,7 +12,7 @@ fi
 
 ## Install dependencies
 echo "Checking dependencies..."
-declare -a deps=("java" "htop" "nvm" "jq" "ffmpeg" "youtube-dl" "watch")
+declare -a deps=("java" "htop" "nvm" "jq" "ffmpeg" "youtube-dl" "watch" "python")
 for i in "${deps[@]}"
 do
 	if [[ $(command -v $i) == "" ]]; then
