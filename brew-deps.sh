@@ -1,13 +1,9 @@
 #!/bin/bash
 
-if [[ $(command -v brew) == "" ]]; then
-    echo "Installing Hombrew"
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> $HOME/.zprofile
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-else
-    echo "Updating Homebrew"
-    brew update && brew upgrade
+## not managed by homebrew, have to create .nvm dir manually on first install
+if [ ! -d "$HOME/.nvm" ]; then
+	echo "Creating nvm dir: $HOME/.nvm"
+	mkdir $HOME/.nvm
 fi
 
 ## Install dependencies
@@ -35,8 +31,3 @@ do
 	fi
 done
 
-## not managed by homebrew, have to create .nvm dir manually on first install
-if [ ! -d "$HOME/.nvm" ]; then
-	echo "Creating nvm dir: $HOME/.nvm"
-	mkdir $HOME/.nvm
-fi

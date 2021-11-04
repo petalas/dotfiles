@@ -1,3 +1,5 @@
+#!/bin/bash
+
 if [ -d "$HOME/.oh-my-zsh" ]; then
 	echo "Oh My Zsh is already installed, skipping."
 else
@@ -14,18 +16,6 @@ else
 	echo "Installing Powerlevel10k"
 	git clone https://github.com/romkatv/powerlevel10k.git $HOME/.oh-my-zsh/themes/powerlevel10k
 fi
-
-echo "Linking $(pwd)/dot/zshrc -> $HOME/.zshrc (you might be prompted to delete existing dotfile)"
-[ -f $HOME/.zshrc ] && rm -i $HOME/.zshrc
-ln -s "$(pwd)/dot/zshrc" $HOME/.zshrc
-
-echo "Linking $(pwd)/dot/gitconfig -> $HOME/.gitconfig (you might be prompted to delete existing dotfile)"
-[ -f $HOME/.gitconfig ] && rm -i $HOME/.gitconfig
-ln -s "$(pwd)/dot/gitconfig" $HOME/.gitconfig
-
-echo "Linking $(pwd)/dot/genesis/gitconfig -> $HOME/git/genesis/.gitconfig (you might be prompted to delete existing dotfile)"
-[ -f $HOME/git/genesis/.gitconfig ] && rm -i $HOME/git/genesis/.gitconfig
-ln -s "$(pwd)/dot/genesis/gitconfig" $HOME/git/genesis/.gitconfig
 
 if [ -d "$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions" ]; then
 	echo "zsh-autosuggestions is already installed, skipping."
