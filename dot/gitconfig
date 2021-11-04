@@ -1,0 +1,6 @@
+[user]
+	name = Nick Petalas
+        email = webmasternikos@gmail.com
+
+[includeIf "gitdir:~/git/genesis/"]
+	path = ~/git/genesis/.gitconfig
