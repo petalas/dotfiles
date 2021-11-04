@@ -1,0 +1,12 @@
+#!/bin/bash
+
+if [[ "`pkgutil --files com.apple.pkg.RosettaUpdateAuto`" == "" ]]
+then 
+
+	echo 'Installing rosetta...'
+	sudo softwareupdate --install-rosetta
+else
+
+	echo 'rosetta is already installed'
+
+fi
