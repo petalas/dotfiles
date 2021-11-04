@@ -1,5 +1,10 @@
 #!/bin/bash
 
+red=`tput setaf 1`
+green=`tput setaf 2`
+yellow=`tput setaf 3`
+reset=`tput sgr0`
+
 ## not managed by homebrew, have to create .nvm dir manually on first install
 if [ ! -d "$HOME/.nvm" ]; then
 	echo "Creating nvm dir: $HOME/.nvm"
@@ -12,10 +17,10 @@ declare -a deps=("java" "htop" "nvm" "jq" "ffmpeg" "youtube-dl" "watch" "python"
 for i in "${deps[@]}"
 do
 	if [[ $(brew ls --versions $i) == "" ]]; then
-		echo "Installing $i"
+		echo "Installing ${yellow}$i${reset}"
 		brew install $i
 	else
-		echo "$i is already installed."
+		echo "${yellow}$i${reset} is ${green}already installed${reset}."
 	fi
 done
 
@@ -24,10 +29,10 @@ declare -a caskdeps=("iterm2" "visual-studio-code" "google-chrome" "keepassxc" "
 for i in "${caskdeps[@]}"
 do
 	if [[ $(brew ls --cask --versions $i) == "" ]]; then
-		echo "Installing $i"
+		echo "Installing ${yellow}$i${reset}"
 		brew install --cask $i
 	else
-		echo "$i is already installed."
+		echo "${yellow}$i${reset} is ${green}already installed${reset}."
 	fi
 done
 

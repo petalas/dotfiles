@@ -9,7 +9,7 @@ else
 	echo 'rosetta is already installed.'
 fi
 
-echo "Checking Hombrew installation..."
+printf "\n\nChecking Hombrew installation...\n"
 if [[ $(command -v brew) == "" ]]; then
     echo "Not detected, installing Hombrew..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -17,5 +17,5 @@ if [[ $(command -v brew) == "" ]]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
 fi
 
-echo "Updating Homebrew..."
+printf "\n\nUpdating Homebrew...\n"
 brew update && brew upgrade
