@@ -13,7 +13,16 @@ fi
 
 ## Install dependencies
 echo "Checking dependencies..."
-declare -a deps=("java" "htop" "nvm" "jq" "ffmpeg" "youtube-dl" "watch" "python")
+declare -a deps=(
+	"ffmpeg"
+	"htop"
+	"java"
+	"jq"
+	"nvm"
+	"python"
+	"watch"
+	"youtube-dl"
+	)
 for i in "${deps[@]}"
 do
 	if [[ $(brew ls --versions $i) == "" ]]; then
@@ -25,7 +34,21 @@ do
 done
 
 printf "\n\nChecking cask dependencies...\n"
-declare -a caskdeps=("iterm2" "visual-studio-code" "google-chrome" "keepassxc" "dropbox" "microsoft-teams" "openvpn-connect" "docker" "vlc" "steam" "skype" "alfred")
+declare -a caskdeps=(
+	"alfred"
+	"docker"
+	"dropbox"
+	"google-chrome"
+	"iterm2"
+	"keepassxc" 
+	"microsoft-teams"
+	"openvpn-connect"
+	"skype"
+	"steam"
+	"sublime-text"
+	"visual-studio-code" 
+	"vlc"
+	)
 for i in "${caskdeps[@]}"
 do
 	if [[ $(brew ls --cask --versions $i) == "" ]]; then
