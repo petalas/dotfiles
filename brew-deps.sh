@@ -25,7 +25,7 @@ do
 done
 
 printf "\n\nChecking cask dependencies...\n"
-declare -a caskdeps=("iterm2" "visual-studio-code" "google-chrome" "keepassxc" "dropbox" "microsoft-teams" "openvpn-connect" "docker" "vlc" "steam" "skype")
+declare -a caskdeps=("iterm2" "visual-studio-code" "google-chrome" "keepassxc" "dropbox" "microsoft-teams" "openvpn-connect" "docker" "vlc" "steam" "skype" "alfred")
 for i in "${caskdeps[@]}"
 do
 	if [[ $(brew ls --cask --versions $i) == "" ]]; then
