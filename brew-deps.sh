@@ -46,6 +46,7 @@ declare -a caskdeps=(
 	"skype"
 	"steam"
 	"sublime-text"
+	"teamviewer"
 	"visual-studio-code" 
 	"vlc"
 	)
