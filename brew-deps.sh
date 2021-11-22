@@ -49,6 +49,7 @@ declare -a caskdeps=(
 	"teamviewer"
 	"visual-studio-code" 
 	"vlc"
+	"whatsapp"
 	)
 for i in "${caskdeps[@]}"
 do
