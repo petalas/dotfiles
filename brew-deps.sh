@@ -38,6 +38,7 @@ declare -a caskdeps=(
 	"alfred"
 	"docker"
 	"dropbox"
+	"discord"
 	"google-chrome"
 	"iterm2"
 	"keepassxc" 
