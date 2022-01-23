@@ -16,6 +16,7 @@ echo "Checking dependencies..."
 declare -a deps=(
 	"ffmpeg"
 	"htop"
+	"mediainfo"
 	"java"
 	"jq"
 	"nvm"
