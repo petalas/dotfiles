@@ -1,5 +1,19 @@
 #!/bin/bash
 
+if [[ $SHELL == *"zsh" ]]; then
+	echo "Already using ZSH."
+else
+	if [[ $(which zsh) == *"zsh" ]]; then
+		echo "zsh is already installed, making it the default shell"
+		sudo chsh -s $(which zsh)
+	else
+		echo "Installing ZSH."
+    	sudo apt update && sudo apt upgrade && sudo apt install zsh -y && sudo chsh -s $(which zsh)
+	fi
+	echo "Restarting."
+	$(basename $0) && exit
+fi
+
 if [ -d "$HOME/.oh-my-zsh" ]; then
 	echo "Oh My Zsh is already installed, skipping."
 else
