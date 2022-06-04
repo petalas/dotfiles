@@ -11,6 +11,9 @@ if [ ! -d "$HOME/.nvm" ]; then
 	mkdir $HOME/.nvm
 fi
 
+printf "\nUpdating Homebrew...\n"
+brew update && brew upgrade
+
 ## Install dependencies
 echo "Checking dependencies..."
 declare -a deps=(
@@ -45,6 +48,7 @@ declare -a caskdeps=(
 	"keepassxc" 
 	"microsoft-teams"
 	"openvpn-connect"
+	"qbittorrent"
 	"skype"
 	"steam"
 	"sublime-text"
@@ -62,4 +66,6 @@ do
 		echo "${yellow}$i${reset} is ${green}already installed${reset}."
 	fi
 done
+
+
 
