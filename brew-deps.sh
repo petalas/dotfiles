@@ -20,6 +20,7 @@ declare -a deps=(
 	"ffmpeg"
 	"htop"
 	"mediainfo"
+	"iperf3"
 	"java"
 	"jq"
 	"nvm"
