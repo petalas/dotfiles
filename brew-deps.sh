@@ -41,6 +41,8 @@ done
 printf "\n\nChecking cask dependencies...\n"
 declare -a caskdeps=(
 	"alfred"
+	"background-music"
+	"blackhole-2ch"
 	"docker"
 	"dropbox"
 	"discord"
