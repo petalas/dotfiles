@@ -26,30 +26,44 @@ fi
 if [ -d "$HOME/.oh-my-zsh" ]; then
     echo "Oh My Zsh is already installed, skipping."
 else
+    echo "Installing Oh My Zsh..."
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 fi
 
 if [ -d "$HOME/.oh-my-zsh/themes/powerlevel10k" ]; then
     echo "Powerlevel10k is already installed, skipping."
 else
-    echo "Installing Powerlevel10k"
+    echo "Installing Powerlevel10k..."
     git clone https://github.com/romkatv/powerlevel10k.git $HOME/.oh-my-zsh/themes/powerlevel10k
 fi
 
 if [ -d "$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions" ]; then
     echo "zsh-autosuggestions is already installed, skipping."
 else
-    echo "Installing zsh-autosuggestions"
+    echo "Installing zsh-autosuggestions..."
     git clone https://github.com/zsh-users/zsh-autosuggestions $HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions
 fi
 
 if [ -d "$HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting" ]; then
     echo "zsh-syntax-highlighting is already installed, skipping."
 else
-    echo "Installing zsh-syntax-highlighting"
+    echo "Installing zsh-syntax-highlighting..."
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
 fi
 
 ./link-dotfiles.sh
 
-exec zsh
+if [[ $OSTYPE == "linux"* ]]; then
+    if [ ! -f "/usr/share/fonts/truetype/meslo/MesloLGS NF Regular.ttf" ]; then
+        echo "Installing Meslo Nerd Font patched for Powerlevel10k..."
+        sudo mkdir -p /usr/share/fonts/truetype/meslo && sudo cp fonts/* /usr/share/fonts/truetype/meslo
+        echo "Updating the font cache..."
+        sudo apt install fontconfig -y && sudo fc-cache -fv
+    fi
+elif [[ $OSTYPE == "msys"* ]]; then
+    echo "Please install the included font files manually." # TODO
+fi
+
+echo "Please set your terminal font to 'MesloLGS NF' before restarting."
+echo "The configuration script for Powerlevel10k should run automatically (only the first time)."
+echo "To manually reconfigure run 'p10k configure'."
