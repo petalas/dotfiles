@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [[ $OSTYPE == "msys"* ]]; then
-    echo "Cannot install ZSH on windows (yet)" # TODO
+    echo "Cannot install ZSH on windows, please install it manually and run this script again." # TODO
     exit 1
 fi
 
@@ -9,30 +9,24 @@ if [[ $SHELL == *"zsh" ]]; then
     echo "Already using ZSH."
 else
     if [[ $(which zsh) == *"zsh" ]]; then
-        echo "zsh is already installed, making it the default shell"
-        sudo chsh -s $(which zsh)
+        echo "$(which zsh) found, making it the default shell..."
+        chsh -s $(which zsh)
     else
         if [[ $OSTYPE == "darwin"* ]]; then
             echo "Installing ZSH."
-            brew install zsh && sudo chsh -s $(which zsh)
+            brew install zsh && chsh -s $(which zsh)
         fi
         if [[ $OSTYPE == "linux"* ]]; then
             echo "Installing ZSH."
-            sudo apt update && sudo apt upgrade && sudo apt install zsh -y && sudo chsh -s $(which zsh)
+            sudo apt update && sudo apt upgrade -y && sudo apt install zsh -y && chsh -s $(which zsh)
         fi
     fi
-    echo "Restarting."
-    $(basename $0) && exit
 fi
 
 if [ -d "$HOME/.oh-my-zsh" ]; then
     echo "Oh My Zsh is already installed, skipping."
 else
-    echo "Installing Oh My Zsh"
-    echo "=====================IMPORTANT!====================="
-    echo "Make sure to exit zsh once its installation is done!"
-    echo "===================================================="
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 fi
 
 if [ -d "$HOME/.oh-my-zsh/themes/powerlevel10k" ]; then
@@ -55,3 +49,7 @@ else
     echo "Installing zsh-syntax-highlighting"
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
 fi
+
+./link-dotfiles.sh
+
+exec zsh
