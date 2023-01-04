@@ -13,7 +13,7 @@ echo "Linking $(pwd)/dot/genesis/gitconfig -> $HOME/git/genesis/.gitconfig (you 
 
 # make sure $HOME/git/genesis exists before linking
 if [ ! -d "$HOME/git/genesis" ]; then
-	echo "Creating: $HOME/git/genesis"
-	mkdir $HOME/git/genesis
+    echo "Creating: $HOME/git/genesis"
+    mkdir $HOME/git/genesis
 fi
 ln -s "$(pwd)/dot/genesis/gitconfig" $HOME/git/genesis/.gitconfig
