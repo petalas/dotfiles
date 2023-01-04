@@ -1,6 +1,12 @@
 [user]
 	name = Nick Petalas
-        email = webmasternikos@gmail.com
+	email = webmasternikos@gmail.com
 
 [includeIf "gitdir:~/git/genesis/"]
 	path = ~/git/genesis/.gitconfig
+
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
