@@ -1,12 +1,19 @@
 #!/bin/bash
 
-echo 'Checking rosetta installation...'
-if [[ "`pkgutil --files com.apple.pkg.RosettaUpdateAuto`" == "" ]]
-then 
-	echo 'Not detected, installing rosetta...'
-	sudo softwareupdate --install-rosetta
-else
-	echo 'rosetta is already installed.'
+if [[ ! $OSTYPE == "darwin"* ]]; then
+    echo "Not MacOS, exiting."
+    exit 1
+fi
+
+if [[ $(uname -p) == 'arm' ]]; then # detect Apple Silicon
+    echo "Checking rosetta installation..."
+    if [[ "`pkgutil --files com.apple.pkg.RosettaUpdateAuto`" == "" ]]
+    then
+        echo "Not detected, installing rosetta..."
+        sudo softwareupdate --install-rosetta
+    else
+        echo "rosetta is already installed."
+    fi
 fi
 
 printf "\n\nChecking Hombrew installation...\n"
