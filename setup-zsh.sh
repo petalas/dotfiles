@@ -26,6 +26,12 @@ fi
 if [ -d "$HOME/.oh-my-zsh" ]; then
     echo "Oh My Zsh is already installed, skipping."
 else
+    if [[ ! $(which curl) == *"curl" ]]; then
+        echo "Installing curl..."
+        [[ $OSTYPE == "linux"* ]] && sudo apt install curl -y
+        [[ $OSTYPE == "darwin"* ]] && brew install curl
+        [[ $OSTYPE == "msys"* ]] && echo "Please install curl manually and run this script again." && exit 1
+    fi
     echo "Installing Oh My Zsh..."
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 fi
@@ -64,6 +70,4 @@ elif [[ $OSTYPE == "msys"* ]]; then
     echo "Please install the included font files manually." # TODO
 fi
 
-echo "Please set your terminal font to 'MesloLGS NF' before restarting."
-echo "The configuration script for Powerlevel10k should run automatically (only the first time)."
-echo "To manually reconfigure run 'p10k configure'."
+exec zsh
