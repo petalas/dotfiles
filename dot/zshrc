@@ -110,6 +110,15 @@ alias youtube-dl-best="youtube-dl -f '(bestvideo+bestaudio/best)' --merge-output
 alias sshzeus="ssh nick@192.168.1.104"
 alias drma='docker rm -f $(docker ps -a -q)'
 
+function upd() {
+  if [[ $OSTYPE == "linux"* ]]; then
+    sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y
+  fi
+  if [[ $OSTYPE == "darwin"* && $(command -v brew) != "" ]]; then
+    brew update && brew upgrade
+  fi
+}
+
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
