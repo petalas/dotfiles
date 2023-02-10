@@ -31,6 +31,7 @@ declare -a deps=(
     "neovim"
     "nvm"
     "python"
+    "ripgrep"
     "watch"
     "youtube-dl"
 )
