@@ -111,6 +111,8 @@ alias ll="ls -lah"
 alias youtube-dl-best="youtube-dl -f '(bestvideo+bestaudio/best)' --merge-output-format 'mkv'"
 alias sshzeus="ssh nick@192.168.1.104"
 alias drma='docker rm -f $(docker ps -a -q)'
+alias vi="vim"
+alias vim="nvim"
 
 function upd() {
   if [[ $OSTYPE == "linux"* ]]; then
