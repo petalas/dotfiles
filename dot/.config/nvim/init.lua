@@ -1,2 +1,1 @@
-require("np")
-print("hello")
+require("petalas")
