@@ -108,7 +108,7 @@ source $ZSH/oh-my-zsh.sh
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
 alias ll="ls -lah"
-alias youtube-dl-best="youtube-dl -f '(bestvideo+bestaudio/best)' --merge-output-format 'mkv'"
+alias yt-dlp-best="yt-dlp --external-downloader=aria2c --external-downloader-args '--min-split-size=1M --max-connection-per-server=16 --max-concurrent-downloads=16 --split=16' -f '(bestvideo+bestaudio/best)' --merge-output-format 'mkv'"
 alias sshzeus="ssh nick@192.168.1.104"
 alias drma='docker rm -f $(docker ps -a -q)'
 alias vi="vim"
