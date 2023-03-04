@@ -22,6 +22,7 @@ brew update && brew upgrade
 ## Install dependencies
 echo "Checking dependencies..."
 declare -a deps=(
+    "aria2"
     "ffmpeg"
     "htop"
     "iperf3"
@@ -33,7 +34,7 @@ declare -a deps=(
     "python"
     "ripgrep"
     "watch"
-    "youtube-dl"
+    "yt-dlp"
 )
 for i in "${deps[@]}"
 do
