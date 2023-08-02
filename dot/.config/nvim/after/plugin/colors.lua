@@ -1,4 +1,9 @@
-require('rose-pine').setup({
+local installed, plugin = pcall(require, 'rose-pine')
+if not installed then
+    goto exit
+end
+
+plugin.setup({
     disable_background = true
 })
 
@@ -12,3 +17,5 @@ function ColorMyPencils(color)
 end
 
 ColorMyPencils()
+
+::exit::
