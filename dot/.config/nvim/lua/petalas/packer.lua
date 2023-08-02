@@ -44,7 +44,6 @@ return require('packer').startup(function(use)
             {'neovim/nvim-lspconfig'},
             {'williamboman/mason-lspconfig.nvim'},
             {'williamboman/mason.nvim'},
-  
             -- Autocompletion
             {'hrsh7th/cmp-buffer'},
             {'hrsh7th/cmp-nvim-lsp'},
@@ -52,7 +51,6 @@ return require('packer').startup(function(use)
             {'hrsh7th/cmp-path'},
             {'hrsh7th/nvim-cmp'},
             {'saadparwaiz1/cmp_luasnip'},
-  
             -- Snippets
             {'L3MON4D3/LuaSnip'},
             {'rafamadriz/friendly-snippets'},
@@ -61,6 +59,16 @@ return require('packer').startup(function(use)
 
     use('ThePrimeagen/vim-be-good')
     use("theprimeagen/harpoon")
+
+    use({
+        'ms-jpq/chadtree',
+        branch = 'chad',
+        -- FIXME: how to avoid errors during first run?
+        run = function()
+            vim.fn.system({'python3', '-m', 'chadtree', 'deps'})
+            vim.api.nvim_command('CHADdeps')
+        end
+    })
 
     -- Automatically set up your configuration after cloning packer.nvim
     -- Put this at the end after all plugins

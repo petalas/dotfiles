@@ -1,6 +1,6 @@
 local installed, plugin = pcall(require, 'rose-pine')
 if not installed then
-    goto exit
+    return
 end
 
 plugin.setup({
@@ -17,5 +17,3 @@ function ColorMyPencils(color)
 end
 
 ColorMyPencils()
-
-::exit::
