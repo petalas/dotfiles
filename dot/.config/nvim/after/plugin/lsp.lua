@@ -1,4 +1,9 @@
-local lsp = require("lsp-zero")
+local installed, plugin = pcall(require, 'lsp-zero')
+if not installed then
+    goto exit
+end
+
+local lsp = plugin
 
 lsp.preset("recommended")
 
@@ -66,3 +71,5 @@ lsp.setup()
 vim.diagnostic.config({
     virtual_text = true
 })
+
+::exit::
