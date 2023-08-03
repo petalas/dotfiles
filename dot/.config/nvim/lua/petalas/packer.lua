@@ -9,18 +9,29 @@ return require('packer').startup(function(use)
     -- Packer can manage itself
     use 'wbthomason/packer.nvim'
 
+    -- LSP
     use {
-        'nvim-telescope/telescope.nvim', branch = '0.1.x',
-        requires = {{'nvim-lua/plenary.nvim'}}
+        'VonHeikemen/lsp-zero.nvim',
+        branch = 'v2.x',
+        requires = {
+          -- LSP Support
+          {'neovim/nvim-lspconfig'},                -- Required
+          {'williamboman/mason.nvim'},              -- Optional
+          {'williamboman/mason-lspconfig.nvim'},    -- Optional
+          {'hrsh7th/cmp-buffer'},                   -- Optional
+          {'hrsh7th/cmp-path'},                     -- Optional
+      
+          -- Autocompletion
+          {'hrsh7th/nvim-cmp'},                     -- Required
+          {'hrsh7th/cmp-nvim-lsp'},                 -- Required
+
+          -- Snippets
+          { "rafamadriz/friendly-snippets" },       -- Required
+          {'L3MON4D3/LuaSnip'},                     -- Required
+        }
     }
 
-    use({
-        'rose-pine/neovim', as = 'rose-pine',
-        config = function()
-            vim.cmd('colorscheme rose-pine')
-        end
-    })
-
+    -- nvim-treesitter: https://github.com/nvim-treesitter/nvim-treesitter
     use({
         "nvim-treesitter/nvim-treesitter",
         run = function()
@@ -31,35 +42,19 @@ return require('packer').startup(function(use)
         end
     })
 
-    use("nvim-treesitter/playground")
-    use("nvim-treesitter/nvim-treesitter-context")
-
+    -- UndoTree: https://github.com/mbbill/undotree
     use("mbbill/undotree")
 
+    -- Telescope: https://github.com/nvim-telescope/telescope.nvim
     use {
-        'VonHeikemen/lsp-zero.nvim',
-        branch = 'v1.x',
-        requires = {
-            -- LSP Support
-            {'neovim/nvim-lspconfig'},
-            {'williamboman/mason-lspconfig.nvim'},
-            {'williamboman/mason.nvim'},
-            -- Autocompletion
-            {'hrsh7th/cmp-buffer'},
-            {'hrsh7th/cmp-nvim-lsp'},
-            {'hrsh7th/cmp-nvim-lua'},
-            {'hrsh7th/cmp-path'},
-            {'hrsh7th/nvim-cmp'},
-            {'saadparwaiz1/cmp_luasnip'},
-            -- Snippets
-            {'L3MON4D3/LuaSnip'},
-            {'rafamadriz/friendly-snippets'},
-        }
+        'nvim-telescope/telescope.nvim', branch = '0.1.x',
+        requires = {{'nvim-lua/plenary.nvim'}}
     }
 
-    use('ThePrimeagen/vim-be-good')
+    -- Harpoon: https://github.com/ThePrimeagen/harpoon
     use("theprimeagen/harpoon")
 
+    -- CHADTree: https://github.com/ms-jpq/chadtree
     use({
         'ms-jpq/chadtree',
         branch = 'chad',
@@ -67,7 +62,8 @@ return require('packer').startup(function(use)
         run = function()
             vim.fn.system({'python3', '-m', 'chadtree', 'deps'})
             vim.api.nvim_command('CHADdeps')
-        end
+        end,
+        requires = {{'ryanoasis/vim-devicons'}}
     })
 
     -- Automatically set up your configuration after cloning packer.nvim
