@@ -61,11 +61,15 @@ fi
 
 if [[ $OSTYPE == "linux"* ]]; then
     if [ ! -f "/usr/share/fonts/truetype/meslo/MesloLGS NF Regular.ttf" ]; then
-        echo "Installing Meslo Nerd Font patched for Powerlevel10k..."
-        sudo mkdir -p /usr/share/fonts/truetype/meslo && sudo cp fonts/* /usr/share/fonts/truetype/meslo
-        echo "Updating the font cache..."
-        sudo apt install fontconfig -y && sudo fc-cache -fv
+        echo "Installing Meslo Nerd Font..."
+        sudo mkdir -p /usr/share/fonts/truetype/meslo && sudo cp fonts/meslo/* /usr/share/fonts/truetype/meslo
     fi
+    if [ ! -f "/usr/share/fonts/truetype/hack/HackNerdFont-Regular.ttf" ]; then
+        echo "Installing Hack Nerd Font..."
+        sudo mkdir -p /usr/share/fonts/truetype/hack && sudo cp fonts/hack/* /usr/share/fonts/truetype/hack
+    fi
+    echo "Updating the font cache..."
+    sudo apt install fontconfig -y && sudo fc-cache -fv
 elif [[ $OSTYPE == "msys"* ]]; then
     echo "Please install the included font files manually." # TODO
 fi
