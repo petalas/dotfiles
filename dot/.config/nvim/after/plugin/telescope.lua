@@ -91,6 +91,15 @@ telescope.setup {
 
         find_files = {
             hidden = true
+        },
+
+        live_grep = {
+            hidden = true,
+
+            -- for when ripgrep is used (should be if installed)
+            additional_args = function(opts)
+                return {"--hidden"}
+            end
         }
     },
     extensions = {
