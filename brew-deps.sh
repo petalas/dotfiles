@@ -5,10 +5,10 @@ if [[ ! $OSTYPE == "darwin"* ]]; then
     exit 1
 fi
 
-red=`tput setaf 1`
-green=`tput setaf 2`
-yellow=`tput setaf 3`
-reset=`tput sgr0`
+red=$(tput setaf 1)
+green=$(tput setaf 2)
+yellow=$(tput setaf 3)
+reset=$(tput sgr0)
 
 ## not managed by homebrew, have to create .nvm dir manually on first install
 if [ ! -d "$HOME/.nvm" ]; then
@@ -23,6 +23,7 @@ brew update && brew upgrade
 echo "Checking dependencies..."
 declare -a deps=(
     "aria2"
+    "fd"
     "ffmpeg"
     "htop"
     "iperf3"
@@ -36,8 +37,7 @@ declare -a deps=(
     "watch"
     "yt-dlp"
 )
-for i in "${deps[@]}"
-do
+for i in "${deps[@]}"; do
     if [[ $(brew ls --versions $i) == "" ]]; then
         echo "Installing ${yellow}$i${reset}"
         brew install $i
@@ -59,6 +59,7 @@ declare -a caskdeps=(
     "microsoft-teams"
     "openvpn-connect"
     "qbittorrent"
+    "ripgrep"
     "skype"
     "steam"
     "sublime-text"
@@ -67,8 +68,7 @@ declare -a caskdeps=(
     "vlc"
     "whatsapp"
 )
-for i in "${caskdeps[@]}"
-do
+for i in "${caskdeps[@]}"; do
     if [[ $(brew ls --cask --versions $i) == "" ]]; then
         echo "Installing ${yellow}$i${reset}"
         brew install --cask $i
@@ -76,6 +76,3 @@ do
         echo "${yellow}$i${reset} is ${green}already installed${reset}."
     fi
 done
-
-
-
