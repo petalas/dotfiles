@@ -16,14 +16,11 @@ if not ok2 then
     return
 end
 
--- local ok3, lspconfig = pcall(require, 'lspconfig ')
--- if not ok3 then
---     vim.notify('Failed to load lspconfig')
---     return
--- end
-
--- for some reason the safe call fails but this just works (?!)
-local lspconfig = require('lspconfig')
+local ok3, lspconfig = pcall(require, 'lspconfig')
+if not ok3 then
+    vim.notify('Failed to load lspconfig')
+    return
+end
 
 mason.setup()
 mason_lspconfig.setup({
