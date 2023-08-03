@@ -32,27 +32,12 @@ return packer.startup(function(use)
     -- Packer can manage itself
     use 'wbthomason/packer.nvim'
 
-    -- LSP Zero: https://github.com/VonHeikemen/lsp-zero.nvim
-    use {
-        'VonHeikemen/lsp-zero.nvim',
-        branch = 'v2.x',
-        requires = {
-          -- LSP Support
-          {'neovim/nvim-lspconfig'},                -- Required
-          {'williamboman/mason.nvim'},              -- Optional
-          {'williamboman/mason-lspconfig.nvim'},    -- Optional
-          {'hrsh7th/cmp-buffer'},                   -- Optional
-          {'hrsh7th/cmp-path'},                     -- Optional
-      
-          -- Autocompletion
-          {'hrsh7th/nvim-cmp'},                     -- Required
-          {'hrsh7th/cmp-nvim-lsp'},                 -- Required
-
-          -- Snippets
-          { "rafamadriz/friendly-snippets" },       -- Required
-          {'L3MON4D3/LuaSnip'},                     -- Required
-        }
+    -- Completion engine: https://github.com/ms-jpq/coq_nvim
+    use { 'ms-jpq/coq_nvim', 
+        branch = 'coq',
+        run = 'python3 -m coq deps'
     }
+    use {'ms-jpq/coq.artifacts', branch='artifacts'}
 
     -- nvim-treesitter: https://github.com/nvim-treesitter/nvim-treesitter
     use({
@@ -82,10 +67,8 @@ return packer.startup(function(use)
         'ms-jpq/chadtree',
         branch = 'chad',
         -- FIXME: how to avoid errors during first run?
-        run = function()
-            vim.fn.system({'python3', '-m', 'chadtree', 'deps'})
-            vim.api.nvim_command('CHADdeps')
-        end,
+        run = ":CHADdeps",
+        -- run = "python3 -m chadtree deps --nvim",
         requires = {{'ryanoasis/vim-devicons'}}
     })
 
