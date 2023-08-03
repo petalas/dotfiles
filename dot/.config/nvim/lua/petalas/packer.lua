@@ -9,7 +9,7 @@ return require('packer').startup(function(use)
     -- Packer can manage itself
     use 'wbthomason/packer.nvim'
 
-    -- LSP
+    -- LSP Zero: https://github.com/VonHeikemen/lsp-zero.nvim
     use {
         'VonHeikemen/lsp-zero.nvim',
         branch = 'v2.x',
@@ -65,6 +65,9 @@ return require('packer').startup(function(use)
         end,
         requires = {{'ryanoasis/vim-devicons'}}
     })
+
+    --  Color scheme: https://github.com/folke/tokyonight.nvim
+    use( "folke/tokyonight.nvim")
 
     -- Automatically set up your configuration after cloning packer.nvim
     -- Put this at the end after all plugins
