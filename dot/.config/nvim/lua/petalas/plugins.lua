@@ -60,6 +60,12 @@ return packer.startup(function(use)
         end
     })
 
+    -- easier comments + with treesitter context
+    use {
+        "numToStr/Comment.nvim",
+        'JoosepAlviste/nvim-ts-context-commentstring',
+    }
+
     -- UndoTree: https://github.com/mbbill/undotree
     use("mbbill/undotree")
 
