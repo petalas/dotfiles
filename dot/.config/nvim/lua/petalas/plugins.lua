@@ -82,6 +82,12 @@ return packer.startup(function(use)
         requires = { { 'ryanoasis/vim-devicons' } }
     })
 
+    -- Automatically close pairs of ({[]})
+    use {
+        "windwp/nvim-autopairs",
+        config = function() require("nvim-autopairs").setup {} end
+    }
+
     --  Color scheme: https://github.com/folke/tokyonight.nvim
     use("folke/tokyonight.nvim")
 
