@@ -62,7 +62,7 @@ window:
   # Values for `decorations` (macOS only):
   #     - transparent: Title bar, transparent background and title bar buttons
   #     - buttonless: Title bar, transparent background and no title bar buttons
-  decorations: full
+  decorations: none 
 
   # Background opacity
   #
@@ -125,26 +125,26 @@ scrolling:
 font:
   # Normal (roman) font face
   normal:
-    family: Hack Nerd Font Mono 
+    family: IosevkaTerm Nerd Font Mono 
     style: Regular
 
   # Bold font face
   bold:
-    family: Hack Nerd Font Mono
+    family: IosevkaTerm Nerd Font Mono
     style: Bold
 
   # Italic font face
   italic:
-    family: Hack Nerd Font Mono
+    family: IosevkaTerm Nerd Font Mono
     style: Italic
 
   # Bold italic font face
   bold_italic:
-    family: Hack Nerd Font Mono 
+    family: IosevkaTerm Nerd Font Mono 
     style: Bold Italic
 
   # Point size
-  size: 9
+  size: 12
 
   # Offset is the extra space around each character. `offset.y` can be thought
   # of as modifying the line spacing, and `offset.x` as modifying the letter
