@@ -20,12 +20,23 @@ fi
 echo "Linking $(pwd)/dot/gitconfig -> $HOME/.gitconfig"
 ln -s "$(pwd)/dot/gitconfig" $HOME/.gitconfig
 
-# nvim
-# make sure $HOME/git/genesis exists before linking
+# ensure ~/.config exists
 if [ ! -d "$HOME/.config" ]; then
     echo "Creating: $HOME/.config"
     mkdir -p $HOME/.config
 fi
+
+# alacritty
+[ -d $HOME/.config/alacritty.old ] && rm -rf $HOME/.config/alacritty.old
+if [ -d $HOME/.config/alacritty ]; then
+    echo "Creating backup: $HOME/.config/alacritty.old"
+    cp -r $HOME/.config/alacritty $HOME/.config/alacritty.old
+    rm -rf $HOME/.config/alacritty
+fi
+echo "Linking $(pwd)/dot/.config/alacritty -> $HOME/.config/alacritty"
+ln -s "$(pwd)/dot/.config/alacritty" $HOME/.config/alacritty
+
+# nvim
 [ -d $HOME/.config/nvim.old ] && rm -rf $HOME/.config/nvim.old
 if [ -d $HOME/.config/nvim ]; then
     echo "Creating backup: $HOME/.config/nvim.old"
