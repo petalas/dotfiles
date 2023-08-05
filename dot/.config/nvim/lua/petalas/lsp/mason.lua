@@ -23,14 +23,13 @@ if not ok3 then
 end
 
 local servers = {
-	"lua_ls",
-	-- "cssls",
-	-- "html",
-    "tsserver",
-	-- "pyright",
-	-- "bashls",
+	"bashls",
+	"cssls",
+	"html",
 	"jsonls",
-	-- "yamlls",
+	"lua_ls",
+	"yamlls",
+    "tsserver",
 }
 
 mason.setup()

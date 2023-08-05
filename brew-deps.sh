@@ -61,7 +61,6 @@ declare -a caskdeps=(
     "microsoft-teams"
     "openvpn-connect"
     "qbittorrent"
-    "ripgrep"
     "skype"
     "steam"
     "sublime-text"
