@@ -23,7 +23,11 @@ declare -a deps=(
     "zsh"
 )
 
-# TODO: refactor
+# MacOS dependencies managed by homebrew
+if [[ $OSTYPE == "darwin"* ]]; then
+    ./brew-deps.sh
+fi
+
 if [[ $OSTYPE == "linux"* ]]; then
     echo "Updating apt..."
     sudo apt update
