@@ -13,6 +13,7 @@ function install_node() {
     fi
 
     if [[ ! $(which node) == *"node" ]]; then
+        echo "Installing node..."
         version=$(nvm ls-remote | grep Latest | tail -1 | awk '{print $1}')
         nvm install $version
         nvm alias default stable
@@ -58,19 +59,16 @@ fi
 if [[ $OSTYPE == "linux"* ]]; then
 
     # for more recent neovim version
-    sudo add-apt-repository ppa:neovim-ppa/unstable
+    sudo add-apt-repository ppa:neovim-ppa/unstable -y
     # for alacritty terminal
     sudo add-apt-repository ppa:aslatter/ppa -y
 
-    echo "Updating apt..."
     sudo apt update
-    echo "${green}Done.${reset}"
 
     for i in "${deps[@]}"; do
         echo "Installing ${yellow}$i${reset}"
         sudo apt install $i -y
     done
-
     echo "${green}Done installing.${reset}"
 
     echo "Upgrading dependencies..."
