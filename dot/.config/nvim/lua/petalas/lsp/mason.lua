@@ -29,6 +29,8 @@ local servers = {
 	"jsonls",
 	"lua_ls",
 	"yamlls",
+    "svelte",
+    "tailwindcss",
     "tsserver",
 }
 
