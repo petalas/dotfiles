@@ -29,6 +29,10 @@ if [[ $OSTYPE == "darwin"* ]]; then
 fi
 
 if [[ $OSTYPE == "linux"* ]]; then
+
+    # otherwise will likely end up with too old of a version
+    sudo add-apt-repository ppa:neovim-ppa/unstable
+    
     echo "Updating apt..."
     sudo apt update
     echo "${green}Done.${reset}"
