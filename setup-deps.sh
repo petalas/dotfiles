@@ -5,6 +5,30 @@ green=$(tput setaf 2)
 yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
+function install_node() {
+    if [[ ! $(which nvm) == *"nvm" ]]; then
+        echo "Installing nvm..."
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.4/install.sh | bash
+        source ~/.nvm/nvm.sh
+    fi
+
+    if [[ ! $(which node) == *"node" ]]; then
+        version=$(nvm ls-remote | grep Latest | tail -1 | awk '{print $1}')
+        nvm install $version
+        nvm alias default stable
+        echo "Testing node installation, node -v --> $(node -v)"
+    fi
+}
+
+function install_node_deps(){
+    declare -a node_deps=("tree-sitter")
+    for i in "${node_deps[@]}"; do
+        echo "Installing ${yellow}$i${reset}"
+        npm i -g $i
+    done
+}
+
+
 declare -a deps=(
     "7zip"
     "alacritty"
@@ -53,3 +77,9 @@ if [[ $OSTYPE == "linux"* ]]; then
     sudo apt upgrade -y && sudo apt autoremove -y
     echo "${green}Done upgrading.${reset}"
 fi
+
+if [[ ! $OSTYPE == "msys"* ]]; then
+    install_node
+    install_node_deps
+fi
+
