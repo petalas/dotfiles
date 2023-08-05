@@ -29,10 +29,17 @@ keymap("n", "<S-h>", ":bprevious<CR>", opts)
 keymap("n", "<A-j>", ":m .+1<CR>==", opts)
 keymap("n", "<A-k>", ":m .-2<CR>==", opts)
 
+-- format with LSP
+keymap("n", "<C-l>", ":Format<CR>", opts)
+
 -- Insert Mode --
--- Press jk fast to exit insert mode 
+-- <C-o> switches to normal mode only for the next command
+-- Press jk fast to exit insert mode
 keymap("i", "jk", "<ESC>", opts)
 keymap("i", "kj", "<ESC>", opts)
+
+-- format with LSP <C-o>
+keymap("i", "<C-l>", "<C-o>:Format<CR>", opts)
 
 -- Visual Mode --
 -- Stay in indent mode
@@ -50,6 +57,3 @@ keymap("x", "J", ":m '>+1<CR>gv=gv", opts)
 keymap("x", "K", ":m '<-2<CR>gv=gv", opts)
 keymap("x", "<A-j>", ":m '>+1<CR>gv=gv", opts)
 keymap("x", "<A-k>", ":m '<-2<CR>gv=gv", opts)
-
-
-
