@@ -10,6 +10,7 @@ declare -a deps=(
     "alacritty"
     "curl"
     "fd-find"
+    "gcc"
     "git"
     "grep"
     "iperf3"

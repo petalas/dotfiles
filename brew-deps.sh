@@ -25,6 +25,7 @@ declare -a deps=(
     "aria2"
     "fd"
     "ffmpeg"
+    "gcc"
     "htop"
     "iperf3"
     "java"
