@@ -48,6 +48,7 @@ done
 
 printf "\n\nChecking cask dependencies...\n"
 declare -a caskdeps=(
+    "alacritty"
     "alfred"
     "background-music"
     "discord"
