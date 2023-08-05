@@ -57,14 +57,14 @@ return packer.startup(function(use)
                 with_sync = true
             })
             ts_update()
-        end
+        end,
+        dependencies = {
+            'JoosepAlviste/nvim-ts-context-commentstring',
+        },
     })
 
-    -- easier comments + with treesitter context
-    use {
-        "numToStr/Comment.nvim",
-        'JoosepAlviste/nvim-ts-context-commentstring',
-    }
+    -- comments
+    use { "numToStr/Comment.nvim" }
 
     -- UndoTree: https://github.com/mbbill/undotree
     use("mbbill/undotree")
