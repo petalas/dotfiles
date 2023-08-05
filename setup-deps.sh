@@ -7,6 +7,7 @@ reset=$(tput sgr0)
 
 declare -a deps=(
     "7zip"
+    "alacritty"
     "curl"
     "fd-find"
     "git"
@@ -30,9 +31,11 @@ fi
 
 if [[ $OSTYPE == "linux"* ]]; then
 
-    # otherwise will likely end up with too old of a version
+    # for more recent neovim version
     sudo add-apt-repository ppa:neovim-ppa/unstable
-    
+    # for alacritty terminal
+    sudo add-apt-repository ppa:aslatter/ppa -y
+
     echo "Updating apt..."
     sudo apt update
     echo "${green}Done.${reset}"
