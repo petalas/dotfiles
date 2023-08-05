@@ -6,7 +6,7 @@ end
 
 configs.setup {
   -- A list of parser names, or "all" (the five listed parsers should always be installed)
-  ensure_installed = "all",
+  ensure_installed = {"comment", "markdown_inline"},
 
   -- Install parsers synchronously (only applied to `ensure_installed`)
   sync_install = false,
