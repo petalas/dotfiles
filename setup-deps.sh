@@ -29,6 +29,16 @@ function install_node_deps(){
     done
 }
 
+function install_lazygit(){
+    if [[ ( ! $(which lazygit) == *"lazygit") || ( ! $OSTYPE == "linux"* ) ]]; then
+        return 1
+    fi
+    echo "Installing lazygit..."
+    LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
+    curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
+    tar xf lazygit.tar.gz lazygit
+    sudo install lazygit /usr/local/bin
+}
 
 declare -a deps=(
     "7zip"
@@ -41,8 +51,8 @@ declare -a deps=(
     "grep"
     "iperf3"
     "neovim"
-    "python3-venv"
     "python3"
+    "python3-venv"
     "ripgrep"
     "tar"
     "unzip"
@@ -74,8 +84,11 @@ if [[ $OSTYPE == "linux"* ]]; then
     echo "Upgrading dependencies..."
     sudo apt upgrade -y && sudo apt autoremove -y
     echo "${green}Done upgrading.${reset}"
+
+    install_lazygit # handled by brew for MacOS
 fi
 
+# same for Ubuntu and MacOS
 if [[ ! $OSTYPE == "msys"* ]]; then
     install_node
     install_node_deps

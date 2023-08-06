@@ -30,6 +30,7 @@ declare -a deps=(
     "iperf3"
     "java"
     "jq"
+    "lazygit"
     "mediainfo"
     "neovim"
     "nvm"
