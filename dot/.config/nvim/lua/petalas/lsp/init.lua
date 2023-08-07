@@ -1,4 +1,3 @@
-
 -- From: https://github.com/williamboman/mason-lspconfig.nvim#setup
 -- It's important that you set up the plugins in the following order:
 --   mason.nvim

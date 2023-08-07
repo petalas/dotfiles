@@ -29,8 +29,8 @@ keymap("n", "<S-h>", ":bprevious<CR>", opts)
 keymap("n", "<A-j>", ":m .+1<CR>==", opts)
 keymap("n", "<A-k>", ":m .-2<CR>==", opts)
 
--- format with LSP
-keymap("n", "<C-l>", ":Format<CR>", opts)
+-- format with guard.nvim, fallback = LSP
+keymap("n", "<C-l>", "<cmd>GuardFmt<CR>", opts)
 
 -- Insert Mode --
 -- <C-o> switches to normal mode only for the next command
@@ -39,7 +39,7 @@ keymap("i", "jk", "<ESC>", opts)
 keymap("i", "kj", "<ESC>", opts)
 
 -- format with LSP <C-o>
-keymap("i", "<C-l>", "<C-o>:Format<CR>", opts)
+keymap("i", "<C-l>", "<C-o><cmd>GuardFmt<CR>", opts)
 
 -- Visual Mode --
 -- Stay in indent mode
