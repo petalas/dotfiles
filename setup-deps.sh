@@ -55,8 +55,10 @@ function install_sdkman(){
 function install_sdkman_deps(){
     declare -a sdkman_deps=("java" "kotlin" "gradle")
     for i in "${sdkman_deps[@]}"; do
-        echo "Installing ${yellow}$i${reset}"
-        sdk install $i
+        if [[ !  $(which $i) == *"$i" ]]; then
+            echo "Installing ${yellow}$i${reset}"
+            sdk install $i
+        fi
     done
 }
 
