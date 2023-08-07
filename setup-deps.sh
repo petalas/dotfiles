@@ -47,9 +47,10 @@ function install_sdkman(){
         echo "Installing sdkman..."
         curl -s https://get.sdkman.io | bash
         source "$HOME/.sdkman/bin/sdkman-init.sh"
+    else
+        echo "Updating sdkman..."
+        sdk selfupdate force
     fi
-    echo "Updating sdkman..."
-    sdk selfupdate force
 }
 
 function install_sdkman_deps(){

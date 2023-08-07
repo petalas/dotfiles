@@ -1,10 +1,10 @@
-local installed, chadtree = pcall(require, 'chadtree')
+local installed, chadtree = pcall(require, "chadtree")
 if not installed then
-    return
+	return
 end
 
 local chadtree_settings = {
-    ['options.close_on_open'] = false, -- stay open when opening a file
+	["options.close_on_open"] = false, -- stay open when opening a file
 }
 vim.api.nvim_set_var("chadtree_settings", chadtree_settings)
 
@@ -12,4 +12,4 @@ vim.api.nvim_set_var("chadtree_settings", chadtree_settings)
 vim.keymap.set("n", "<leader>v", "<cmd>CHADopen<cr>")
 
 -- open automatically
-vim.cmd('CHADopen')
+vim.cmd("CHADopen")

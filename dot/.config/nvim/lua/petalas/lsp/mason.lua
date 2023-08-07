@@ -4,22 +4,22 @@
 --   mason-lspconfig.nvim
 --   Setup servers via lspconfig
 
-local ok, mason = pcall(require, 'mason')
+local ok, mason = pcall(require, "mason")
 if not ok then
-    vim.notify('Failed to load mason')
-    return
+	vim.notify("Failed to load mason")
+	return
 end
 
-local ok2, mason_lspconfig = pcall(require, 'mason-lspconfig')
+local ok2, mason_lspconfig = pcall(require, "mason-lspconfig")
 if not ok2 then
-    vim.notify('Failed to load mason-lspconfig')
-    return
+	vim.notify("Failed to load mason-lspconfig")
+	return
 end
 
-local ok3, lspconfig = pcall(require, 'lspconfig')
+local ok3, lspconfig = pcall(require, "lspconfig")
 if not ok3 then
-    vim.notify('Failed to load lspconfig')
-    return
+	vim.notify("Failed to load lspconfig")
+	return
 end
 
 local servers = {
@@ -29,15 +29,15 @@ local servers = {
 	"jsonls",
 	"lua_ls",
 	"yamlls",
-    "svelte",
-    "tailwindcss",
-    "tsserver",
+	"svelte",
+	"tailwindcss",
+	"tsserver",
 }
 
 mason.setup()
 mason_lspconfig.setup({
-    ensure_installed = servers,
-    automatic_installation = true,
+	ensure_installed = servers,
+	automatic_installation = true,
 })
 
 -- After setting up mason-lspconfig you may set up servers via lspconfig

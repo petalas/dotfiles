@@ -1,6 +1,6 @@
-local installed, lualine = pcall(require, 'lualine')
+local installed, lualine = pcall(require, "lualine")
 if not installed then
-    return
+	return
 end
 
 lualine.setup()
