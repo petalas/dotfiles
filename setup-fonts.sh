@@ -62,6 +62,9 @@ declare -a fonts=("Hack" "FantasqueSansMono")
 
 echo "Installing patched nerd fonts..."
 for i in "${fonts[@]}"; do
+    if [[ $(fc-list | grep "$i" | tail -1) == *"$i"* ]]; then
+        echo "${yellow}$i${reset} is ${green}already installed${reset}".
+    else
     pushd "$down_dir" > /dev/null
 	# remove the old download font if it exsists
     [ -f $down_dir/$i.zip ] && rm $down_dir/$i.zip
@@ -70,6 +73,7 @@ for i in "${fonts[@]}"; do
     # cleanup
     [ -f $down_dir/$i.zip ] && rm $down_dir/$i.zip
 	popd > /dev/null
+    fi
 done
 
 update_fonts_cache
