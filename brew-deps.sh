@@ -28,7 +28,6 @@ declare -a deps=(
     "gcc"
     "htop"
     "iperf3"
-    "java"
     "jq"
     "lazygit"
     "mediainfo"
