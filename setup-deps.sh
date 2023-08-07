@@ -76,6 +76,7 @@ declare -a deps=(
     "python3"
     "python3-venv"
     "ripgrep"
+    "ssh"
     "tar"
     "unzip"
     "wget"

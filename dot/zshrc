@@ -88,6 +88,8 @@ alias yt-dlp-best="yt-dlp --external-downloader=aria2c --external-downloader-arg
 alias sshzeus="ssh nick@192.168.1.104"
 alias drma='docker rm -f $(docker ps -a -q)'
 
+alias lg='lazygit'
+
 # neovim
 alias v="nvim"
 alias vi="nvim"
