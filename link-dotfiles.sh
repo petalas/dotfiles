@@ -58,5 +58,6 @@ if [ -e $HOME/git/genesis/.gitconfig ]; then
     cp $HOME/git/genesis/.gitconfig $HOME/git/genesis/.gitconfig.old
     rm $HOME/git/genesis/.gitconfig
 fi
+
 echo "Linking $(pwd)/dot/genesis/gitconfig -> $HOME/git/genesis/.gitconfig"
 ln -s "$(pwd)/dot/genesis/gitconfig" $HOME/git/genesis/.gitconfig
