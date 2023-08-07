@@ -40,6 +40,24 @@ function install_lazygit(){
     sudo install lazygit /usr/local/bin
 }
 
+function install_sdkman(){
+    if [[ ! $(sdk version) == *"SDKMAN"* ]]; then
+        echo "Installing sdkman..."
+        curl -s https://get.sdkman.io | bash
+        source "$HOME/.sdkman/bin/sdkman-init.sh"
+    fi
+    echo "Updating sdkman..."
+    sdk selfupdate force
+}
+
+function install_sdkman_deps(){
+    declare -a sdkman_deps=("java" "kotlin" "gradle")
+    for i in "${sdkman_deps[@]}"; do
+        echo "Installing ${yellow}$i${reset}"
+        sdk install $i
+    done
+}
+
 declare -a deps=(
     "7zip"
     "alacritty"
@@ -92,5 +110,7 @@ fi
 if [[ ! $OSTYPE == "msys"* ]]; then
     install_node
     install_node_deps
+    install_sdkman
+    install_sdkman_deps
 fi
 
