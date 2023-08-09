@@ -5,7 +5,7 @@ green=$(tput setaf 2)
 yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
-function install_node() {
+install_node() {
     if [[ ! $(which nvm) == *"nvm" ]]; then
         echo "Installing nvm..."
         curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.4/install.sh | bash
@@ -21,7 +21,7 @@ function install_node() {
     fi
 }
 
-function install_node_deps(){
+install_node_deps(){
     declare -a node_deps=("tree-sitter")
     for i in "${node_deps[@]}"; do
         echo "Installing ${yellow}$i${reset}"
@@ -29,7 +29,14 @@ function install_node_deps(){
     done
 }
 
-function install_lazygit(){
+install_lazydocker() {
+      if [[ ( $(which lazydocker) == *"lazydocker") || ( ! $OSTYPE == "linux"* ) ]]; then
+        return 1
+    fi
+    curl https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
+}
+
+install_lazygit(){
     if [[ ( $(which lazygit) == *"lazygit") || ( ! $OSTYPE == "linux"* ) ]]; then
         return 1
     fi
@@ -42,18 +49,19 @@ function install_lazygit(){
     echo "Finished installing ${yellow}lazygit${reset}."
 }
 
-function install_sdkman(){
-    if [[ ! $(sdk version) == *"SDKMAN"* ]]; then
-        echo "Installing sdkman..."
+install_sdkman(){
+    if [[ ! -s $SDKMAN_DIR/bin/sdkman-init.sh ]]; then
+        echo "Installing ${yellow}sdkman${reset}..."
         curl -s https://get.sdkman.io | bash
         source "$HOME/.sdkman/bin/sdkman-init.sh"
     else
-        echo "Updating sdkman..."
+        echo "${yellow}sdkman${reset} is already installed, updating it..."
+        source "$HOME/.sdkman/bin/sdkman-init.sh" # need to source it again for some reason otherwise 'sdk command not found'
         sdk selfupdate force
     fi
 }
 
-function install_sdkman_deps(){
+install_sdkman_deps(){
     declare -a sdkman_deps=("java" "kotlin" "gradle")
     for i in "${sdkman_deps[@]}"; do
         if [[ !  $(which $i) == *"$i" ]]; then
@@ -109,7 +117,8 @@ if [[ $OSTYPE == "linux"* ]]; then
     sudo apt upgrade -y && sudo apt autoremove -y
     echo "${green}Done upgrading.${reset}"
 
-    install_lazygit # handled by brew for MacOS
+    install_lazydocker  # handled by brew for MacOS
+    install_lazygit     # handled by brew for MacOS
 fi
 
 # same for Ubuntu and MacOS
