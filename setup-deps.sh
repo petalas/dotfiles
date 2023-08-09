@@ -89,6 +89,7 @@ declare -a deps=(
     "tar"
     "unzip"
     "wget"
+    "xdg-utils"
     "zip"
     "zsh"
 )
