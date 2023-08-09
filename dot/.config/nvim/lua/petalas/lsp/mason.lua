@@ -28,10 +28,11 @@ local servers = {
 	"html",
 	"jsonls",
 	"lua_ls",
-	"yamlls",
+	"rust_analyzer",
 	"svelte",
 	"tailwindcss",
 	"tsserver",
+	"yamlls",
 }
 
 mason.setup()

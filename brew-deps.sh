@@ -29,6 +29,7 @@ declare -a deps=(
     "htop"
     "iperf3"
     "jq"
+    "lazydocker"
     "lazygit"
     "mediainfo"
     "neovim"
