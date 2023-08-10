@@ -9,7 +9,7 @@ if not installed2 then
 end
 
 ft("lua"):fmt("lsp"):append("stylua")
-ft("rust"):fmt("lsp")
+ft("rust"):fmt("lsp"):append("rust-analyzer")
 ft("typescriptreact"):fmt("lsp"):append("prettier")
 
 guard.setup({
