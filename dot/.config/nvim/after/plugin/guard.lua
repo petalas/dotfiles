@@ -10,7 +10,7 @@ end
 
 ft("lua"):fmt("lsp"):append("stylua")
 ft("rust"):fmt("lsp"):append("rust-analyzer")
-ft("typescriptreact"):fmt("lsp"):append("prettier")
+ft("javascript,typescript,javascriptreact,typescriptreact"):fmt("lsp"):append("prettier")
 
 guard.setup({
 	-- the only options for the setup function
