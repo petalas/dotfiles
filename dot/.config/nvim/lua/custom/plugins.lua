@@ -22,11 +22,9 @@ local plugins = {
 	},
 	{
 		"nvim-treesitter/nvim-treesitter",
-		config = function()
-			require("plugins.configs.treesitter")
-			require("custom.configs.treesitter")
-		end,
-		lazy = false,
+        opts = {
+            auto_install = true,
+        }
 	},
 }
 
