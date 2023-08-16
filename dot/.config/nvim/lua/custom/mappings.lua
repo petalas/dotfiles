@@ -11,8 +11,11 @@ local M = {}
 -- Your custom mappings
 M.custom = {
     n = {
+        ["<C-d>"] = { "<C-d>zz", "down half a page" },
+        ["<C-u>"] = { "<C-u>zz", "up half a page" },
+
         -- format with nvimdev/guard.nvim --> fallback is still LSP format
-        ["<leader>fm"] = { "<cmd>GuardFmt<CR>" }
+        ["<leader>fm"] = { "<cmd>GuardFmt<CR>", "Format with GuardFmt" }
     },
 
     i = {
@@ -21,7 +24,7 @@ M.custom = {
 
         -- format with nvimdev/guard.nvim --> fallback is still LSP format
         -- C-o will get out of insert mode just for the next command and go back in
-        ["<leader>fm"] = { "<ESC>", "<C-o><cmd>GuardFmt<CR>" },
+        ["<leader>fm"] = { "<C-o><cmd>GuardFmt<CR>", "Format with GuardFmt" },
     }
 }
 
