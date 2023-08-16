@@ -22,7 +22,7 @@ install_node() {
 }
 
 install_node_deps(){
-    declare -a node_deps=("tree-sitter")
+    declare -a node_deps=("typescript" "typescript-language-server")
     for i in "${node_deps[@]}"; do
         echo "Installing ${yellow}$i${reset}"
         npm i -g $i
@@ -71,6 +71,26 @@ install_sdkman_deps(){
     done
 }
 
+install_rust() {
+    if [[ ! $(which cargo) == *"cargo" ]]; then
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+    fi
+}
+
+
+install_rust_deps() {
+    echo "Updating rustup"
+    rustup update
+    declare -a rust_deps=("tree-sitter" "ripgrep")
+    for i in "${rust_deps[@]}"; do
+        if [[ !  $(which $i) == *"$i" ]]; then
+            echo "Installing ${yellow}$i${reset}"
+            cargo install $i
+        fi
+    done
+}
+
+
 declare -a deps=(
     "7zip"
     "alacritty"
@@ -84,7 +104,6 @@ declare -a deps=(
     "neovim"
     "python3"
     "python3-venv"
-    "ripgrep"
     "ssh"
     "tar"
     "unzip"
@@ -128,5 +147,7 @@ if [[ ! $OSTYPE == "msys"* ]]; then
     install_node_deps
     install_sdkman
     install_sdkman_deps
+    install_rust
+    install_rust_deps
 fi
 
