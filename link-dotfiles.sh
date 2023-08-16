@@ -43,8 +43,17 @@ if [ -d $HOME/.config/nvim ]; then
     cp -r $HOME/.config/nvim $HOME/.config/nvim.old
     rm -rf $HOME/.config/nvim
 fi
-echo "Linking $(pwd)/dot/.config/nvim -> $HOME/.config/nvim"
-ln -s "$(pwd)/dot/.config/nvim" $HOME/.config/nvim
+
+NvChad=1 # clone NvChad and just link custom folder
+if [ $NvChad ]; then
+    rm -rf $HOME/.config/nvim
+    git clone git@github.com:NvChad/NvChad.git $HOME/.config/nvim --depth 1
+    echo "Linking $(pwd)/dot/.config/nvim/lua/custom -> $HOME/.config/nvim/lua/custom"
+    ln -s "$(pwd)/dot/.config/nvim/lua/custom" $HOME/.config/nvim/lua/custom
+else
+    echo "Linking $(pwd)/dot/.config/nvim -> $HOME/.config/nvim"
+    ln -s "$(pwd)/dot/.config/nvim" $HOME/.config/nvim
+fi
 
 # make sure $HOME/git/genesis exists before linking
 if [ ! -d "$HOME/git/genesis" ]; then
