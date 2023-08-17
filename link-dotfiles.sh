@@ -34,6 +34,7 @@ if [ -d $HOME/.config/alacritty ]; then
     rm -rf $HOME/.config/alacritty
 fi
 mkdir $HOME/.config/alacritty
+ln -s "$(pwd)/dot/.config/alacritty/catppuccin-mocha.yml" $HOME/.config/alacritty/catppuccin-mocha.yml
 if [[ $OSTYPE == "darwin"* ]]; then
     echo "Linking $(pwd)/dot/.config/alacritty/alacritty-mac.yml -> $HOME/.config/alacritty/alacritty.yml"
     ln -s "$(pwd)/dot/.config/alacritty/alacritty-mac.yml" $HOME/.config/alacritty/alacritty.yml
