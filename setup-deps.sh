@@ -21,7 +21,7 @@ install_node() {
     fi
 }
 
-install_node_deps(){
+install_node_deps() {
     declare -a node_deps=("typescript" "typescript-language-server")
     for i in "${node_deps[@]}"; do
         echo "Installing ${yellow}$i${reset}"
@@ -30,14 +30,14 @@ install_node_deps(){
 }
 
 install_lazydocker() {
-      if [[ ( $(which lazydocker) == *"lazydocker") || ( ! $OSTYPE == "linux"* ) ]]; then
+    if [[ ($(which lazydocker) == *"lazydocker") || (! $OSTYPE == "linux"*) ]]; then
         return 1
     fi
     curl https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
 }
 
-install_lazygit(){
-    if [[ ( $(which lazygit) == *"lazygit") || ( ! $OSTYPE == "linux"* ) ]]; then
+install_lazygit() {
+    if [[ ($(which lazygit) == *"lazygit") || (! $OSTYPE == "linux"*) ]]; then
         return 1
     fi
     echo "Installing ${yellow}lazygit${reset}..."
@@ -49,7 +49,7 @@ install_lazygit(){
     echo "Finished installing ${yellow}lazygit${reset}."
 }
 
-install_sdkman(){
+install_sdkman() {
     if [[ ! -s $SDKMAN_DIR/bin/sdkman-init.sh ]]; then
         echo "Installing ${yellow}sdkman${reset}..."
         curl -s https://get.sdkman.io | bash
@@ -61,10 +61,10 @@ install_sdkman(){
     fi
 }
 
-install_sdkman_deps(){
+install_sdkman_deps() {
     declare -a sdkman_deps=("java" "kotlin" "gradle")
     for i in "${sdkman_deps[@]}"; do
-        if [[ !  $(which $i) == *"$i" ]]; then
+        if [[ ! $(which $i) == *"$i" ]]; then
             echo "Installing ${yellow}$i${reset}"
             sdk install $i
         fi
@@ -73,23 +73,23 @@ install_sdkman_deps(){
 
 install_rust() {
     if [[ ! $(which cargo) == *"cargo" ]]; then
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+        curl https://sh.rustup.rs -sSf | sh -s -- -y
+        source "$HOME/.cargo/env"
+        rustup toolchain install nightly
     fi
 }
-
 
 install_rust_deps() {
     echo "Updating rustup"
     rustup update
-    declare -a rust_deps=("tree-sitter" "ripgrep")
+    declare -a rust_deps=("tree-sitter-cli" "ripgrep" "wasm-bindgen-cli")
     for i in "${rust_deps[@]}"; do
-        if [[ !  $(which $i) == *"$i" ]]; then
+        if [[ ! $(which $i) == *"$i" ]]; then
             echo "Installing ${yellow}$i${reset}"
             cargo install $i
         fi
     done
 }
-
 
 declare -a deps=(
     "7zip"
@@ -137,8 +137,8 @@ if [[ $OSTYPE == "linux"* ]]; then
     sudo apt upgrade -y && sudo apt autoremove -y
     echo "${green}Done upgrading.${reset}"
 
-    install_lazydocker  # handled by brew for MacOS
-    install_lazygit     # handled by brew for MacOS
+    install_lazydocker # handled by brew for MacOS
+    install_lazygit    # handled by brew for MacOS
 fi
 
 # same for Ubuntu and MacOS
@@ -150,4 +150,3 @@ if [[ ! $OSTYPE == "msys"* ]]; then
     install_rust
     install_rust_deps
 fi
-
