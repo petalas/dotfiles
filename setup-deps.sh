@@ -94,7 +94,9 @@ install_rust_deps() {
 declare -a deps=(
     "7zip"
     "alacritty"
+    "bc"
     "curl"
+    "dnsutils"
     "fd-find"
     "g++"
     "gcc"
