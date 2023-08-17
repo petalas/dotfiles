@@ -33,8 +33,14 @@ if [ -d $HOME/.config/alacritty ]; then
     cp -r $HOME/.config/alacritty $HOME/.config/alacritty.old
     rm -rf $HOME/.config/alacritty
 fi
-echo "Linking $(pwd)/dot/.config/alacritty -> $HOME/.config/alacritty"
-ln -s "$(pwd)/dot/.config/alacritty" $HOME/.config/alacritty
+mkdir $HOME/.config/alacritty
+if [[ $OSTYPE == "darwin"* ]]; then
+    echo "Linking $(pwd)/dot/.config/alacritty/alacritty-mac.yml -> $HOME/.config/alacritty/alacritty.yml"
+    ln -s "$(pwd)/dot/.config/alacritty/alacritty-mac.yml" $HOME/.config/alacritty/alacritty.yml
+else
+    echo "Linking $(pwd)/dot/.config/alacritty/alacritty.yml -> $HOME/.config/alacritty/alacritty.yml"
+    ln -s "$(pwd)/dot/.config/alacritty/alacritty.yml" $HOME/.config/alacritty/alacritty.yml
+fi
 
 # nvim
 [ -d $HOME/.config/nvim.old ] && rm -rf $HOME/.config/nvim.old
