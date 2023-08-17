@@ -4,12 +4,7 @@ if not installed then
 	return
 end
 
-local installed2, ft = pcall(require, "guard.filetype")
-if not installed2 then
-	vim.notify("guard.filetype not installed")
-	return
-end
-
+local ft = require("guard.filetype")
 ft("lua"):fmt("lsp"):append("stylua")
 ft("rust"):fmt("lsp"):append("rust-analyzer")
 ft("javascript,javascriptreact,javascript.jsx,typescript,typescriptreact,typescript.tsx"):fmt("prettier")

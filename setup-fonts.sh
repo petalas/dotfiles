@@ -12,7 +12,7 @@ down_dir="$(command -V xdg-user-dir &>/dev/null && xdg-user-dir DOWNLOAD || echo
 cache_dir="$HOME/.cache/nerdFonts"
 
 # For Macs, need to set a few different things
-if [[ "$os" == 'Darwin' ]]; then
+if [[ $OSTYPE == "darwin"* ]]; then
 	dist_dir="$HOME/Library/Fonts"
 	cache_dir="$HOME/Library/Caches/NerdFonts"
 fi
