@@ -91,6 +91,16 @@ install_rust_deps() {
     done
 }
 
+# In WSL2 add this to /etc/wsl.conf to enable systemd before installing
+# [boot]
+# systemd=true
+install_zerotier() {
+    if [ ! -f /usr/sbin/zerotier-one ]; then
+        echo "Installing ${yellow}zerotier${reset}."
+        curl -s https://install.zerotier.com | sudo bash
+    fi
+}
+
 declare -a deps=(
     "7zip"
     "alacritty"
@@ -141,6 +151,7 @@ if [[ $OSTYPE == "linux"* ]]; then
 
     install_lazydocker # handled by brew for MacOS
     install_lazygit    # handled by brew for MacOS
+    install_zerotier   # handled by brew for MacOS
 fi
 
 # same for Ubuntu and MacOS
