@@ -67,6 +67,7 @@ declare -a caskdeps=(
     "steam"
     "sublime-text"
     "teamviewer"
+    "the-unarchiver"
     "visual-studio-code"
     "vlc"
     "whatsapp"
