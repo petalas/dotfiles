@@ -35,6 +35,7 @@ declare -a deps=(
     "lazygit"
     "mediainfo"
     "neovim"
+    "nmap"
     "nvm"
     "python"
     "watch"
