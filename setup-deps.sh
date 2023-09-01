@@ -105,6 +105,8 @@ declare -a deps=(
     "7zip"
     "alacritty"
     "bc"
+    "build-essential"
+    "cmake"
     "curl"
     "dnsutils"
     "fd-find"
