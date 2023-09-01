@@ -25,6 +25,7 @@ declare -a deps=(
     "aria2"
     "bc"
     "bind"
+    "cmake"
     "fd"
     "ffmpeg"
     "gcc"
