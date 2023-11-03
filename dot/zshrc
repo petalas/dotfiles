@@ -85,7 +85,7 @@ fi
 # Aliases
 alias ll="ls -lah"
 alias yt-dlp-best="yt-dlp --external-downloader=aria2c --external-downloader-args '--min-split-size=1M --max-connection-per-server=16 --max-concurrent-downloads=16 --split=16' -f '(bestvideo+bestaudio/best)' --merge-output-format 'mkv'"
-alias sshzeus="ssh nick@192.168.1.5"
+alias sshzeus="sshpass -p $(pass show Root/zeus | head -n 1) ssh nick@192.168.1.5"
 alias drma='docker rm -f $(docker ps -a -q)'
 
 alias lg='lazygit'
@@ -131,3 +131,5 @@ export PATH="$HOME/.local/bin:$PATH"
 export SDKMAN_DIR="$HOME/.sdkman"
 [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+export PASSWORD_STORE_ENABLE_EXTENSIONS=true
