@@ -147,7 +147,7 @@ if [[ $OSTYPE == "linux"* ]]; then
 
     for i in "${deps[@]}"; do
         echo "Installing ${yellow}$i${reset}"
-        sudo apt install $i -y
+        sudo DEBIAN_FRONTEND=noninteractive apt install $i -qq
     done
     echo "${green}Done installing.${reset}"
 
