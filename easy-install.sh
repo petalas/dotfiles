@@ -8,8 +8,9 @@ reset=$(tput sgr0)
 # Just to avoid asking for password multiple times but still run as the current user.
 sudo -u $(whoami) ./setup-deps.sh
 sudo -u $(whoami) ./setup-fonts.sh
-sudo -u $(whoami) ./setup-zsh.sh
 sudo -u $(whoami) ./link-dotfiles.sh
+sudo -u $(whoami) ./setup-zsh.sh
+sudo -u $(whoami) ./configure-zsh.sh
 
 printf "\n\nIf this is a fresh installation:\n"
 echo "Please ${yellow}log out${reset} (for chsh to take effect) and open an ${green}alacritty terminal${reset} when you log back in."
