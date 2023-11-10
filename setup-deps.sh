@@ -101,11 +101,43 @@ install_zerotier() {
     fi
 }
 
+install_docker() {
+    if [[ ($(which docker) == *"docker") || (! $OSTYPE == "linux"*) ]]; then
+        return 1
+    fi
+    echo "Installing ${yellow}docker${reset}."
+
+    sudo install -m 0755 -d /etc/apt/keyrings
+
+    if [[ $(cat /etc/os-release | grep ID) == *"ubuntu" ]]; then
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        sudo chmod a+r /etc/apt/keyrings/docker.gpg
+        echo \
+            "deb [arch="$(dpkg --print-architecture)" \
+        signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+        "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" |
+            sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+    else
+        curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        sudo chmod a+r /etc/apt/keyrings/docker.gpg
+        echo \
+            "deb [arch="$(dpkg --print-architecture)" \
+        signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+        "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" |
+            sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+    fi
+
+    sudo apt update
+    sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y -q
+    sudo /usr/sbin/usermod -aG docker "$(whoami)"
+}
+
 declare -a deps=(
     "7zip"
     "alacritty"
     "bc"
     "build-essential"
+    "ca-certificates"
     "cmake"
     "curl"
     "dnsutils"
@@ -113,6 +145,7 @@ declare -a deps=(
     "g++"
     "gcc"
     "git"
+    "gnupg"
     "grep"
     "htop"
     "iperf3"
@@ -147,7 +180,7 @@ if [[ $OSTYPE == "linux"* ]]; then
 
     for i in "${deps[@]}"; do
         echo "Installing ${yellow}$i${reset}"
-        sudo DEBIAN_FRONTEND=noninteractive apt install $i -qq
+        sudo DEBIAN_FRONTEND=noninteractive apt install $i -y -q
     done
     echo "${green}Done installing.${reset}"
 
@@ -168,4 +201,5 @@ if [[ ! $OSTYPE == "msys"* ]]; then
     install_sdkman_deps
     install_rust
     install_rust_deps
+    install_docker
 fi
