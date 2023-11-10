@@ -114,6 +114,7 @@ declare -a deps=(
     "gcc"
     "git"
     "grep"
+    "htop"
     "iperf3"
     "neovim"
     "nmap"
