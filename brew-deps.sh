@@ -68,6 +68,7 @@ declare -a caskdeps=(
     "keepassxc"
     "microsoft-teams"
     "openvpn-connect"
+    "parsec"
     "private-internet-access"
     "qbittorrent"
     "skype"
