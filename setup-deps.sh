@@ -109,6 +109,9 @@ install_docker() {
 
     sudo install -m 0755 -d /etc/apt/keyrings
 
+    # avoid prompt: File '/etc/apt/keyrings/docker.gpg' exists. Overwrite? (y/N)
+    sudo rm -f /etc/apt/keyrings/docker.gpg
+
     if [[ $(cat /etc/os-release | grep ID) == *"ubuntu" ]]; then
         curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
         sudo chmod a+r /etc/apt/keyrings/docker.gpg
@@ -170,6 +173,9 @@ if [[ $OSTYPE == "darwin"* ]]; then
 fi
 
 if [[ $OSTYPE == "linux"* ]]; then
+
+    # avoid add-apt-repository: command not found
+    sudo apt update && sudo apt install software-properties-common -y
 
     # for more recent neovim version
     sudo add-apt-repository ppa:neovim-ppa/unstable -y
