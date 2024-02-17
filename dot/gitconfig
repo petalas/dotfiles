@@ -12,3 +12,5 @@
 	required = true
 [core]
 	editor = vim
+[maintenance]
+	repo = /home/nick/git/docker-nas
