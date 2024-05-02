@@ -106,6 +106,9 @@ function upd() {
   if [[ $OSTYPE == "darwin"* && $(command -v brew) != "" ]]; then
     brew update && brew upgrade
   fi
+  if [[ ( $OSTYPE == "linux"* || $OSTYPE == "darwin"*) && $(which rustup) == *"rustup" ]]; then
+    rustup update
+  fi
 }
 
 # kill anything taking up the specified port, usage example: killport 6060
