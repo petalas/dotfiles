@@ -22,13 +22,24 @@ install_code() {
 
 install_bitwarden() {
     if [[ ($(which bitwarden) == *"bitwarden") || (! $OSTYPE == "linux"*) ]]; then
-        echo "${green}bitwarden{reset} is already installed."
+        echo "${green}bitwarden${reset} is already installed."
         return 1
     fi
     echo "Installing ${yellow}bitwarden${reset} ..."
     wget -q 'https://vault.bitwarden.com/download/?app=desktop&platform=linux&variant=deb' -O /tmp/bitwarden_amd64.deb
     sudo dpkg -i /tmp/bitwarden_amd64.deb
     sudo rm -f /tmp/bitwarden_amd64.deb
+}
+
+install_discord() {
+    if [[ ($(which discord) == *"discord") || (! $OSTYPE == "linux"*) ]]; then
+        echo "${green}discord${reset} is already installed."
+        return 1
+    fi
+    echo "Installing ${yellow}discord${reset} ..."
+    wget -q 'https://discord.com/api/download?platform=linux&format=deb' -O /tmp/discord_amd64.deb
+    sudo dpkg -i /tmp/discord_amd64.deb
+    sudo rm -f /tmp/discord_amd64.deb
 }
 
 install_node() {
@@ -229,6 +240,7 @@ if [[ $OSTYPE == "linux"* ]]; then
     install_zerotier
     install_code
     install_bitwarden
+    install_discord
 fi
 
 # same for Ubuntu and MacOS

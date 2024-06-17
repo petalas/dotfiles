@@ -60,6 +60,7 @@ declare -a caskdeps=(
     "alacritty"
     "alfred"
     "background-music"
+    "bitwarden"
     "discord"
     "docker"
     "dropbox"
