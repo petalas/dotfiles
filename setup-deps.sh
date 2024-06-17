@@ -5,6 +5,32 @@ green=$(tput setaf 2)
 yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
+
+install_code() {
+    if [[ ($(which code) == *"code") || (! $OSTYPE == "linux"*) ]]; then
+        echo "${green}visual studio code${reset} is already installed."
+        return 1
+    fi
+    echo "Installing ${yellow}visual studio code${reset} ..."
+	wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
+	sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
+	echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" |sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null
+	rm -f packages.microsoft.gpg
+	sudo apt update
+	sudo apt install code -yq
+}
+
+install_bitwarden() {
+    if [[ ($(which bitwarden) == *"bitwarden") || (! $OSTYPE == "linux"*) ]]; then
+        echo "${green}bitwarden{reset} is already installed."
+        return 1
+    fi
+    echo "Installing ${yellow}bitwarden${reset} ..."
+    wget -q 'https://vault.bitwarden.com/download/?app=desktop&platform=linux&variant=deb' -O /tmp/bitwarden_amd64.deb
+    sudo dpkg -i /tmp/bitwarden_amd64.deb
+    sudo rm -f /tmp/bitwarden_amd64.deb
+}
+
 install_node() {
     if [[ ! $(which nvm) == *"nvm" ]]; then
         echo "Installing nvm..."
@@ -75,7 +101,7 @@ install_rust() {
     if [[ ! $(which cargo) == *"cargo" ]]; then
         curl https://sh.rustup.rs -sSf | sh -s -- -y
         source "$HOME/.cargo/env"
-        rustup toolchain install nightly
+        # rustup toolchain install nightly
     fi
 }
 
@@ -138,6 +164,7 @@ install_docker() {
 declare -a deps=(
     "7zip"
     "alacritty"
+    "apt-transport-https"
     "bc"
     "build-essential"
     "ca-certificates"
@@ -149,6 +176,7 @@ declare -a deps=(
     "gcc"
     "git"
     "gnupg"
+    "gpg"
     "grep"
     "htop"
     "iperf3"
@@ -160,6 +188,7 @@ declare -a deps=(
     "ssh"
     "sshpass"
     "tar"
+    "tldr"
     "unzip"
     "wget"
     "xdg-utils"
@@ -194,9 +223,12 @@ if [[ $OSTYPE == "linux"* ]]; then
     sudo apt upgrade -y && sudo apt autoremove -y
     echo "${green}Done upgrading.${reset}"
 
-    install_lazydocker # handled by brew for MacOS
-    install_lazygit    # handled by brew for MacOS
-    install_zerotier   # handled by brew for MacOS
+    # these should be handled by brew for MacOS
+    install_lazydocker
+    install_lazygit
+    install_zerotier
+    install_code
+    install_bitwarden
 fi
 
 # same for Ubuntu and MacOS
