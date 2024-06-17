@@ -172,6 +172,18 @@ install_docker() {
     sudo /usr/sbin/usermod -aG docker "$(whoami)"
 }
 
+# use Alsa / pulseaudio
+# how to force pair device through CLI if having issues: https://askubuntu.com/a/1411988
+setup_audio() {
+    if [[ (! $OSTYPE == "linux"*) ]]; then
+        return 1
+    fi
+    sudo apt install pulseaudio libasound2 libasound2-plugins libasound2-doc alsa-utils alsa-oss alsamixergui apulse alsa-firmware-loaders pulseaudio-module-bluetooth -yq
+    sudo alsactl init
+    sudo systemctl restart bluetooth.service
+    bluetoothctl power off && bluetoothctl power on
+}
+
 declare -a deps=(
     "7zip"
     "alacritty"
@@ -233,6 +245,8 @@ if [[ $OSTYPE == "linux"* ]]; then
     echo "Upgrading dependencies..."
     sudo apt upgrade -y && sudo apt autoremove -y
     echo "${green}Done upgrading.${reset}"
+
+    setup_audio
 
     # these should be handled by brew for MacOS
     install_lazydocker
