@@ -5,19 +5,18 @@ green=$(tput setaf 2)
 yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
-
 install_code() {
     if [[ ($(which code) == *"code") || (! $OSTYPE == "linux"*) ]]; then
         echo "${green}visual studio code${reset} is already installed."
         return 1
     fi
     echo "Installing ${yellow}visual studio code${reset} ..."
-	wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
-	sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
-	echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" |sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null
-	rm -f packages.microsoft.gpg
-	sudo apt update
-	sudo apt install code -yq
+    wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor >packages.microsoft.gpg
+    sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
+    echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list >/dev/null
+    rm -f packages.microsoft.gpg
+    sudo apt update
+    sudo apt install code -yq
 }
 
 install_bitwarden() {
@@ -112,6 +111,8 @@ install_rust() {
     if [[ ! $(which cargo) == *"cargo" ]]; then
         curl https://sh.rustup.rs -sSf | sh -s -- -y
         source "$HOME/.cargo/env"
+        rustup component add rust-analyzer
+        rustup component add rustfmt
         # rustup toolchain install nightly
     fi
 }
@@ -172,6 +173,19 @@ install_docker() {
     sudo /usr/sbin/usermod -aG docker "$(whoami)"
 }
 
+# the version installed by apt is often too old
+install_neovim() {
+    if [[ ($(which nvim) == *"nvim") || (! $OSTYPE == "linux"*) ]]; then
+        return 1
+    fi
+    echo "Installing ${yellow}nvim${reset} ..."
+    sudo rm /tmp/nvim.appimage
+    wget -q 'https://github.com/neovim/neovim/releases/latest/download/nvim.appimage' -O /tmp/nvim.appimage
+    chmod u+x /tmp/nvim.appimage
+    sudo mkdir -p /opt/nvim
+    sudo mv /tmp/nvim.appimage /opt/nvim/nvim
+}
+
 # use Alsa / pulseaudio
 # how to force pair device through CLI if having issues: https://askubuntu.com/a/1411988
 setup_audio() {
@@ -203,11 +217,11 @@ declare -a deps=(
     "grep"
     "htop"
     "iperf3"
-    "neovim"
+    "make"
     "nmap"
     "pass"
-    "python3-venv"
     "python3"
+    "python3-venv"
     "ssh"
     "sshpass"
     "tar"
@@ -249,12 +263,13 @@ if [[ $OSTYPE == "linux"* ]]; then
     setup_audio
 
     # these should be handled by brew for MacOS
+    install_bitwarden
+    install_code
+    install_discord
     install_lazydocker
     install_lazygit
+    install_neovim
     install_zerotier
-    install_code
-    install_bitwarden
-    install_discord
 fi
 
 # same for Ubuntu and MacOS
