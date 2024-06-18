@@ -20,7 +20,7 @@ fi
 echo "Linking $(pwd)/dot/gitconfig -> $HOME/.gitconfig"
 ln -s "$(pwd)/dot/gitconfig" $HOME/.gitconfig
 
-# ensure ~/.config exists
+# ensure $HOME/.config exists
 if [ ! -d "$HOME/.config" ]; then
     echo "Creating: $HOME/.config"
     mkdir -p $HOME/.config
@@ -44,23 +44,18 @@ else
 fi
 
 # nvim
+# create backup and nuke old config
 [ -d $HOME/.config/nvim.old ] && rm -rf $HOME/.config/nvim.old
 if [ -d $HOME/.config/nvim ]; then
     echo "Creating backup: $HOME/.config/nvim.old"
     cp -r $HOME/.config/nvim $HOME/.config/nvim.old
     rm -rf $HOME/.config/nvim
+
+    # "resetting neovim cache, plugins, data"
+    rm -rf $HOME/.cache/nvim $HOME/.config/nvim/plugin $HOME/.local/share/nvim $HOME/.config/nvim/plugin
 fi
 
-NvChad=1 # clone NvChad and just link custom folder
-if [ $NvChad ]; then
-    rm -rf $HOME/.config/nvim
-    git clone https://github.com/NvChad/NvChad.git $HOME/.config/nvim --depth 1
-    echo "Linking $(pwd)/dot/.config/nvim/lua/custom -> $HOME/.config/nvim/lua/custom"
-    ln -s "$(pwd)/dot/.config/nvim/lua/custom" $HOME/.config/nvim/lua/custom
-else
-    echo "Linking $(pwd)/dot/.config/nvim -> $HOME/.config/nvim"
-    ln -s "$(pwd)/dot/.config/nvim" $HOME/.config/nvim
-fi
+git clone https://github.com/petalas/nvim.git $HOME/.config/nvim --depth 1 -b custom
 
 # make sure $HOME/git/genesis exists before linking
 if [ ! -d "$HOME/git/genesis" ]; then
