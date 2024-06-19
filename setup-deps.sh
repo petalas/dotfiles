@@ -192,10 +192,15 @@ setup_audio() {
     if [[ (! $OSTYPE == "linux"*) ]]; then
         return 1
     fi
-    sudo apt install pulseaudio libasound2 libasound2-plugins libasound2-doc alsa-utils alsa-oss alsamixergui apulse alsa-firmware-loaders pulseaudio-module-bluetooth -yq
+    # splitting them up so that the script does not get stuck if any of them can't be located (eg when installing in a VM)
+    # TODO: better solution https://superuser.com/a/1609471
+    for i in pulseaudio libasound2 libasound2-plugins libasound2-doc alsa-utils alsa-oss alsamixergui apulse alsa-firmware-loaders pulseaudio-module-bluetooth -yq; do
+        sudo apt install -yq $i
+    done
     sudo alsactl init
     sudo systemctl restart bluetooth.service
-    bluetoothctl power off && bluetoothctl power on
+    echo "${yellow}Attempting to power-cycle bluetooth (timeout 10s)...${reset}"
+    timeout 10 bash -c 'bluetoothctl power off && bluetoothctl power on'
 }
 
 declare -a deps=(
@@ -228,6 +233,7 @@ declare -a deps=(
     "tldr"
     "unzip"
     "wget"
+    "xclip"
     "xdg-utils"
     "zip"
     "zsh"
@@ -243,12 +249,11 @@ if [[ $OSTYPE == "linux"* ]]; then
     # avoid add-apt-repository: command not found
     sudo apt update && sudo apt install software-properties-common -y
 
-    # for more recent neovim version
-    sudo add-apt-repository ppa:neovim-ppa/unstable -y
     # for alacritty terminal
-    sudo add-apt-repository ppa:aslatter/ppa -y
-
-    sudo apt update
+    if [[ $(cat /etc/os-release | grep ID) == *"ubuntu" ]]; then
+        sudo add-apt-repository ppa:aslatter/ppa -y
+        sudo apt update
+    fi
 
     for i in "${deps[@]}"; do
         echo "Installing ${yellow}$i${reset}"

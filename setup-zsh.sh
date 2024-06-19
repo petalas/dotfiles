@@ -21,4 +21,4 @@ if [[ $(which zsh) != *"zsh" ]]; then
 fi
 
 echo "Making ZSH the default shell."
-chsh -s $(which zsh)
+sudo chsh -s $(which zsh)
