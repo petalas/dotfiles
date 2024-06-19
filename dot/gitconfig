@@ -11,6 +11,6 @@
 	process = git-lfs filter-process
 	required = true
 [core]
-	editor = vim
+	editor = nvim
 [maintenance]
 	repo = /home/nick/git/docker-nas
