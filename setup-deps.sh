@@ -228,6 +228,7 @@ declare -a deps=(
     "pass"
     "python3"
     "python3-venv"
+    "shellcheck"
     "ssh"
     "sshpass"
     "tar"
