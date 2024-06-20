@@ -179,11 +179,10 @@ install_neovim() {
         return 1
     fi
     echo "Installing ${yellow}nvim${reset} ..."
-    sudo rm /tmp/nvim.appimage
-    wget -q 'https://github.com/neovim/neovim/releases/latest/download/nvim.appimage' -O /tmp/nvim.appimage
-    chmod u+x /tmp/nvim.appimage
-    sudo mkdir -p /opt/nvim
-    sudo mv /tmp/nvim.appimage /opt/nvim/nvim
+    curl -L https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz -o /tmp/nvim-linux64.tar.gz
+    sudo rm -rf /opt/nvim
+    sudo tar -C /opt -xzf /tmp/nvim-linux64.tar.gz
+    sudo mv /opt/nvim-linux64 /opt/nvim
 }
 
 # use Alsa / pulseaudio
