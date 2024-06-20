@@ -153,4 +153,4 @@ export PATH="$HOME/.rd/bin:$PATH"
 ### MANAGED BY RANCHER DESKTOP END (DO NOT EDIT)
 
 # nvim manual installation
-export PATH="$PATH:/opt/nvim"
+export PATH="$PATH:/opt/nvim/bin"
