@@ -55,7 +55,7 @@ if [ -d $HOME/.config/nvim ]; then
     rm -rf $HOME/.cache/nvim $HOME/.config/nvim/plugin $HOME/.local/share/nvim $HOME/.config/nvim/plugin
 fi
 
-git clone https://github.com/petalas/nvim.git $HOME/.config/nvim --depth 1 -b custom
+git clone https://github.com/petalas/nvim.git $HOME/.config/nvim -b custom
 
 # make sure $HOME/git/genesis exists before linking
 if [ ! -d "$HOME/git/genesis" ]; then
