@@ -57,6 +57,14 @@ install_node() {
     fi
 }
 
+install_bun() {
+
+    if [[ ! $(which bun) == *"bun" ]]; then
+        echo "Installing bun..."
+        curl -fsSL https://bun.sh/install | bash
+    fi
+}
+
 install_node_deps() {
     declare -a node_deps=("typescript" "typescript-language-server")
     for i in "${node_deps[@]}"; do
@@ -271,6 +279,7 @@ if [[ $OSTYPE == "linux"* ]]; then
 
     # these should be handled by brew for MacOS
     install_bitwarden
+    install_bun
     install_code
     install_discord
     install_lazydocker
