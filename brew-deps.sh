@@ -67,6 +67,7 @@ declare -a caskdeps=(
     "google-chrome"
     "iterm2"
     "keepassxc"
+    "kitty"
     "microsoft-teams"
     "openvpn-connect"
     "parsec"

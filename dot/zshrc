@@ -73,12 +73,15 @@ plugins=(brew git node nvm yarn docker docker-compose zsh-autosuggestions zsh-sy
 
 source $ZSH/oh-my-zsh.sh
 
+# nvim manual installation
+export PATH="$PATH:/opt/nvim/bin"
 
 # Preferred editor for local and remote sessions
 if [[ -n $SSH_CONNECTION ]]; then
   export EDITOR='vim'
 else
-  export EDITOR='nvim'
+  export EDITOR="$(which nvim)"
+  export SUDO_EDITOR="$(which nvim)"
 fi
 
 
@@ -151,6 +154,3 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 ### MANAGED BY RANCHER DESKTOP START (DO NOT EDIT)
 export PATH="$HOME/.rd/bin:$PATH"
 ### MANAGED BY RANCHER DESKTOP END (DO NOT EDIT)
-
-# nvim manual installation
-export PATH="$PATH:/opt/nvim/bin"
