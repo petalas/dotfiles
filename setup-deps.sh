@@ -128,7 +128,7 @@ install_rust() {
 install_rust_deps() {
     echo "Updating rustup"
     rustup update
-    declare -a rust_deps=("tree-sitter-cli" "ripgrep" "wasm-bindgen-cli")
+    declare -a rust_deps=("tree-sitter-cli" "ripgrep" "wasm-bindgen-cli" "cargo-edit")
     for i in "${rust_deps[@]}"; do
         if [[ ! $(which $i) == *"$i" ]]; then
             echo "Installing ${yellow}$i${reset}"
@@ -253,9 +253,11 @@ declare -a deps=(
     "grep"
     "htop"
     "iperf3"
+    "libssl-dev"
     "make"
     "nmap"
     "pass"
+    "pkg-config"
     "python3-venv"
     "python3"
     "shellcheck"
