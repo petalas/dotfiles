@@ -43,6 +43,17 @@ else
     ln -s "$(pwd)/dot/.config/alacritty/alacritty.yml" $HOME/.config/alacritty/alacritty.yml
 fi
 
+# kitty
+[ -d $HOME/.config/kitty.old ] && rm -rf $HOME/.config/kitty.old
+if [ -d $HOME/.config/kitty ]; then
+    echo "Creating backup: $HOME/.config/kitty.old"
+    cp -r $HOME/.config/kitty $HOME/.config/kitty.old
+    rm -rf $HOME/.config/kitty
+fi
+mkdir $HOME/.config/kitty
+echo "Linking $(pwd)/dot/.config/kitty/kitty.conf -> $HOME/.config/kitty/kitty.conf"
+ln -s "$(pwd)/dot/.config/kitty/kitty.conf" $HOME/.config/kitty/kitty.conf
+
 # nvim
 # create backup and nuke old config
 [ -d $HOME/.config/nvim.old ] && rm -rf $HOME/.config/nvim.old
