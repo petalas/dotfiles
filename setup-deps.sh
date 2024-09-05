@@ -254,6 +254,7 @@ declare -a deps=(
     "htop"
     "iperf3"
     "libssl-dev"
+    "linux-perf"
     "make"
     "nmap"
     "pass"
