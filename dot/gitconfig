@@ -14,3 +14,6 @@
 	editor = nvim
 [maintenance]
 	repo = /home/nick/git/docker-nas
+
+[push]
+	autoSetupRemote = true
