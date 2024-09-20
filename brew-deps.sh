@@ -74,6 +74,7 @@ declare -a caskdeps=(
     "private-internet-access"
     "qbittorrent"
     "raycast"
+    "rectangle"
     "skype"
     "steam"
     "sublime-text"
