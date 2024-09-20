@@ -73,6 +73,7 @@ declare -a caskdeps=(
     "parsec"
     "private-internet-access"
     "qbittorrent"
+    "raycast"
     "skype"
     "steam"
     "sublime-text"
