@@ -76,6 +76,7 @@ declare -a caskdeps=(
     "raycast"
     "rectangle"
     "skype"
+    "stats"
     "steam"
     "sublime-text"
     "teamviewer"
