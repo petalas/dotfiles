@@ -58,7 +58,7 @@ function update_fonts_cache() {
     # echo "${GREEN}fc-cache: update succeeded!${RESET}"
 }
 
-declare -a fonts=("Hack" "FantasqueSansMono")
+declare -a fonts=("Hack" "FantasqueSansMono" "InconsolataLGC" "Ubuntu")
 
 echo "Installing patched nerd fonts..."
 for i in "${fonts[@]}"; do
