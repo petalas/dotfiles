@@ -83,6 +83,7 @@ declare -a caskdeps=(
     "raycast"
     "rectangle"
     "skype"
+    "slack"
     "spotify"
     "stats"
     "steam"
