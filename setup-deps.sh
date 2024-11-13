@@ -308,11 +308,12 @@ if [[ $OSTYPE == "linux"* ]]; then
     install_bun
     install_code
     install_discord
+    install_docker
+    install_kitty
     install_lazydocker
     install_lazygit
     install_neovim
     install_zerotier
-    install_kitty
 fi
 
 # same for Ubuntu and MacOS
@@ -323,5 +324,4 @@ if [[ ! $OSTYPE == "msys"* ]]; then
     install_sdkman_deps
     install_rust
     install_rust_deps
-    install_docker
 fi
