@@ -10,6 +10,14 @@ green=$(tput setaf 2)
 yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
+# Check if Homebrew is installed
+./setup-brew.sh
+
+if ! which brew &> /dev/null; then
+    echo "${red}Failed to install homebrew${reset}, check ${yellow}setup-brew.sh${reset}"
+    exit 1
+fi
+
 ## not managed by homebrew, have to create .nvm dir manually on first install
 if [ ! -d "$HOME/.nvm" ]; then
     echo "Creating nvm dir: $HOME/.nvm"
