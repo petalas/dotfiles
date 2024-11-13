@@ -66,6 +66,7 @@ done
 
 printf "\n\nChecking cask dependencies...\n"
 declare -a caskdeps=(
+    "bambu-studio"
     "bitwarden"
     "dbeaver-community"
     "discord"
