@@ -73,6 +73,7 @@ declare -a caskdeps=(
     "docker"
     "dropbox"
     "firefox@developer-edition"
+    "grandperspective"
     "jordanbaird-ice"
     "keka"
     "kitty"
