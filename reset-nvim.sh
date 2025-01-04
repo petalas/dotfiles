@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [[ $OSTYPE == "linux"* || $OSTYPE == "darwin"* ]]; then
     echo "resetting neovim cache, plugins, data"
