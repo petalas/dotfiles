@@ -2,8 +2,8 @@
 	name = Nick Petalas
 	email = webmasternikos@gmail.com
 
-[includeIf "gitdir:~/git/genesis/"]
-	path = ~/git/genesis/.gitconfig
+[includeIf "gitdir:~/git/work/"]
+	path = ~/git/work/.gitconfig
 
 [filter "lfs"]
 	clean = git-lfs clean -- %f
@@ -12,8 +12,6 @@
 	required = true
 [core]
 	editor = nvim
-[maintenance]
-	repo = /home/nick/git/docker-nas
 
 [push]
 	autoSetupRemote = true

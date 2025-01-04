@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [[ $OSTYPE == "msys"* ]]; then
     echo "Cannot install ZSH on windows, please install it manually and run this script again." # TODO
