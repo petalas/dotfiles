@@ -52,6 +52,7 @@ declare -a deps=(
     "nvm"
     "python"
     "python3-setuptools"
+    "tldr"
     "watch"
     "yt-dlp"
 )
