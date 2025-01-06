@@ -112,6 +112,9 @@ function upd() {
   if [[ ( $OSTYPE == "linux"* || $OSTYPE == "darwin"*) && $(which rustup) == *"rustup" ]]; then
     rustup update
   fi
+  if [[ ( $OSTYPE == "linux"* || $OSTYPE == "darwin"*) && $(which tldr) == *"tldr" ]]; then
+    tldr -u
+  fi
 }
 
 # kill anything taking up the specified port, usage example: killport 6060
