@@ -253,6 +253,7 @@ declare -a deps=(
     "grep"
     "htop"
     "iperf3"
+    "iptables"
     "libssl-dev"
     "linux-perf"
     "make"
