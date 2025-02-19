@@ -187,10 +187,10 @@ install_neovim() {
         return 1
     fi
     echo "Installing ${yellow}nvim${reset} ..."
-    curl -L https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz -o /tmp/nvim-linux64.tar.gz
+    curl -L https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz -o /tmp/nvim-linux-x86_64.tar.gz
     sudo rm -rf /opt/nvim
-    sudo tar -C /opt -xzf /tmp/nvim-linux64.tar.gz
-    sudo mv /opt/nvim-linux64 /opt/nvim
+    sudo tar -C /opt -xzf /tmp/nvim-linux-x86_64.tar.gz
+    sudo mv /opt/nvim-linux-x86_64 /opt/nvim
 }
 
 install_kitty() {
