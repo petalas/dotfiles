@@ -253,7 +253,8 @@ declare -a deps=(
     "grep"
     "htop"
     "iperf3"
-    "iptables"
+    "iptables libnotify4" # attempting to install together as iptables depends on libnotify4
+    "jq"
     "libssl-dev"
     "linux-perf"
     "make"
