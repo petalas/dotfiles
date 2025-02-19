@@ -1,8 +1,0 @@
-require("petalas.bufferline")
-require("petalas.gitsigns")
-require("petalas.keymaps")
-require("petalas.lsp")
-require("petalas.options")
-require("petalas.plugins")
-require("petalas.toggleterm")
-require("petalas.treesitter")
