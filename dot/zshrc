@@ -69,7 +69,7 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 # Custom plugins may be added to ~/.oh-my-zsh/custom/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(brew git node nvm yarn docker docker-compose zsh-autosuggestions zsh-syntax-highlighting autoupdate)
+plugins=(brew git node nvm docker docker-compose zsh-autosuggestions zsh-syntax-highlighting autoupdate)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -124,6 +124,7 @@ function killport() {
 
 # https://yazi-rs.github.io/docs/quick-start
 # yazi wrapper that provides the ability to change the current working directory when exiting Yazi.
+unalias y # alias for yarn by default
 function y() {
     local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
     yazi "$@" --cwd-file="$tmp"
