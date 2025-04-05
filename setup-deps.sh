@@ -128,11 +128,11 @@ install_rust() {
 install_rust_deps() {
     echo "Updating rustup"
     rustup update
-    declare -a rust_deps=("tree-sitter-cli" "ripgrep" "wasm-bindgen-cli" "cargo-edit")
+    declare -a rust_deps=("tree-sitter-cli" "ripgrep" "wasm-bindgen-cli" "cargo-edit" "yazi-fm" "yazi-cli")
     for i in "${rust_deps[@]}"; do
         if [[ ! $(which $i) == *"$i" ]]; then
             echo "Installing ${yellow}$i${reset}"
-            cargo install $i
+            cargo install --locked $i
         fi
     done
 }
@@ -245,13 +245,17 @@ declare -a deps=(
     "curl"
     "dnsutils"
     "fd-find"
+    "ffmpeg"
+    "fzf"
     "g++"
     "gcc"
     "git"
     "gnupg"
+    "google-chrome-stable"
     "gpg"
     "grep"
     "htop"
+    "imagemagick"
     "iperf3"
     "iptables libnotify4" # attempting to install together as iptables depends on libnotify4
     "jq"
@@ -261,8 +265,9 @@ declare -a deps=(
     "nmap"
     "pass"
     "pkg-config"
-    "python3-venv"
+    "poppler-utils"
     "python3"
+    "python3-venv"
     "shellcheck"
     "ssh"
     "sshpass"
@@ -274,6 +279,7 @@ declare -a deps=(
     "xclip"
     "xdg-utils"
     "zip"
+    "zoxide"
     "zsh"
 )
 
@@ -290,8 +296,15 @@ if [[ $OSTYPE == "linux"* ]]; then
     # for alacritty terminal
     if [[ $(cat /etc/os-release | grep ID) == *"ubuntu" ]]; then
         sudo add-apt-repository ppa:aslatter/ppa -y
-        sudo apt update
     fi
+
+    # for google chrome
+    if [[ $(cat /etc/os-release | grep ID) == *"debian" ]]; then
+        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+        sudo sh -c 'echo "deb https://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+    fi
+
+    sudo apt update
 
     for i in "${deps[@]}"; do
         echo "Installing ${yellow}$i${reset}"
