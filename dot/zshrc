@@ -160,8 +160,10 @@ export PATH="$HOME/.rd/bin:$PATH"
 # nvim manual installation
 export PATH="$PATH:/opt/nvim/bin"
 
-export LIBRARY_PATH="$LIBRARY_PATH:$(brew --prefix)/lib"
-export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
+if command -v brew >/dev/null 2>&1; then
+    export LIBRARY_PATH="$LIBRARY_PATH:$(brew --prefix)/lib"
+    export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
+fi
 
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
