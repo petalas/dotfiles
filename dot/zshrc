@@ -122,6 +122,17 @@ function killport() {
   sudo lsof -i :$1 | grep LISTEN | awk '{ print $2 }' | xargs kill -9
 }
 
+# https://yazi-rs.github.io/docs/quick-start
+# yazi wrapper that provides the ability to change the current working directory when exiting Yazi.
+function y() {
+    local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+    yazi "$@" --cwd-file="$tmp"
+    if cwd="$(command cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+        builtin cd -- "$cwd"
+    fi
+    rm -f -- "$tmp"
+}
+
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
