@@ -92,4 +92,21 @@ fi
 echo "Linking $(pwd)/dot/.config/yazi -> $HOME/.config/yazi"
 ln -s "$(pwd)/dot/.config/yazi" $HOME/.config/yazi
 
+# bat
+[ -d $HOME/.config/bat.old ] && rm -rf $HOME/.config/bat.old
+if [ -d $HOME/.config/bat ]; then
+    echo "Creating backup: $HOME/.config/bat.old"
+    cp -r $HOME/.config/bat $HOME/.config/bat.old
+    rm -rf $HOME/.config/bat
+fi
+echo "Linking $(pwd)/dot/.config/bat -> $HOME/.config/bat"
+ln -s "$(pwd)/dot/.config/bat" $HOME/.config/bat
+# download catppuccin themes
+mkdir -p "$(bat --config-dir)/themes"
+wget -P "$(bat --config-dir)/themes" https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Latte.tmTheme
+wget -P "$(bat --config-dir)/themes" https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Frappe.tmTheme
+wget -P "$(bat --config-dir)/themes" https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Macchiato.tmTheme
+wget -P "$(bat --config-dir)/themes" https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Mocha.tmTheme
+bat cache --build
+
 git clone https://github.com/petalas/nvim.git $HOME/.config/nvim -b custom
