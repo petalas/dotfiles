@@ -13,7 +13,7 @@ reset=$(tput sgr0)
 # Check if Homebrew is installed
 ./setup-brew.sh
 
-if ! which brew &> /dev/null; then
+if ! which brew &>/dev/null; then
     echo "${red}Failed to install homebrew${reset}, check ${yellow}setup-brew.sh${reset}"
     exit 1
 fi
@@ -50,8 +50,10 @@ declare -a deps=(
     "neovim"
     "nmap"
     "nvm"
+    "poppler"
     "python"
     "python3-setuptools"
+    "sevenzip"
     "tldr"
     "watch"
     "yt-dlp"
@@ -85,7 +87,6 @@ declare -a caskdeps=(
     "qbittorrent"
     "raycast"
     "rectangle"
-    "skype"
     "slack"
     "spotify"
     "stats"
