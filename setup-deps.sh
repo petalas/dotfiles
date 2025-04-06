@@ -236,6 +236,7 @@ declare -a deps=(
     "7zip"
     "alacritty"
     "apt-transport-https"
+    "bat"
     "bc"
     "btop"
     "build-essential"
@@ -311,6 +312,11 @@ if [[ $OSTYPE == "linux"* ]]; then
         sudo DEBIAN_FRONTEND=noninteractive apt install $i -y -q
     done
     echo "${green}Done installing.${reset}"
+
+    if [[ $(which batcat) == *"batcat" ]]; then
+        mkdir -p $HOME/.local/bin
+        ln -s "$(which batcat)" $HOME/.local/bin/bat
+    fi
 
     echo "Upgrading dependencies..."
     sudo apt upgrade -y && sudo apt autoremove -y
