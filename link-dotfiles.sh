@@ -91,6 +91,9 @@ if [ -d $HOME/.config/yazi ]; then
 fi
 echo "Linking $(pwd)/dot/.config/yazi -> $HOME/.config/yazi"
 ln -s "$(pwd)/dot/.config/yazi" $HOME/.config/yazi
+# install plugins
+ya pack -a boydaihungst/mediainfo
+ya pack -a kirasok/torrent-preview
 
 # bat
 [ -d $HOME/.config/bat.old ] && rm -rf $HOME/.config/bat.old

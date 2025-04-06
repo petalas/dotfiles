@@ -1,0 +1,12 @@
+[[plugin.deps]]
+use = "boydaihungst/mediainfo"
+rev = "436cb5f"
+hash = "144c0ac7a449fcab4e78e942eb41702c"
+
+[[plugin.deps]]
+use = "kirasok/torrent-preview"
+rev = "4ca5996"
+hash = "6af40ce6b2cd849b5fa32de04a598b06"
+
+[flavor]
+deps = []
