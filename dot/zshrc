@@ -95,6 +95,7 @@ alias drma='docker rm -f $(docker ps -a -q)'
 alias fixperms='sudo chown -R $(whoami):$(whoami) . && sudo chmod -R a=,a+rX,u+w,g+w .'
 
 alias lg='lazygit'
+alias hl='rg --passthrough'
 
 # neovim
 alias v="nvim"
