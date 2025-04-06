@@ -82,4 +82,14 @@ if [ -d $HOME/.config/nvim ]; then
     rm -rf $HOME/.cache/nvim $HOME/.config/nvim/plugin $HOME/.local/share/nvim $HOME/.config/nvim/plugin
 fi
 
+# yazi
+[ -d $HOME/.config/yazi.old ] && rm -rf $HOME/.config/yazi.old
+if [ -d $HOME/.config/yazi ]; then
+    echo "Creating backup: $HOME/.config/yazi.old"
+    cp -r $HOME/.config/yazi $HOME/.config/yazi.old
+    rm -rf $HOME/.config/yazi
+fi
+echo "Linking $(pwd)/dot/.config/yazi -> $HOME/.config/yazi"
+ln -s "$(pwd)/dot/.config/yazi" $HOME/.config/yazi
+
 git clone https://github.com/petalas/nvim.git $HOME/.config/nvim -b custom
