@@ -263,6 +263,7 @@ declare -a deps=(
     "libssl-dev"
     "linux-perf"
     "make"
+    "mediainfo"
     "nmap"
     "pass"
     "pkg-config"
