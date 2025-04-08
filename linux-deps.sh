@@ -160,6 +160,9 @@ is_installed() {
 # Function to install packages using the appropriate package manager
 install_deps() {
   local packages="$1"
+  echo
+  echo "${yellow}Installing ${green}$packages${reset}..."
+  echo
   if command -v yay >/dev/null 2>&1; then
     # If using yay (pacman wrapper, AUR helper) (e.g., Arch Linux) - Non-interactive with --noconfirm
     yay -S --noconfirm --needed "$packages" &>/dev/null || echo "Error installing ${yellow}$packages${reset} with yay"
@@ -192,7 +195,6 @@ install_missing_deps() {
         echo "All dependencies are already installed."
         return
     fi
-    printf "Package not installed:\n%s\n" "${pending[@]}"
     install_deps "${pending[@]}"
 }
 
