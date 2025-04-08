@@ -27,8 +27,10 @@ echo "${yellow}easy install -> setting up dependencies...${reset}\n"
 echo "${yellow}easy install -> setting up fonts...${reset}\n"
 ./setup-fonts.sh
 
+# Source setup_zsh function
 echo "${yellow}easy install -> setting up zsh...${reset}\n"
-./setup-zsh.sh
+source installers/setup_zsh.sh
+setup_zsh
 
 echo "${yellow}easy install -> configuring zsh...${reset}\n"
 ./configure-zsh.sh
