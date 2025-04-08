@@ -109,7 +109,10 @@ if [[ "$os" == "ubuntu" || "$os" == "debian" ]]; then
 elif [[ "$os" == "arch" ]]; then
     sudo pacman -Syu
     sudo pacman -S --noconfirm --needed reflector
-    sudo reflector --threads 8 --latest 100 -n 10 --sort rate --save /etc/pacman.d/mirrorlist
+    echo "Finding the ${green}fastest mirrors${reset} for pacman/paru, this might take a while..."
+    sudo reflector --threads 8 --latest 100 -n 10 --connection-timeout 1 --download-timeout 1 --sort rate --save /etc/pacman.d/mirrorlist
+    echo "$(cat /etc/pacman.d/mirrorlist)"
+    echo "${green}Fastest mirrors found!${reset}"
 
     # Install paru (AUR helper)
     if ! command -v paru &>/dev/null; then
@@ -119,7 +122,11 @@ elif [[ "$os" == "arch" ]]; then
         tmp_dir="/tmp/paru-install"
         rm -rf "$tmp_dir"
         git clone https://aur.archlinux.org/paru.git "$tmp_dir"
-        makepkg -si --noconfirm -C -p "$tmp_dir/PKGBUILD"
+        # Using a subshell (parentheses) to:
+        # 1. Change into the temporary directory
+        # 2. Run makepkg from there (it needs to be in the same dir as PKGBUILD)
+        # 3. Return to the original directory after completion
+        (cd "$tmp_dir" && makepkg -si --noconfirm -C)
         rm -rf "$tmp_dir"
     fi
 fi
