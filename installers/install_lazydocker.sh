@@ -6,9 +6,10 @@ yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
 install_lazydocker() {
-    if [[ ($(which lazydocker) == *"lazydocker") || (! $OSTYPE == "linux"*) ]]; then
-        return 1
+    if [[ $(which lazydocker) == *"lazydocker" ]]; then
+        return 0
     fi
+
     curl https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
 }
 
