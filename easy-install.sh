@@ -1,14 +1,25 @@
 #!/usr/bin/env bash
 
+if [[ $OSTYPE == "msys"* ]]; then
+    echo "Cannot install on windows, please install manually."
+    exit 1
+fi
+
 red=$(tput setaf 1)
 green=$(tput setaf 2)
 yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
 username=$(whoami)
-echo "Adding ${green}$username${reset} to /etc/sudoers.d/ (passwordless)" # TODO: prompt?
 export username
-sudo -E bash -c 'echo "$username ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$username'
+
+echo "Checking sudo permissions..."
+if sudo -n true 2>/dev/null; then
+    echo "${green}$username${reset} is already configured as a passwordless sudoer."
+else
+    echo "Adding ${green}$username${reset} to /etc/sudoers.d/ (passwordless)"
+    sudo -E bash -c 'echo "$username ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$username'
+fi
 
 echo "${yellow}easy install -> setting up dependencies...${reset}\n"
 ./setup-deps.sh
