@@ -1,18 +1,13 @@
 #!/usr/bin/env bash
 
+set -e # exit on error
+
 red=$(tput setaf 1)
 green=$(tput setaf 2)
 yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
-os=""
-if [[ -f /etc/os-release ]]; then
-    . /etc/os-release
-    os="${ID,,}"  # lowercase
-else
-    echo "Cannot determine OS."
-    exit 1
-fi
+os=$(grep -w ID /etc/os-release | cut -d '=' -f 2 | tr -d '"')
 
 declare -a deps=(
     "bat"
