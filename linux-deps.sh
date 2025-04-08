@@ -103,7 +103,7 @@ add_chrome_repo() {
 
 # install yay if needed
 _installYay() {
-    _installPackages "base-devel"
+    sudo pacman -S --noconfirm --needed base-devel git
     SCRIPT=$(realpath "$0")
     temp_path=$(dirname "$SCRIPT")
     git clone https://aur.archlinux.org/yay.git $download_folder/yay
