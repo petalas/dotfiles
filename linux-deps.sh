@@ -110,7 +110,7 @@ elif [[ "$os" == "arch" ]]; then
     sudo pacman -Syu
     sudo pacman -S --noconfirm --needed reflector
     echo "Finding the ${green}fastest mirrors${reset} for pacman/paru, this might take a while..."
-    sudo reflector --threads 8 --latest 100 -n 10 --connection-timeout 1 --download-timeout 1 --sort rate --save /etc/pacman.d/mirrorlist
+    sudo reflector --threads 8 --latest 100 -n 10 --connection-timeout 1 --download-timeout 1 --sort rate --save /etc/pacman.d/mirrorlist >/dev/null 2>&1
     echo "$(cat /etc/pacman.d/mirrorlist)"
     echo "${green}Fastest mirrors found!${reset}"
 
@@ -128,6 +128,7 @@ elif [[ "$os" == "arch" ]]; then
         # 3. Return to the original directory after completion
         (cd "$tmp_dir" && makepkg -si --noconfirm -C)
         rm -rf "$tmp_dir"
+        echo "${green}paru installed!${reset}"
     fi
 fi
 
