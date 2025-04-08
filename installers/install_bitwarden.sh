@@ -6,9 +6,9 @@ yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
 install_bitwarden() {
-    if [[ ($(which bitwarden) == *"bitwarden") || (! $OSTYPE == "linux"*) ]]; then
+    if [[ ($(which bitwarden) == *"bitwarden")]]; then
         echo "${green}bitwarden${reset} is already installed."
-        return 1
+        return 0
     fi
     echo "Installing ${yellow}bitwarden${reset} ..."
     wget -q 'https://vault.bitwarden.com/download/?app=desktop&platform=linux&variant=deb' -O /tmp/bitwarden_amd64.deb

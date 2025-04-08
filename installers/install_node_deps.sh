@@ -6,6 +6,11 @@ yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
 install_node_deps() {
+    if [[ ! $(which npm) == *"npm" ]]; then
+        echo "npm is not installed. Please install node first. (${yellow}install_node.sh${reset} should have been called first.)"
+        return 1
+    fi
+
     declare -a node_deps=("typescript" "typescript-language-server")
     for i in "${node_deps[@]}"; do
         echo "Installing ${yellow}$i${reset}"
