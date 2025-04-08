@@ -101,6 +101,18 @@ add_chrome_repo() {
     sudo apt update
 }
 
+# install yay if needed
+_installYay() {
+    _installPackages "base-devel"
+    SCRIPT=$(realpath "$0")
+    temp_path=$(dirname "$SCRIPT")
+    git clone https://aur.archlinux.org/yay.git $download_folder/yay
+    cd $download_folder/yay
+    makepkg -si
+    cd $temp_path
+    echo ":: yay has been installed successfully."
+}
+
 
 # Update package list based on OS
 if [[ "$os" == "ubuntu" || "$os" == "debian" ]]; then
@@ -114,22 +126,26 @@ elif [[ "$os" == "arch" ]]; then
     echo "$(cat /etc/pacman.d/mirrorlist)"
     echo "${green}Fastest mirrors found!${reset}"
 
-    # Install paru (AUR helper)
-    if ! command -v paru &>/dev/null; then
-        echo "${yellow}paru${reset} not found. ${green}Installing...${reset}"
-        sudo pacman -S --noconfirm --needed base-devel git
-
-        tmp_dir="/tmp/paru-install"
-        rm -rf "$tmp_dir"
-        git clone https://aur.archlinux.org/paru.git "$tmp_dir"
-        # Using a subshell (parentheses) to:
-        # 1. Change into the temporary directory
-        # 2. Run makepkg from there (it needs to be in the same dir as PKGBUILD)
-        # 3. Return to the original directory after completion
-        (cd "$tmp_dir" && makepkg -si --noconfirm -C)
-        rm -rf "$tmp_dir"
-        echo "${green}paru installed!${reset}"
+    if ! command -v yay &>/dev/null; then
+        _installYay
     fi
+
+    # Install paru (AUR helper)
+    # if ! command -v paru &>/dev/null; then
+    #     echo "${yellow}paru${reset} not found. ${green}Installing...${reset}"
+    #     sudo pacman -S --noconfirm --needed base-devel git
+
+    #     tmp_dir="/tmp/paru-install"
+    #     rm -rf "$tmp_dir"
+    #     git clone https://aur.archlinux.org/paru.git "$tmp_dir"
+    #     # Using a subshell (parentheses) to:
+    #     # 1. Change into the temporary directory
+    #     # 2. Run makepkg from there (it needs to be in the same dir as PKGBUILD)
+    #     # 3. Return to the original directory after completion
+    #     (cd "$tmp_dir" && makepkg -si --noconfirm -C)
+    #     rm -rf "$tmp_dir"
+    #     echo "${green}paru installed!${reset}"
+    # fi
 fi
 
 # Function to check if a package is installed
@@ -144,9 +160,9 @@ is_installed() {
 # Function to install packages using the appropriate package manager
 install_deps() {
   local packages="$1"
-  if command -v paru >/dev/null 2>&1; then
-    # If using paru (pacman wrapper, AUR helper) (e.g., Arch Linux) - Non-interactive with --noconfirm
-    paru -S --noconfirm --needed "$packages" &>/dev/null || echo "Error installing ${yellow}$packages${reset} with paru"
+  if command -v yay >/dev/null 2>&1; then
+    # If using yay (pacman wrapper, AUR helper) (e.g., Arch Linux) - Non-interactive with --noconfirm
+    yay -S --noconfirm --needed "$packages" &>/dev/null || echo "Error installing ${yellow}$packages${reset} with yay"
   elif command -v apt >/dev/null 2>&1; then
     # If using apt (e.g., Ubuntu, Debian) - Non-interactive with DEBIAN_FRONTEND=noninteractive
     export DEBIAN_FRONTEND=noninteractive
@@ -180,7 +196,9 @@ install_missing_deps() {
     install_deps "${pending[@]}"
 }
 
-echo "${green}Installation complete.${reset}"
+install_missing_deps
+echo "${green}Base dependencies => Installation complete.${reset}"
+echo
 
 # Source all installer scripts
 source "$(dirname "$0")/installers/source_installers.sh"
