@@ -108,9 +108,20 @@ install_yay() {
     original_dir=$(dirname "$SCRIPT")
     git clone https://aur.archlinux.org/yay.git /tmp/yay
     cd /tmp/yay
-    makepkg -si
+    makepkg -si --noconfirm > /dev/null 2>&1
     cd "$original_dir"
     echo "${yellow}yay${reset} has been ${green}installed successfully${reset}."
+}
+
+install_paru() {
+    sudo pacman -S --noconfirm --needed base-devel git
+    SCRIPT=$(realpath "$0")
+    original_dir=$(dirname "$SCRIPT")
+    git clone https://aur.archlinux.org/paru.git /tmp/paru
+    cd /tmp/paru
+    makepkg -si --noconfirm > /dev/null 2>&1
+    cd "$original_dir"
+    echo "${yellow}paru${reset} has been ${green}installed successfully${reset}."
 }
 
 
@@ -126,8 +137,12 @@ elif [[ "$os" == "arch" ]]; then
     echo "$(cat /etc/pacman.d/mirrorlist)"
     echo "${green}Fastest mirrors found!${reset}"
 
-    if ! command -v yay &>/dev/null; then
-        install_yay
+    # if ! command -v yay &>/dev/null; then
+    #     install_yay
+    # fi
+
+    if ! command -v paru &>/dev/null; then
+        install_paru
     fi
 
     # Install paru (AUR helper)
@@ -159,23 +174,23 @@ is_installed() {
 
 # Function to install packages using the appropriate package manager
 install_deps() {
-  local packages="$1"
+  local packages=("$@")
   echo
-  echo "${yellow}Installing ${green}$packages${reset}..."
+  echo "${yellow}Installing ${green}${packages[@]}${reset}..."
   echo
-  if command -v yay >/dev/null 2>&1; then
-    # If using yay (pacman wrapper, AUR helper) (e.g., Arch Linux) - Non-interactive with --noconfirm
-    yay -S --noconfirm --needed "$packages" &>/dev/null || echo "Error installing ${yellow}$packages${reset} with yay"
+  if command -v paru >/dev/null 2>&1; then
+    # If using paru (pacman wrapper, AUR helper) (e.g., Arch Linux) - Non-interactive with --noconfirm
+    paru -S --noconfirm --needed "${packages[@]}" || echo "Error installing ${yellow}${packages[@]}${reset} with paru"
   elif command -v apt >/dev/null 2>&1; then
     # If using apt (e.g., Ubuntu, Debian) - Non-interactive with DEBIAN_FRONTEND=noninteractive
     export DEBIAN_FRONTEND=noninteractive
-    sudo apt-get install -y "$packages" &>/dev/null || echo "Error installing ${yellow}$packages${reset} with apt"
+    sudo apt-get install -y "${packages[@]}" || echo "Error installing ${yellow}${packages[@]}${reset} with apt"
   elif command -v dnf >/dev/null 2>&1; then
     # If using dnf (e.g., Fedora) - Non-interactive with -y
-    sudo dnf install -y "$packages" &>/dev/null || echo "Error installing ${yellow}$packages${reset} with dnf"
+    sudo dnf install -y "${packages[@]}" || echo "Error installing ${yellow}${packages[@]}${reset} with dnf"
   elif command -v yum >/dev/null 2>&1; then
     # If using yum (e.g., CentOS, RHEL) - Non-interactive with -y
-    sudo yum install -y "$packages" &>/dev/null || echo "Error installing ${yellow}$packages${reset} with yum"
+    sudo yum install -y "${packages[@]}" || echo "Error installing ${yellow}${packages[@]}${reset} with yum"
   else
     echo "${red}No supported package manager found.${reset}"
   fi
