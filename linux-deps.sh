@@ -142,35 +142,43 @@ is_installed() {
 }
 
 # Function to install packages using the appropriate package manager
-install_package() {
-  local package="$1"
+install_deps() {
+  local packages="$1"
   if command -v paru >/dev/null 2>&1; then
     # If using paru (pacman wrapper, AUR helper) (e.g., Arch Linux) - Non-interactive with --noconfirm
-    paru -S --noconfirm --needed "$package" &>/dev/null || echo "Error installing ${yellow}$package${reset} with paru"
+    paru -S --noconfirm --needed "$packages" &>/dev/null || echo "Error installing ${yellow}$packages${reset} with paru"
   elif command -v apt >/dev/null 2>&1; then
     # If using apt (e.g., Ubuntu, Debian) - Non-interactive with DEBIAN_FRONTEND=noninteractive
     export DEBIAN_FRONTEND=noninteractive
-    sudo apt-get install -y "$package" &>/dev/null || echo "Error installing ${yellow}$package${reset} with apt"
+    sudo apt-get install -y "$packages" &>/dev/null || echo "Error installing ${yellow}$packages${reset} with apt"
   elif command -v dnf >/dev/null 2>&1; then
     # If using dnf (e.g., Fedora) - Non-interactive with -y
-    sudo dnf install -y "$package" &>/dev/null || echo "Error installing ${yellow}$package${reset} with dnf"
+    sudo dnf install -y "$packages" &>/dev/null || echo "Error installing ${yellow}$packages${reset} with dnf"
   elif command -v yum >/dev/null 2>&1; then
     # If using yum (e.g., CentOS, RHEL) - Non-interactive with -y
-    sudo yum install -y "$package" &>/dev/null || echo "Error installing ${yellow}$package${reset} with yum"
+    sudo yum install -y "$packages" &>/dev/null || echo "Error installing ${yellow}$packages${reset} with yum"
   else
-    echo "No supported package manager found for ${yellow}$package${reset}."
+    echo "${red}No supported package manager found.${reset}"
   fi
 }
 
 # Iterate over dependencies and install missing ones
-for dep in "${deps[@]}"; do
-  if ! is_installed "$dep"; then
-    echo "$dep is not installed. Attempting to install..."
-    install_package "$dep"
-  else
-    echo "${yellow}$dep${reset} is ${green}already installed${reset}."
-  fi
-done
+install_missing_deps() {
+    pending=()
+    for dep in "${deps[@]}"; do
+        if is_installed "$dep"; then
+            echo "${yellow}$dep${reset} is ${green}already installed${reset}."
+        else
+            pending+=("$dep")
+        fi
+    done
+    if [[ "${pending[@]}" == "" ]]; then
+        echo "All dependencies are already installed."
+        return
+    fi
+    printf "Package not installed:\n%s\n" "${pending[@]}"
+    install_deps "${pending[@]}"
+}
 
 echo "${green}Installation complete.${reset}"
 
