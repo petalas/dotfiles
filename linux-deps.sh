@@ -102,15 +102,15 @@ add_chrome_repo() {
 }
 
 # install yay if needed
-_installYay() {
+install_yay() {
     sudo pacman -S --noconfirm --needed base-devel git
     SCRIPT=$(realpath "$0")
-    temp_path=$(dirname "$SCRIPT")
-    git clone https://aur.archlinux.org/yay.git $download_folder/yay
-    cd $download_folder/yay
+    original_dir=$(dirname "$SCRIPT")
+    git clone https://aur.archlinux.org/yay.git /tmp/yay
+    cd /tmp/yay
     makepkg -si
-    cd $temp_path
-    echo ":: yay has been installed successfully."
+    cd "$original_dir"
+    echo "${yellow}yay${reset} has been ${green}installed successfully${reset}."
 }
 
 
@@ -127,7 +127,7 @@ elif [[ "$os" == "arch" ]]; then
     echo "${green}Fastest mirrors found!${reset}"
 
     if ! command -v yay &>/dev/null; then
-        _installYay
+        install_yay
     fi
 
     # Install paru (AUR helper)
