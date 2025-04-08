@@ -101,66 +101,50 @@ add_chrome_repo() {
     sudo apt update
 }
 
-# install yay if needed
-install_yay() {
-    sudo pacman -S --noconfirm --needed base-devel git
-    SCRIPT=$(realpath "$0")
-    original_dir=$(dirname "$SCRIPT")
-    git clone https://aur.archlinux.org/yay.git /tmp/yay
-    cd /tmp/yay
-    makepkg -si --noconfirm > /dev/null 2>&1
-    cd "$original_dir"
-    echo "${yellow}yay${reset} has been ${green}installed successfully${reset}."
-}
-
 install_paru() {
-    sudo pacman -S --noconfirm --needed base-devel git
+    echo
+    echo ":: Installing ${yellow}paru${reset}..."
+    sudo pacman -S --noconfirm --needed base-devel git bat
     SCRIPT=$(realpath "$0")
     original_dir=$(dirname "$SCRIPT")
     git clone https://aur.archlinux.org/paru.git /tmp/paru
     cd /tmp/paru
-    makepkg -si --noconfirm > /dev/null 2>&1
+    makepkg -si --noconfirm
     cd "$original_dir"
-    echo "${yellow}paru${reset} has been ${green}installed successfully${reset}."
+    echo ":: ${yellow}paru${reset} has been ${green}installed successfully${reset}."
+    echo
 }
 
+set_parallel_downloads() {
+  local value="$1"
+  local conf="/etc/pacman.conf"
+
+  # Check if the line already exists (commented or uncommented)
+  if grep -qE "^\s*#?\s*ParallelDownloads\s*=" "$conf"; then
+    # Replace existing line
+    sudo sed -i "s|^\s*#\?\s*ParallelDownloads\s*=.*|ParallelDownloads = $value|" "$conf"
+  else
+    # Add under the [options] section
+    sudo sed -i "/^\[options\]/a ParallelDownloads = $value" "$conf"
+  fi
+}
 
 # Update package list based on OS
 if [[ "$os" == "ubuntu" || "$os" == "debian" ]]; then
     sudo apt update
     add_chrome_repo
 elif [[ "$os" == "arch" ]]; then
+    set_parallel_downloads 8 # default is 5, probably won't make much of a difference
     sudo pacman -Syu
     sudo pacman -S --noconfirm --needed reflector
-    echo "Finding the ${green}fastest mirrors${reset} for pacman/paru, this might take a while..."
+    echo ":: Finding the ${green}fastest mirrors${reset}, this might take a while..."
     sudo reflector --threads 8 --latest 100 -n 10 --connection-timeout 1 --download-timeout 1 --sort rate --save /etc/pacman.d/mirrorlist >/dev/null 2>&1
     echo "$(cat /etc/pacman.d/mirrorlist)"
-    echo "${green}Fastest mirrors found!${reset}"
-
-    # if ! command -v yay &>/dev/null; then
-    #     install_yay
-    # fi
+    echo ":: ${green}Fastest mirrors found!${reset}"
 
     if ! command -v paru &>/dev/null; then
         install_paru
     fi
-
-    # Install paru (AUR helper)
-    # if ! command -v paru &>/dev/null; then
-    #     echo "${yellow}paru${reset} not found. ${green}Installing...${reset}"
-    #     sudo pacman -S --noconfirm --needed base-devel git
-
-    #     tmp_dir="/tmp/paru-install"
-    #     rm -rf "$tmp_dir"
-    #     git clone https://aur.archlinux.org/paru.git "$tmp_dir"
-    #     # Using a subshell (parentheses) to:
-    #     # 1. Change into the temporary directory
-    #     # 2. Run makepkg from there (it needs to be in the same dir as PKGBUILD)
-    #     # 3. Return to the original directory after completion
-    #     (cd "$tmp_dir" && makepkg -si --noconfirm -C)
-    #     rm -rf "$tmp_dir"
-    #     echo "${green}paru installed!${reset}"
-    # fi
 fi
 
 # Function to check if a package is installed
@@ -176,7 +160,7 @@ is_installed() {
 install_deps() {
   local packages=("$@")
   echo
-  echo "${yellow}Installing ${green}${packages[@]}${reset}..."
+  echo ":: ${yellow}Installing ${green}${packages[@]}${reset}..."
   echo
   if command -v paru >/dev/null 2>&1; then
     # If using paru (pacman wrapper, AUR helper) (e.g., Arch Linux) - Non-interactive with --noconfirm
@@ -207,13 +191,14 @@ install_missing_deps() {
         fi
     done
     if [[ "${pending[@]}" == "" ]]; then
-        echo "All dependencies are already installed."
+        echo ":: ${green}All base dependencies are already installed.${reset}"
         return
     fi
     install_deps "${pending[@]}"
 }
 
 install_missing_deps
+echo
 echo "${green}Base dependencies => Installation complete.${reset}"
 echo
 
