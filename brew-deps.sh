@@ -104,3 +104,13 @@ for i in "${caskdeps[@]}"; do
         echo "${yellow}$i${reset} is ${green}already installed${reset}."
     fi
 done
+
+# source installers
+source "$(dirname "$0")/installers/source_installers.sh"
+
+install_node
+install_node_deps
+install_sdkman
+install_sdkman_deps
+install_rust
+install_rust_deps
