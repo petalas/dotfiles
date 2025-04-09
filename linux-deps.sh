@@ -68,12 +68,12 @@ if [[ "$os" == "ubuntu" || "$os" == "debian" ]]; then
 elif [[ "$os" == "arch" ]]; then
     deps+=(
         "p7zip"
-        "base-devel"            # includes gcc, g++, make, etc.
-        "bind"                  # for dig, nslookup (dnsutils)
+        "base-devel" # includes gcc, g++, make, etc.
+        "bind"       # for dig, nslookup (dnsutils)
         "fd"
-        "google-chrome"         # AUR: you'll need yay or paru
+        "google-chrome" # AUR: you'll need yay or paru
         "libnotify"
-        "openssl"               # libssl-dev equivalent
+        "openssl" # libssl-dev equivalent
         "perf"
         "pkgconf"
         "poppler"
@@ -90,11 +90,11 @@ add_chrome_repo() {
     echo "Adding Google Chrome repo..."
 
     # Download the key and store it in a trusted keyring
-    wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | \
+    wget -q -O - https://dl.google.com/linux/linux_signing_key.pub |
         gpg --dearmor | sudo tee /usr/share/keyrings/google-chrome.gpg >/dev/null
 
     # Create the source list
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" | \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" |
         sudo tee /etc/apt/sources.list.d/google-chrome.list >/dev/null
 
     # Update apt so it sees the new repo
@@ -116,17 +116,17 @@ install_paru() {
 }
 
 set_parallel_downloads() {
-  local value="$1"
-  local conf="/etc/pacman.conf"
+    local value="$1"
+    local conf="/etc/pacman.conf"
 
-  # Check if the line already exists (commented or uncommented)
-  if grep -qE "^\s*#?\s*ParallelDownloads\s*=" "$conf"; then
-    # Replace existing line
-    sudo sed -i "s|^\s*#\?\s*ParallelDownloads\s*=.*|ParallelDownloads = $value|" "$conf"
-  else
-    # Add under the [options] section
-    sudo sed -i "/^\[options\]/a ParallelDownloads = $value" "$conf"
-  fi
+    # Check if the line already exists (commented or uncommented)
+    if grep -qE "^\s*#?\s*ParallelDownloads\s*=" "$conf"; then
+        # Replace existing line
+        sudo sed -i "s|^\s*#\?\s*ParallelDownloads\s*=.*|ParallelDownloads = $value|" "$conf"
+    else
+        # Add under the [options] section
+        sudo sed -i "/^\[options\]/a ParallelDownloads = $value" "$conf"
+    fi
 }
 
 # Update package list based on OS
@@ -149,35 +149,35 @@ fi
 
 # Function to check if a package is installed
 is_installed() {
-  if command -v "$1" >/dev/null 2>&1; then
-    return 0  # Package is installed
-  else
-    return 1  # Package is not installed
-  fi
+    if command -v "$1" >/dev/null 2>&1; then
+        return 0 # Package is installed
+    else
+        return 1 # Package is not installed
+    fi
 }
 
 # Function to install packages using the appropriate package manager
 install_deps() {
-  local packages=("$@")
-  echo
-  echo ":: ${yellow}Installing ${green}${packages[@]}${reset}..."
-  echo
-  if command -v paru >/dev/null 2>&1; then
-    # If using paru (pacman wrapper, AUR helper) (e.g., Arch Linux) - Non-interactive with --noconfirm
-    paru -S --noconfirm --needed "${packages[@]}" || echo "Error installing ${yellow}${packages[@]}${reset} with paru"
-  elif command -v apt >/dev/null 2>&1; then
-    # If using apt (e.g., Ubuntu, Debian) - Non-interactive with DEBIAN_FRONTEND=noninteractive
-    export DEBIAN_FRONTEND=noninteractive
-    sudo apt-get install -y "${packages[@]}" || echo "Error installing ${yellow}${packages[@]}${reset} with apt"
-  elif command -v dnf >/dev/null 2>&1; then
-    # If using dnf (e.g., Fedora) - Non-interactive with -y
-    sudo dnf install -y "${packages[@]}" || echo "Error installing ${yellow}${packages[@]}${reset} with dnf"
-  elif command -v yum >/dev/null 2>&1; then
-    # If using yum (e.g., CentOS, RHEL) - Non-interactive with -y
-    sudo yum install -y "${packages[@]}" || echo "Error installing ${yellow}${packages[@]}${reset} with yum"
-  else
-    echo "${red}No supported package manager found.${reset}"
-  fi
+    local packages=("$@")
+    echo
+    echo ":: ${yellow}Installing ${green}${packages[*]}${reset}..."
+    echo
+    if command -v paru >/dev/null 2>&1; then
+        # If using paru (pacman wrapper, AUR helper) (e.g., Arch Linux) - Non-interactive with --noconfirm
+        paru -S --noconfirm --needed "${packages[@]}" || echo "Error installing ${yellow}${packages[*]}${reset} with paru"
+    elif command -v apt >/dev/null 2>&1; then
+        # If using apt (e.g., Ubuntu, Debian) - Non-interactive with DEBIAN_FRONTEND=noninteractive
+        export DEBIAN_FRONTEND=noninteractive
+        sudo apt-get install -y "${packages[@]}" || echo "Error installing ${yellow}${packages[*]}${reset} with apt"
+    elif command -v dnf >/dev/null 2>&1; then
+        # If using dnf (e.g., Fedora) - Non-interactive with -y
+        sudo dnf install -y "${packages[@]}" || echo "Error installing ${yellow}${packages[*]}${reset} with dnf"
+    elif command -v yum >/dev/null 2>&1; then
+        # If using yum (e.g., CentOS, RHEL) - Non-interactive with -y
+        sudo yum install -y "${packages[@]}" || echo "Error installing ${yellow}${packages[*]}${reset} with yum"
+    else
+        echo "${red}No supported package manager found.${reset}"
+    fi
 }
 
 # Iterate over dependencies and install missing ones
