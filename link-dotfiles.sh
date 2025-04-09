@@ -42,23 +42,6 @@ fi
 echo "Linking $(pwd)/dot/work/gitconfig -> $HOME/git/work/.gitconfig"
 ln -s "$(pwd)/dot/work/gitconfig" $HOME/git/work/.gitconfig
 
-# alacritty
-[ -d $HOME/.config/alacritty.old ] && rm -rf $HOME/.config/alacritty.old
-if [ -d $HOME/.config/alacritty ]; then
-    echo "Creating backup: $HOME/.config/alacritty.old"
-    cp -r $HOME/.config/alacritty $HOME/.config/alacritty.old
-    rm -rf $HOME/.config/alacritty
-fi
-mkdir $HOME/.config/alacritty
-ln -s "$(pwd)/dot/.config/alacritty/catppuccin-mocha.yml" $HOME/.config/alacritty/catppuccin-mocha.yml
-if [[ $OSTYPE == "darwin"* ]]; then
-    echo "Linking $(pwd)/dot/.config/alacritty/alacritty-mac.yml -> $HOME/.config/alacritty/alacritty.yml"
-    ln -s "$(pwd)/dot/.config/alacritty/alacritty-mac.yml" $HOME/.config/alacritty/alacritty.yml
-else
-    echo "Linking $(pwd)/dot/.config/alacritty/alacritty.yml -> $HOME/.config/alacritty/alacritty.yml"
-    ln -s "$(pwd)/dot/.config/alacritty/alacritty.yml" $HOME/.config/alacritty/alacritty.yml
-fi
-
 # kitty
 [ -d $HOME/.config/kitty.old ] && rm -rf $HOME/.config/kitty.old
 if [ -d $HOME/.config/kitty ]; then
@@ -104,12 +87,6 @@ if [ -d $HOME/.config/bat ]; then
 fi
 echo "Linking $(pwd)/dot/.config/bat -> $HOME/.config/bat"
 ln -s "$(pwd)/dot/.config/bat" $HOME/.config/bat
-# download catppuccin themes
-mkdir -p "$(bat --config-dir)/themes"
-wget -P "$(bat --config-dir)/themes" https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Latte.tmTheme
-wget -P "$(bat --config-dir)/themes" https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Frappe.tmTheme
-wget -P "$(bat --config-dir)/themes" https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Macchiato.tmTheme
-wget -P "$(bat --config-dir)/themes" https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Mocha.tmTheme
 bat cache --build
 
 git clone https://github.com/petalas/nvim.git $HOME/.config/nvim -b custom

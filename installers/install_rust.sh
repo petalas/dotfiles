@@ -6,8 +6,10 @@ yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
 install_rust() {
-    if [[ ! $(which cargo) == *"cargo" ]]; then
-        curl https://sh.rustup.rs -sSf | sh -s -- -y
+    if ! command -v cargo >/dev/null 2>&1 || ! command -v rustup >/dev/null 2>&1; then
+        echo
+        echo ":: ${green}Intalling rust...${reset}"
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
         source "$HOME/.cargo/env"
         rustup component add rust-analyzer
         rustup component add rustfmt
