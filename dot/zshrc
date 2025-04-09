@@ -105,7 +105,13 @@ alias vimdiff="nvim -d"
 
 function upd() {
   if [[ $OSTYPE == "linux"* ]]; then
-    sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y
+    if command -v paru >/dev/null 2>&1; then
+      paru -Syu --noconfirm
+    elif command -v pacman >/dev/null 2>&1; then
+      sudo pacman -Syu --noconfirm
+    elif command -v apt >/dev/null 2>&1; then
+      sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y
+    fi
   fi
   if [[ $OSTYPE == "darwin"* && $(command -v brew) != "" ]]; then
     brew update && brew upgrade
