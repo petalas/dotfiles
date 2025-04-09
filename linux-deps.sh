@@ -67,19 +67,20 @@ if [[ "$os" == "ubuntu" || "$os" == "debian" ]]; then
     )
 elif [[ "$os" == "arch" ]]; then
     deps+=(
-        "p7zip"
         "base-devel" # includes gcc, g++, make, etc.
         "bind"       # for dig, nslookup (dnsutils)
         "fd"
         "google-chrome" # AUR: you'll need yay or paru
         "libnotify"
+        "openssh"
         "openssl" # libssl-dev equivalent
+        "p7zip"
         "perf"
         "pkgconf"
         "poppler"
         "python"
         "python-virtualenv"
-        "openssh"
+        "spotify"
     )
 else
     echo "Unsupported OS: $os"
