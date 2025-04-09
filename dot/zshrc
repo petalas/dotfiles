@@ -125,7 +125,6 @@ function killport() {
 
 # https://yazi-rs.github.io/docs/quick-start
 # yazi wrapper that provides the ability to change the current working directory when exiting Yazi.
-unalias y # alias for yarn by default
 function y() {
     local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
     yazi "$@" --cwd-file="$tmp"
