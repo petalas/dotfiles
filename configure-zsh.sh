@@ -33,6 +33,13 @@ else
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
 fi
 
+if [ -d "$ZSH_CUSTOM/plugins/fast-syntax-highlighting" ]; then
+    echo "fast-syntax-highlighting is already installed, skipping."
+else
+    echo "Installing fast-syntax-highlighting..."
+    git clone https://github.com/zdharma-continuum/fast-syntax-highlighting.git $ZSH_CUSTOM/plugins/fast-syntax-highlighting
+fi
+
 if [ -d "$ZSH_CUSTOM/plugins/autoupdate" ]; then
     echo "autoupdate is already installed, skipping."
 else
