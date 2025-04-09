@@ -36,12 +36,10 @@ install_docker() {
         sudo apt update
         sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
         sudo usermod -aG docker "$(whoami)"
-    
-    # Install Docker for Arch Linux using paru
     elif [[ "$os_id" == "arch" ]]; then
         echo "Using ${yellow}paru${reset} to install Docker..."
-        paru -S --noconfirm --needed docker docker-compose
-
+        paru -S --noconfirm --needed docker docker-compose docker-buildx
+        sudo usermod -aG docker "$(whoami)"
     else
         echo "Unsupported OS: $os_id"
         return 1

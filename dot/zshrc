@@ -88,6 +88,8 @@ alias yt-dlp-best="yt-dlp --external-downloader=aria2c --external-downloader-arg
 alias sshzeus="ssh nick@192.168.1.5"
 alias drma='docker rm -f $(docker ps -a -q)'
 
+alias ff='fastfetch'
+
 # take ownership and set permissions to 775 for dirs and 664 for files 
 alias fixperms='sudo chown -R $(whoami):$(whoami) . && sudo chmod -R a=,a+rX,u+w,g+w .'
 
