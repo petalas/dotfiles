@@ -82,6 +82,7 @@ elif [[ "$os" == "arch" ]]; then
         "python"
         "python-virtualenv"
         "spotify"
+        "visual-studio-code-bin"
     )
 else
     echo "Unsupported OS: $os"
