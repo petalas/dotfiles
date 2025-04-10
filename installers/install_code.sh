@@ -24,7 +24,7 @@ install_code() {
         sudo apt install code -yq
     elif [[ "$os_id" == "arch" ]]; then
         echo "Installing ${yellow}visual studio code${reset} ..."
-        paru -S --noconfirm --needed code
+        yay -S --noconfirm --needed visual-studio-code-bin
     else
         echo "Unsupported OS: $os_id"
         return 1
