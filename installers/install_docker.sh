@@ -19,14 +19,15 @@ install_docker() {
     # Detect OS
     os_id=$(grep -w ID /etc/os-release | cut -d '=' -f 2 | tr -d '"')
 
-    # Create directory for keyrings if not exist
-    sudo install -m 0755 -d /etc/apt/keyrings
-
-    # Remove any existing Docker key
-    sudo rm -f /etc/apt/keyrings/docker.gpg
 
     # Install Docker for Debian/Ubuntu
     if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
+        # Create directory for keyrings if not exist
+        sudo install -m 0755 -d /etc/apt/keyrings
+
+        # Remove any existing Docker key
+        sudo rm -f /etc/apt/keyrings/docker.gpg
+
         curl -fsSL https://download.docker.com/linux/$os_id/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
         sudo chmod a+r /etc/apt/keyrings/docker.gpg
         echo \
@@ -44,6 +45,9 @@ install_docker() {
         echo "Unsupported OS: $os_id"
         return 1
     fi
+
+    sudo systemctl enable docker
+    sudo systemctl restart docker
 
     echo "${green}Docker installation complete.${reset}"
 }
