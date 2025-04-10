@@ -6,14 +6,20 @@ yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
 install_rust() {
+    os=$(grep -w ID /etc/os-release | cut -d '=' -f 2 | tr -d '"')
     if ! command -v cargo >/dev/null 2>&1 || ! command -v rustup >/dev/null 2>&1; then
-        echo
-        echo ":: ${green}Intalling rust...${reset}"
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        source "$HOME/.cargo/env"
+        if [[ "$os" == "ubuntu" || "$os" == "debian" ]]; then
+            echo
+            echo ":: ${green}Intalling rust...${reset}"
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            source "$HOME/.cargo/env"
+        elif [[ "$os" == "arch" ]]; then
+            sudo pacman -Sy --noconfirm rust rustup
+        fi
         rustup component add rust-analyzer
         rustup component add rustfmt
-        # rustup toolchain install nightly
+    else
+        echo ":: ${yellow}rust${reset} is ${green}already installed${reset}."
     fi
 }
 
