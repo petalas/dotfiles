@@ -83,6 +83,7 @@ if command -v eza >/dev/null 2>&1; then
     alias ls='eza -a --icons=always'
     alias ll='eza -al --icons=always'
     alias lt='eza -a --tree --level=1 --icons=always'
+    alias lt2='eza -a --tree --level=2 --icons=always'
 fi
 alias yt-dlp-best="yt-dlp --external-downloader=aria2c --external-downloader-args '--min-split-size=1M --max-connection-per-server=16 --max-concurrent-downloads=16 --split=16' -f '(bestvideo+bestaudio/best)' --merge-output-format 'mkv'"
 alias sshzeus="ssh nick@192.168.1.5"

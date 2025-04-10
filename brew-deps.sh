@@ -36,6 +36,7 @@ declare -a deps=(
     "btop"
     "cmake"
     "elixir"
+    "eza"
     "fd"
     "ffmpeg"
     "gcc"

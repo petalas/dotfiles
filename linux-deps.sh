@@ -17,6 +17,7 @@ declare -a deps=(
     "clang"
     "cmake"
     "curl"
+    "eza"
     "ffmpeg"
     "fzf"
     "git"
