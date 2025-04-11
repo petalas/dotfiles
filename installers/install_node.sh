@@ -6,10 +6,15 @@ yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
 install_node() {
+    os=$(grep -w ID /etc/os-release | cut -d '=' -f 2 | tr -d '"')
     if [[ ! $(which nvm) == *"nvm" ]]; then
-        echo "Installing nvm..."
-        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.4/install.sh | bash
-        source ~/.nvm/nvm.sh
+        if [[ "$os" == "ubuntu" || "$os" == "debian" ]]; then
+            echo "Installing nvm..."
+            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.4/install.sh | bash
+            source ~/.nvm/nvm.sh
+        elif [[ "$os" == "arch" ]]; then
+            yay -S --noconfirm nvm
+        fi
     fi
 
     if [[ ! $(which node) == *"node" ]]; then
