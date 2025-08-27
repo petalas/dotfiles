@@ -39,6 +39,7 @@ declare -a deps=(
     "eza"
     "fd"
     "ffmpeg"
+    "fzf"
     "gcc"
     "gnupg"
     "htop"
@@ -53,11 +54,12 @@ declare -a deps=(
     "nvm"
     "poppler"
     "python"
-    "python3-setuptools"
+    "python-setuptools"
     "sevenzip"
     "tldr"
     "watch"
     "yt-dlp"
+    "zoxide"
 )
 for i in "${deps[@]}"; do
     if [[ $(brew ls --versions $i) == "" ]]; then
@@ -82,7 +84,7 @@ declare -a caskdeps=(
     "jordanbaird-ice"
     "keka"
     "kitty"
-    "openscad"
+    "openscad@snapshot"
     "parsec"
     "private-internet-access"
     "qbittorrent"
