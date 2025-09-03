@@ -53,11 +53,12 @@ declare -a deps=(
     "nmap"
     "nvm"
     "poppler"
-    "python"
     "python-setuptools"
+    "python"
     "sevenzip"
     "tldr"
     "watch"
+    "wget"
     "yt-dlp"
     "zoxide"
 )
