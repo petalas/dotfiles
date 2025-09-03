@@ -2,7 +2,7 @@
 	name = Nick Petalas
 	email = webmasternikos@gmail.com
 
-[includeIf "gitdir:~/git/work/"]
+[includeIf "gitdir:~/git/work/**"]
 	path = ~/git/work/.gitconfig
 
 [filter "lfs"]

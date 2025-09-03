@@ -6,11 +6,20 @@ yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
 install_rust() {
-    os=$(grep -w ID /etc/os-release | cut -d '=' -f 2 | tr -d '"')
+    # Detect OS
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        os="macos"
+    elif [[ -f /etc/os-release ]]; then
+        os=$(grep -w ID /etc/os-release | cut -d '=' -f 2 | tr -d '"')
+    else
+        echo ":: ${red}Unable to detect OS${reset}"
+        return 1
+    fi
+    
     if ! command -v rustc || ! command -v cargo >/dev/null 2>&1 || ! command -v rustup >/dev/null 2>&1; then
-        if [[ "$os" == "ubuntu" || "$os" == "debian" ]]; then
+        if [[ "$os" == "ubuntu" || "$os" == "debian" || "$os" == "macos" ]]; then
             echo
-            echo ":: ${green}Intalling rust...${reset}"
+            echo ":: ${green}Installing rust...${reset}"
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
             source "$HOME/.cargo/env"
         elif [[ "$os" == "arch" ]]; then
