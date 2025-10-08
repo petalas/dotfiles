@@ -152,6 +152,9 @@ if [ -f "$HOME/google-cloud-sdk/completion.zsh.inc" ]; then . "$HOME/google-clou
 # adding ~/.local/bin to path (for things like getnf)
 export PATH="$HOME/.local/bin:$PATH"
 
+# adding /opt/homebrew/sbin to path
+export PATH="/opt/homebrew/sbin:$PATH"
+
 # setup nvm
 [[ -d "$HOME/.nvm" ]] && export NVM_DIR="$HOME/.nvm"
 [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && . "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
