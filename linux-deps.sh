@@ -71,7 +71,6 @@ declare -a deps=(
     "shellcheck"
     "sshpass"
     "tar"
-    "tldr"
     "tmux"
     "unzip"
     "wget"
@@ -209,32 +208,59 @@ elif [[ "$os" == "arch" ]]; then
     fi
 fi
 
-# Function to check if a package is installed
+# Function to check if a package is installed using the package manager
 is_installed() {
-    if command -v "$1" >/dev/null 2>&1; then
-        return 0 # Package is installed
+    local pkg="$1"
+
+    if [[ "$os" == "arch" ]]; then
+        pacman -Qi "$pkg" &>/dev/null
+    elif [[ "$os" == "ubuntu" || "$os" == "debian" ]]; then
+        dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"
     else
-        return 1 # Package is not installed
+        # Fallback to command check
+        command -v "$pkg" >/dev/null 2>&1
     fi
 }
+
+# Associative array to store error messages for failed packages
+declare -A failed_errors
 
 # Function to install a single package using the appropriate package manager
 install_single_dep() {
     local pkg="$1"
+    local error_output
+    local exit_code
 
     if command -v paru >/dev/null 2>&1; then
-        paru -S --noconfirm --needed "$pkg" 2>/dev/null
+        error_output=$(paru -S --noconfirm --needed "$pkg" 2>&1)
+        exit_code=$?
     elif command -v apt >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
-        sudo apt-get install -y "$pkg" 2>/dev/null
+        error_output=$(sudo apt-get install -y "$pkg" 2>&1)
+        exit_code=$?
     elif command -v dnf >/dev/null 2>&1; then
-        sudo dnf install -y "$pkg" 2>/dev/null
+        error_output=$(sudo dnf install -y "$pkg" 2>&1)
+        exit_code=$?
     elif command -v yum >/dev/null 2>&1; then
-        sudo yum install -y "$pkg" 2>/dev/null
+        error_output=$(sudo yum install -y "$pkg" 2>&1)
+        exit_code=$?
     else
         print_error "No supported package manager found"
         return 1
     fi
+
+    if [[ $exit_code -ne 0 ]]; then
+        # Extract the most relevant error line
+        local error_line
+        error_line=$(echo "$error_output" | grep -iE "^(E:|error:)" | head -1)
+        if [[ -z "$error_line" ]]; then
+            # Fallback to last non-empty line
+            error_line=$(echo "$error_output" | grep -v '^$' | tail -1)
+        fi
+        failed_errors["$pkg"]="$error_line"
+        return 1
+    fi
+    return 0
 }
 
 # Iterate over dependencies and install missing ones
@@ -264,7 +290,25 @@ install_missing_deps() {
     done
 
     echo
-    print_info "Dependencies summary: ${green}$installed_count installed${reset}, ${yellow}$skipped_count skipped${reset}, ${red}$failed_count failed${reset}"
+    # Build summary string, only including non-zero counts
+    local summary_parts=()
+    [[ $installed_count -gt 0 ]] && summary_parts+=("${green}$installed_count installed${reset}")
+    [[ $skipped_count -gt 0 ]] && summary_parts+=("${yellow}$skipped_count skipped${reset}")
+    [[ $failed_count -gt 0 ]] && summary_parts+=("${red}$failed_count failed${reset}")
+
+    if [[ ${#summary_parts[@]} -gt 0 ]]; then
+        local IFS=', '
+        print_info "Dependencies summary: ${summary_parts[*]}"
+    fi
+
+    # Print error details for failed packages
+    if [[ ${#failed_deps[@]} -gt 0 ]]; then
+        echo
+        print_error "Failed installations:"
+        for pkg in "${failed_deps[@]}"; do
+            echo "  ${red}✗${reset} ${yellow}$pkg${reset}: ${failed_errors[$pkg]:-unknown error}"
+        done
+    fi
 }
 
 install_missing_deps
