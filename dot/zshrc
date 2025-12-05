@@ -222,5 +222,4 @@ case ":$PATH:" in
 esac
 # pnpm end
 export PATH="$HOME/bin:$PATH"
-eval "$(zoxide init --cmd cd zsh)"
 export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
