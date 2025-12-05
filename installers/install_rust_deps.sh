@@ -8,7 +8,7 @@ reset=$(tput sgr0)
 install_rust_deps() {
     echo "Updating rustup"
     rustup update
-    declare -a rust_deps=("tree-sitter-cli" "ripgrep" "wasm-bindgen-cli" "cargo-edit" "yazi-fm" "yazi-cli")
+    declare -a rust_deps=("tree-sitter-cli" "ripgrep" "wasm-bindgen-cli" "cargo-edit" "yazi-fm" "yazi-cli" "tealdeer")
     for i in "${rust_deps[@]}"; do
         if [[ ! $(which $i) == *"$i" ]]; then
             echo "Installing ${yellow}$i${reset}"
