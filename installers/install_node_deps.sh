@@ -11,7 +11,7 @@ install_node_deps() {
         return 1
     fi
 
-    declare -a node_deps=("typescript" "typescript-language-server")
+    declare -a node_deps=("typescript" "typescript-language-server" "tldr")
     for i in "${node_deps[@]}"; do
         echo "Installing ${yellow}$i${reset}"
         npm i -g $i
