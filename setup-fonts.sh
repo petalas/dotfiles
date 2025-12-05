@@ -58,6 +58,32 @@ function update_fonts_cache() {
     # echo "${GREEN}fc-cache: update succeeded!${RESET}"
 }
 
+function is_wsl() {
+	grep -qiE "(microsoft|wsl)" /proc/version 2>/dev/null
+}
+
+function copy_fonts_to_windows() {
+	# Get Windows user home directory via wslpath
+	win_user=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
+	win_fonts_dir=$(wslpath "C:/Users/$win_user/AppData/Local/Microsoft/Windows/Fonts" 2>/dev/null)
+
+	if [[ -z "$win_fonts_dir" || ! -d "$(dirname "$win_fonts_dir")" ]]; then
+		echo "${RED}Could not determine Windows fonts directory${RESET}"
+		return 1
+	fi
+
+	mkdir -p "$win_fonts_dir" 2>/dev/null
+
+	echo "${BLUE}Copying fonts to Windows host at $win_fonts_dir...${RESET}"
+	for font in "${fonts[@]}"; do
+		if [[ -d "$dist_dir/$font" ]]; then
+			cp -r "$dist_dir/$font"/* "$win_fonts_dir/" 2>/dev/null
+		fi
+	done
+	echo "${GREEN}Fonts copied to Windows host!${RESET}"
+	echo "${BLUE}Note: You may need to manually install the fonts on Windows by selecting them in $win_fonts_dir and right-clicking -> Install${RESET}"
+}
+
 declare -a fonts=("Hack" "FantasqueSansMono" "InconsolataLGC" "Ubuntu")
 
 echo "Installing patched nerd fonts..."
@@ -77,3 +103,9 @@ for i in "${fonts[@]}"; do
 done
 
 update_fonts_cache
+
+# If running in WSL, copy fonts to Windows host
+if is_wsl; then
+	echo "${BLUE}WSL detected, copying fonts to Windows host...${RESET}"
+	copy_fonts_to_windows
+fi
