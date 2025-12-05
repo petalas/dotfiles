@@ -61,7 +61,6 @@ declare -a deps=(
 	"watch"
 	"wget"
 	"yt-dlp"
-	"zoxide"
 )
 for i in "${deps[@]}"; do
 	if [[ $(brew ls --versions $i) == "" ]]; then
