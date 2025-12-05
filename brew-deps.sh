@@ -100,6 +100,7 @@ declare -a caskdeps=(
 	"visual-studio-code"
 	"vlc"
 	"whatsapp"
+	"zed@preview"
 )
 for i in "${caskdeps[@]}"; do
 	if [[ $(brew ls --cask --versions $i) == "" ]]; then

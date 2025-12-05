@@ -1,13 +1,50 @@
 #!/usr/bin/env bash
 
-set -e # exit on error
+# Color setup with fallback for non-interactive terminals
+if tput setaf 1 &>/dev/null; then
+    red=$(tput setaf 1)
+    green=$(tput setaf 2)
+    yellow=$(tput setaf 3)
+    reset=$(tput sgr0)
+else
+    red=""
+    green=""
+    yellow=""
+    reset=""
+fi
 
-red=$(tput setaf 1)
-green=$(tput setaf 2)
-yellow=$(tput setaf 3)
-reset=$(tput sgr0)
+# Track failed installations for summary
+declare -a failed_deps=()
+declare -a failed_installers=()
 
-os=$(grep -w ID /etc/os-release | cut -d '=' -f 2 | tr -d '"')
+# Helper functions for consistent messaging
+print_error() {
+    echo "${red}[ERROR]${reset} $1"
+}
+
+print_warning() {
+    echo "${yellow}[WARNING]${reset} $1"
+}
+
+print_success() {
+    echo "${green}[OK]${reset} $1"
+}
+
+print_info() {
+    echo ":: $1"
+}
+
+# Detect OS with error handling
+if [[ ! -f /etc/os-release ]]; then
+    print_error "Cannot detect OS: /etc/os-release not found"
+    exit 1
+fi
+
+os=$(grep -w ID /etc/os-release 2>/dev/null | cut -d '=' -f 2 | tr -d '"')
+if [[ -z "$os" ]]; then
+    print_error "Cannot detect OS: Failed to parse /etc/os-release"
+    exit 1
+fi
 
 declare -a deps=(
     "bat"
@@ -54,7 +91,6 @@ if [[ "$os" == "ubuntu" || "$os" == "debian" ]]; then
         "fd-find"
         "g++"
         "gcc"
-        "google-chrome-stable"
         "gpg"
         "libnotify4"
         "libssl-dev"
@@ -71,7 +107,6 @@ elif [[ "$os" == "arch" ]]; then
         "base-devel" # includes gcc, g++, make, etc.
         "bind"       # for dig, nslookup (dnsutils)
         "fd"
-        "google-chrome" # AUR: you'll need yay or paru
         "libnotify"
         "openssh"
         "openssl" # libssl-dev equivalent
@@ -85,42 +120,51 @@ elif [[ "$os" == "arch" ]]; then
         "visual-studio-code-bin"
     )
 else
-    echo "Unsupported OS: $os"
+    print_error "Unsupported OS: $os"
     exit 1
 fi
 
-add_chrome_repo() {
-    echo "Adding Google Chrome repo..."
-
-    # Download the key and store it in a trusted keyring
-    wget -q -O - https://dl.google.com/linux/linux_signing_key.pub |
-        gpg --dearmor | sudo tee /usr/share/keyrings/google-chrome.gpg >/dev/null
-
-    # Create the source list
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" |
-        sudo tee /etc/apt/sources.list.d/google-chrome.list >/dev/null
-
-    # Update apt so it sees the new repo
-    sudo apt update
-}
-
 install_paru() {
     echo
-    echo ":: Installing ${yellow}paru${reset}..."
-    sudo pacman -S --noconfirm --needed base-devel git bat
+    print_info "Installing ${yellow}paru${reset}..."
+
+    if ! sudo pacman -S --noconfirm --needed base-devel git bat; then
+        print_error "Failed to install paru dependencies"
+        return 1
+    fi
+
     SCRIPT=$(realpath "$0")
     original_dir=$(dirname "$SCRIPT")
-    git clone https://aur.archlinux.org/paru.git /tmp/paru
-    cd /tmp/paru
-    makepkg -si --noconfirm
+
+    # Clean up any previous failed attempt
+    rm -rf /tmp/paru
+
+    if ! git clone https://aur.archlinux.org/paru.git /tmp/paru; then
+        print_error "Failed to clone paru repository"
+        return 1
+    fi
+
+    cd /tmp/paru || return 1
+
+    if ! makepkg -si --noconfirm; then
+        print_error "Failed to build/install paru"
+        cd "$original_dir"
+        return 1
+    fi
+
     cd "$original_dir"
-    echo ":: ${yellow}paru${reset} has been ${green}installed successfully${reset}."
+    print_success "${yellow}paru${reset} has been installed successfully"
     echo
 }
 
 set_parallel_downloads() {
     local value="$1"
     local conf="/etc/pacman.conf"
+
+    if [[ ! -f "$conf" ]]; then
+        print_warning "pacman.conf not found, skipping parallel downloads configuration"
+        return 1
+    fi
 
     # Check if the line already exists (commented or uncommented)
     if grep -qE "^\s*#?\s*ParallelDownloads\s*=" "$conf"; then
@@ -134,19 +178,34 @@ set_parallel_downloads() {
 
 # Update package list based on OS
 if [[ "$os" == "ubuntu" || "$os" == "debian" ]]; then
-    sudo apt update
-    add_chrome_repo
+    print_info "Updating apt package list..."
+    if ! sudo apt update; then
+        print_warning "apt update failed, some packages may not install correctly"
+    fi
 elif [[ "$os" == "arch" ]]; then
     set_parallel_downloads 8 # default is 5, probably won't make much of a difference
-    sudo pacman -Syu
-    sudo pacman -S --noconfirm --needed reflector
-    echo ":: Finding the ${green}fastest mirrors${reset}, this might take a while..."
-    sudo reflector --threads 8 --latest 100 -n 10 --connection-timeout 1 --download-timeout 1 --sort rate --save /etc/pacman.d/mirrorlist >/dev/null 2>&1
-    echo "$(cat /etc/pacman.d/mirrorlist)"
-    echo ":: ${green}Fastest mirrors found!${reset}"
+
+    print_info "Updating system packages..."
+    if ! sudo pacman -Syu --noconfirm; then
+        print_warning "System update failed, continuing anyway..."
+    fi
+
+    if ! sudo pacman -S --noconfirm --needed reflector; then
+        print_warning "Failed to install reflector, skipping mirror optimization"
+    else
+        print_info "Finding the ${green}fastest mirrors${reset}, this might take a while..."
+        if sudo reflector --threads 8 --latest 100 -n 10 --connection-timeout 1 --download-timeout 1 --sort rate --save /etc/pacman.d/mirrorlist >/dev/null 2>&1; then
+            cat /etc/pacman.d/mirrorlist
+            print_success "Fastest mirrors found!"
+        else
+            print_warning "Mirror optimization failed, using existing mirrors"
+        fi
+    fi
 
     if ! command -v paru &>/dev/null; then
-        install_paru
+        if ! install_paru; then
+            print_error "paru installation failed - AUR packages will not be available"
+        fi
     fi
 fi
 
@@ -159,70 +218,140 @@ is_installed() {
     fi
 }
 
-# Function to install packages using the appropriate package manager
-install_deps() {
-    local packages=("$@")
-    echo
-    echo ":: ${yellow}Installing ${green}${packages[*]}${reset}..."
-    echo
+# Function to install a single package using the appropriate package manager
+install_single_dep() {
+    local pkg="$1"
+
     if command -v paru >/dev/null 2>&1; then
-        # If using paru (pacman wrapper, AUR helper) (e.g., Arch Linux) - Non-interactive with --noconfirm
-        paru -S --noconfirm --needed "${packages[@]}" || echo "Error installing ${yellow}${packages[*]}${reset} with paru"
+        paru -S --noconfirm --needed "$pkg" 2>/dev/null
     elif command -v apt >/dev/null 2>&1; then
-        # If using apt (e.g., Ubuntu, Debian) - Non-interactive with DEBIAN_FRONTEND=noninteractive
         export DEBIAN_FRONTEND=noninteractive
-        sudo apt-get install -y "${packages[@]}" || echo "Error installing ${yellow}${packages[*]}${reset} with apt"
+        sudo apt-get install -y "$pkg" 2>/dev/null
     elif command -v dnf >/dev/null 2>&1; then
-        # If using dnf (e.g., Fedora) - Non-interactive with -y
-        sudo dnf install -y "${packages[@]}" || echo "Error installing ${yellow}${packages[*]}${reset} with dnf"
+        sudo dnf install -y "$pkg" 2>/dev/null
     elif command -v yum >/dev/null 2>&1; then
-        # If using yum (e.g., CentOS, RHEL) - Non-interactive with -y
-        sudo yum install -y "${packages[@]}" || echo "Error installing ${yellow}${packages[*]}${reset} with yum"
+        sudo yum install -y "$pkg" 2>/dev/null
     else
-        echo "${red}No supported package manager found.${reset}"
+        print_error "No supported package manager found"
+        return 1
     fi
 }
 
 # Iterate over dependencies and install missing ones
 install_missing_deps() {
-    pending=()
+    local installed_count=0
+    local failed_count=0
+    local skipped_count=0
+
+    print_info "Installing base dependencies..."
+    echo
+
     for dep in "${deps[@]}"; do
         if is_installed "$dep"; then
-            echo "${yellow}$dep${reset} is ${green}already installed${reset}."
+            echo "  ${green}✓${reset} ${yellow}$dep${reset} already installed"
+            ((skipped_count++))
         else
-            pending+=("$dep")
+            echo -n "  ${yellow}○${reset} Installing ${yellow}$dep${reset}... "
+            if install_single_dep "$dep"; then
+                echo "${green}done${reset}"
+                ((installed_count++))
+            else
+                echo "${red}failed${reset}"
+                failed_deps+=("$dep")
+                ((failed_count++))
+            fi
         fi
     done
-    if [[ "${pending[@]}" == "" ]]; then
-        echo ":: ${green}All base dependencies are already installed.${reset}"
-        return
-    fi
-    install_deps "${pending[@]}"
+
+    echo
+    print_info "Dependencies summary: ${green}$installed_count installed${reset}, ${yellow}$skipped_count skipped${reset}, ${red}$failed_count failed${reset}"
 }
 
 install_missing_deps
 echo
-echo "${green}Base dependencies => Installation complete.${reset}"
-echo
 
 # Source all installer scripts
-source "$(dirname "$0")/installers/source_installers.sh"
+SCRIPT_DIR="$(dirname "$0")"
+if [[ -f "$SCRIPT_DIR/installers/source_installers.sh" ]]; then
+    source "$SCRIPT_DIR/installers/source_installers.sh"
+else
+    print_error "Installers source file not found: $SCRIPT_DIR/installers/source_installers.sh"
+    exit 1
+fi
+
+# Helper function to run an installer with tracking
+run_installer() {
+    local name="$1"
+    local func="install_$name"
+
+    if ! declare -f "$func" >/dev/null 2>&1; then
+        print_warning "Installer function '$func' not found, skipping"
+        return 0
+    fi
+
+    if ! "$func"; then
+        print_error "Failed to install $name"
+        failed_installers+=("$name")
+        return 1
+    fi
+    return 0
+}
 
 # Run all installers
-echo "${yellow}Running installers...${reset}"
-install_bitwarden || echo "${red}Failed to install bitwarden${reset}"
-install_bun || echo "${red}Failed to install bun${reset}"
-install_code || echo "${red}Failed to install code${reset}"
-install_discord || echo "${red}Failed to install discord${reset}"
-install_docker || echo "${red}Failed to install docker${reset}"
-install_kitty || echo "${red}Failed to install kitty${reset}"
-install_lazydocker || echo "${red}Failed to install lazydocker${reset}"
-install_lazygit || echo "${red}Failed to install lazygit${reset}"
-install_neovim || echo "${red}Failed to install neovim${reset}"
-install_node || echo "${red}Failed to install node${reset}"
-install_node_deps || echo "${red}Failed to install node_deps${reset}"
-install_sdkman || echo "${red}Failed to install sdkman${reset}"
-install_sdkman_deps || echo "${red}Failed to install sdkman_deps${reset}"
-install_rust || echo "${red}Failed to install rust${reset}"
-install_rust_deps || echo "${red}Failed to install rust_deps${reset}"
-install_zerotier || echo "${red}Failed to install zerotier${reset}"
+print_info "Running application installers..."
+echo
+
+declare -a installers=(
+    "bitwarden"
+    "bun"
+    "chrome"
+    "code"
+    "discord"
+    "docker"
+    "kitty"
+    "lazydocker"
+    "lazygit"
+    "neovim"
+    "node"
+    "node_deps"
+    "sdkman"
+    "sdkman_deps"
+    "rust"
+    "rust_deps"
+    "zerotier"
+)
+
+for installer in "${installers[@]}"; do
+    run_installer "$installer"
+done
+
+# Print final summary
+echo
+echo "=============================================="
+print_info "Installation Summary"
+echo "=============================================="
+
+if [[ ${#failed_deps[@]} -eq 0 && ${#failed_installers[@]} -eq 0 ]]; then
+    print_success "All installations completed successfully!"
+else
+    if [[ ${#failed_deps[@]} -gt 0 ]]; then
+        echo
+        print_error "Failed dependencies (${#failed_deps[@]}):"
+        for dep in "${failed_deps[@]}"; do
+            echo "  ${red}✗${reset} $dep"
+        done
+    fi
+
+    if [[ ${#failed_installers[@]} -gt 0 ]]; then
+        echo
+        print_error "Failed installers (${#failed_installers[@]}):"
+        for installer in "${failed_installers[@]}"; do
+            echo "  ${red}✗${reset} $installer"
+        done
+    fi
+
+    echo
+    print_warning "Some installations failed. You may need to install them manually."
+fi
+
+echo
