@@ -2,7 +2,7 @@
 
 # MacOS dependencies managed by homebrew
 if [[ $OSTYPE == "darwin"* ]]; then
-    ./brew-deps.sh
+	./brew-deps.sh
 elif [[ $OSTYPE == "linux"* ]]; then
-    ./linux-deps.sh
+	./linux-deps.sh
 fi

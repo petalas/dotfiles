@@ -56,6 +56,7 @@ declare -a deps=(
 	"poppler"
 	"python"
 	"python-setuptools"
+	"rsync"
 	"sevenzip"
 	"tldr"
 	"watch"
