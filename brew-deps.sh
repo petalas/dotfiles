@@ -79,7 +79,6 @@ declare -a caskdeps=(
 	"dbeaver-community"
 	"discord"
 	"docker"
-	"dropbox"
 	"gimp"
 	"google-chrome"
 	"grandperspective"
