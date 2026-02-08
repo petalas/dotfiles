@@ -24,10 +24,10 @@
       }
     ]
   },
-  "feedbackSurveyState": {
-    "lastShownTime": 1754092430466
-  },
   "enabledPlugins": {
     "typescript-lsp@claude-plugins-official": true
+  },
+  "feedbackSurveyState": {
+    "lastShownTime": 1754092430466
   }
 }
