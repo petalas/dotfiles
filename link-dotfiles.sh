@@ -90,3 +90,46 @@ ln -s "$(pwd)/dot/.config/bat" $HOME/.config/bat
 bat cache --build
 
 git clone https://github.com/petalas/nvim.git $HOME/.config/nvim -b custom
+
+# claude code
+if [ ! -d "$HOME/.claude" ]; then
+    echo "Creating: $HOME/.claude"
+    mkdir -p $HOME/.claude
+fi
+if [ ! -d "$HOME/.claude/commands" ]; then
+    echo "Creating: $HOME/.claude/commands"
+    mkdir -p $HOME/.claude/commands
+fi
+
+# CLAUDE.md
+[ -e $HOME/.claude/CLAUDE.md.old ] && rm $HOME/.claude/CLAUDE.md.old
+if [ -e $HOME/.claude/CLAUDE.md ]; then
+    echo "Creating backup: $HOME/.claude/CLAUDE.md.old"
+    cp $HOME/.claude/CLAUDE.md $HOME/.claude/CLAUDE.md.old
+    rm $HOME/.claude/CLAUDE.md
+fi
+echo "Linking $(pwd)/dot/claude/CLAUDE.md -> $HOME/.claude/CLAUDE.md"
+ln -s "$(pwd)/dot/claude/CLAUDE.md" $HOME/.claude/CLAUDE.md
+
+# settings.json
+[ -e $HOME/.claude/settings.json.old ] && rm $HOME/.claude/settings.json.old
+if [ -e $HOME/.claude/settings.json ]; then
+    echo "Creating backup: $HOME/.claude/settings.json.old"
+    cp $HOME/.claude/settings.json $HOME/.claude/settings.json.old
+    rm $HOME/.claude/settings.json
+fi
+echo "Linking $(pwd)/dot/claude/settings.json -> $HOME/.claude/settings.json"
+ln -s "$(pwd)/dot/claude/settings.json" $HOME/.claude/settings.json
+
+# commands/ (symlink each .md file)
+for cmd in $(pwd)/dot/claude/commands/*.md; do
+    cmdname=$(basename "$cmd")
+    [ -e "$HOME/.claude/commands/$cmdname.old" ] && rm "$HOME/.claude/commands/$cmdname.old"
+    if [ -e "$HOME/.claude/commands/$cmdname" ]; then
+        echo "Creating backup: $HOME/.claude/commands/$cmdname.old"
+        cp "$HOME/.claude/commands/$cmdname" "$HOME/.claude/commands/$cmdname.old"
+        rm "$HOME/.claude/commands/$cmdname"
+    fi
+    echo "Linking $(pwd)/dot/claude/commands/$cmdname -> $HOME/.claude/commands/$cmdname"
+    ln -s "$cmd" "$HOME/.claude/commands/$cmdname"
+done
