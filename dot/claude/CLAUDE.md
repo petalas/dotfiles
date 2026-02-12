@@ -1,5 +1,8 @@
 - Always use the ?? operator instead of || for setting default values (for example empty arrays)
 
+## Git Commits
+- Do not add Co-Authored-By lines
+
 ## Knowledge System
 
 Projects should have a **routing table** in CLAUDE.md mapping file patterns to docs, and a **"When You Struggle"** capture process. Run `/knowledge-audit` to check any project, set one up, or migrate from an older format.
