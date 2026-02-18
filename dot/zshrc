@@ -229,5 +229,3 @@ esac
 export PATH="$HOME/bin:$PATH"
 export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
 
-# OpenClaw Completion
-source <(openclaw completion --shell zsh)
