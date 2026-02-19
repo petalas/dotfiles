@@ -179,12 +179,12 @@ if [[ ":$PATH:" != *":$HOME/.cargo/bin:"* ]]; then
     export PATH="$HOME/.cargo/bin:$PATH"
 fi
 
-# bun completions
-[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
-
 # bun
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
+if [[ -d "$HOME/.bun" ]]; then
+    [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
+    export BUN_INSTALL="$HOME/.bun"
+    export PATH="$BUN_INSTALL/bin:$PATH"
+fi
 
 ### MANAGED BY RANCHER DESKTOP START (DO NOT EDIT)
 export PATH="$HOME/.rd/bin:$PATH"
@@ -229,6 +229,3 @@ esac
 export PATH="$HOME/bin:$PATH"
 export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
 
-# bun
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
