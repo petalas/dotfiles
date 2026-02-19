@@ -58,7 +58,11 @@ source $ZSH/oh-my-zsh.sh
 # Set-up FZF key bindings (CTRL R for fuzzy history finder)
 # -----------------------------------------------------
 if command -v fzf >/dev/null 2>&1; then
-    source <(fzf --zsh)
+    if fzf_init="$(fzf --zsh 2>/dev/null)"; then
+        eval "$fzf_init"
+    elif [[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ]]; then
+        source /usr/share/doc/fzf/examples/key-bindings.zsh
+    fi
 fi
 
 # zsh history
