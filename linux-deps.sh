@@ -236,8 +236,7 @@ install_single_dep() {
 		error_output=$(paru -S --noconfirm --needed "$pkg" 2>&1)
 		exit_code=$?
 	elif command -v apt >/dev/null 2>&1; then
-		export DEBIAN_FRONTEND=noninteractive
-		error_output=$(sudo apt-get install -y "$pkg" 2>&1)
+		error_output=$(sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "$pkg" 2>&1)
 		exit_code=$?
 	elif command -v dnf >/dev/null 2>&1; then
 		error_output=$(sudo dnf install -y "$pkg" 2>&1)
