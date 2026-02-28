@@ -91,6 +91,32 @@ bat cache --build
 
 git clone https://github.com/petalas/nvim.git $HOME/.config/nvim -b custom
 
+# ssh
+if [ ! -d "$HOME/.ssh" ]; then
+    echo "Creating: $HOME/.ssh"
+    mkdir -p $HOME/.ssh
+    chmod 700 $HOME/.ssh
+fi
+
+[ -e $HOME/.ssh/config.shared.old ] && rm $HOME/.ssh/config.shared.old
+if [ -e $HOME/.ssh/config.shared ]; then
+    echo "Creating backup: $HOME/.ssh/config.shared.old"
+    cp $HOME/.ssh/config.shared $HOME/.ssh/config.shared.old
+    rm $HOME/.ssh/config.shared
+fi
+echo "Linking $(pwd)/dot/.ssh/config.shared -> $HOME/.ssh/config.shared"
+ln -s "$(pwd)/dot/.ssh/config.shared" $HOME/.ssh/config.shared
+
+# ensure ~/.ssh/config includes the shared config
+if [ ! -e $HOME/.ssh/config ]; then
+    echo "Include ~/.ssh/config.shared" > $HOME/.ssh/config
+    chmod 600 $HOME/.ssh/config
+    echo "Created $HOME/.ssh/config with Include directive"
+elif ! grep -q "config.shared" $HOME/.ssh/config; then
+    sed -i'' -e '1s/^/Include ~\/.ssh\/config.shared\n\n/' $HOME/.ssh/config
+    echo "Added Include directive to $HOME/.ssh/config"
+fi
+
 # claude code
 if [ ! -d "$HOME/.claude" ]; then
     echo "Creating: $HOME/.claude"
