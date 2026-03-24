@@ -107,24 +107,64 @@ elif command -v vim >/dev/null 2>&1; then
 fi
 
 function upd() {
-  if [[ $OSTYPE == "linux"* ]]; then
+  local failures=()
+
+  _upd_run() {
+    local label="$1"; shift
+    echo "\n\033[1;34m:: $label\033[0m"
+    if ! "$@"; then
+      failures+=("$label")
+    fi
+  }
+
+  # System packages
+  if [[ $OSTYPE == linux* ]]; then
     if command -v paru >/dev/null 2>&1; then
-      paru -Syu --noconfirm
+      _upd_run "paru" paru -Syu --noconfirm
     elif command -v pacman >/dev/null 2>&1; then
-      sudo pacman -Syu --noconfirm
+      _upd_run "pacman" sudo pacman -Syu --noconfirm
     elif command -v apt >/dev/null 2>&1; then
-      sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y
+      _upd_run "apt update" sudo apt update &&
+        _upd_run "apt upgrade" sudo apt upgrade -y &&
+        _upd_run "apt autoremove" sudo apt autoremove -y
+    fi
+
+    if command -v flatpak >/dev/null 2>&1; then
+      _upd_run "flatpak" flatpak update -y
     fi
   fi
-  if [[ $OSTYPE == "darwin"* && $(command -v brew) != "" ]]; then
-    brew update && brew upgrade
+
+  if [[ $OSTYPE == darwin* ]]; then
+    if command -v brew >/dev/null 2>&1; then
+      _upd_run "brew update" brew update &&
+        _upd_run "brew upgrade" brew upgrade
+    fi
   fi
+
+  # Language toolchains
   if command -v rustup >/dev/null 2>&1; then
-    rustup update
+    _upd_run "rustup" rustup update
   fi
+
+  if command -v npm >/dev/null 2>&1; then
+    _upd_run "npm global" npm update -g
+  fi
+
+  # Misc tools
   if command -v tldr >/dev/null 2>&1; then
-    tldr -u
+    _upd_run "tldr" tldr -u
   fi
+
+  # Summary
+  echo ""
+  if (( ${#failures[@]} )); then
+    echo "\033[1;31m✗ Failed: ${(j:, :)failures}\033[0m"
+    return 1
+  else
+    echo "\033[1;32m✓ Everything up to date.\033[0m"
+  fi
+
+  unset -f _upd_run
 }
 
 # kill anything taking up the specified port, usage example: killport 6060
