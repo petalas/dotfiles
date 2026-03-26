@@ -147,7 +147,7 @@ function upd() {
   fi
 
   if command -v npm >/dev/null 2>&1; then
-    local npm_pkgs=($(npm outdated -g --parseable 2>/dev/null | cut -d: -f4 | grep -v '/\.' | sort -u))
+    local npm_pkgs=($(npm outdated -g --parseable 2>/dev/null | cut -d: -f4 | sed 's/@[^@]*$//' | grep -v '/\.' | sort -u))
     if (( ${#npm_pkgs[@]} )); then
       _upd_run "npm global" npm update -g "${npm_pkgs[@]}"
     else
