@@ -30,9 +30,6 @@ if ! which brew &>/dev/null; then
 	# Add Homebrew to PATH
 	echo 'export PATH="/opt/homebrew/bin:$PATH"' >>"$profile_file"
 
-	# Source the profile file
-	source "$profile_file"
-
-	# reload zsh
-	exec zsh
+	# Add Homebrew to PATH for the current session
+	eval "$(/opt/homebrew/bin/brew shellenv)"
 fi
