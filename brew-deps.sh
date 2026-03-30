@@ -27,6 +27,10 @@ fi
 printf "\nUpdating Homebrew...\n"
 brew update && brew upgrade
 
+## Fetch installed lists once (avoids ~55 individual brew calls)
+installed_formulae=$(brew list --formula -1)
+installed_casks=$(brew list --cask -1)
+
 ## Install dependencies
 echo "Checking dependencies..."
 declare -a deps=(
@@ -66,11 +70,11 @@ declare -a deps=(
 	"yt-dlp"
 )
 for i in "${deps[@]}"; do
-	if [[ $(brew ls --versions $i) == "" ]]; then
-		echo "Installing ${yellow}$i${reset}"
-		brew install $i
-	else
+	if echo "$installed_formulae" | grep -qx "$i"; then
 		echo "${yellow}$i${reset} is ${green}already installed${reset}."
+	else
+		echo "Installing ${yellow}$i${reset}"
+		brew install "$i"
 	fi
 done
 
@@ -104,11 +108,11 @@ declare -a caskdeps=(
 	"zed@preview"
 )
 for i in "${caskdeps[@]}"; do
-	if [[ $(brew ls --cask --versions $i) == "" ]]; then
-		echo "Installing ${yellow}$i${reset}"
-		brew install --cask $i
-	else
+	if echo "$installed_casks" | grep -qx "$i"; then
 		echo "${yellow}$i${reset} is ${green}already installed${reset}."
+	else
+		echo "Installing ${yellow}$i${reset}"
+		brew install --cask "$i"
 	fi
 done
 
