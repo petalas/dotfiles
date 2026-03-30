@@ -45,15 +45,9 @@ function remove_zip_files() {
 }
 
 function update_fonts_cache() {
-	echo "${BLUE}Updating fc-cache...${RESET}"
-	fc-cache -f 2>&1
-	echo "${GREEN}fc-cache: update succeeded!${RESET}"
-}
-
-function update_fonts_cache() {
 	echo "${BLUE}Updating fonts cache...${RESET}"
 	fc-cache -f 2>&1
-	# echo "${GREEN}fc-cache: update succeeded!${RESET}"
+	echo "${GREEN}fc-cache: update succeeded!${RESET}"
 }
 
 function is_wsl() {
@@ -83,24 +77,28 @@ function copy_fonts_to_windows() {
 }
 
 declare -a fonts=("Hack" "FantasqueSansMono" "InconsolataLGC" "Ubuntu")
+fonts_installed=false
 
 echo "Installing patched nerd fonts..."
 for i in "${fonts[@]}"; do
 	if [[ $(fc-list | grep "$i" | tail -1) == *"$i"* ]]; then
-		echo "${yellow}$i${reset} is ${green}already installed${reset}".
+		echo "${GREEN}$i${RESET} is already installed."
 	else
 		pushd "$down_dir" >/dev/null
-		# remove the old download font if it exsists
-		[ -f $down_dir/$i.zip ] && rm $down_dir/$i.zip
-		download_font $i
-		install_font $i
+		# remove the old download font if it exists
+		[ -f "$down_dir/$i.zip" ] && rm "$down_dir/$i.zip"
+		download_font "$i"
+		install_font "$i"
 		# cleanup
-		[ -f $down_dir/$i.zip ] && rm $down_dir/$i.zip
+		[ -f "$down_dir/$i.zip" ] && rm "$down_dir/$i.zip"
 		popd >/dev/null
+		fonts_installed=true
 	fi
 done
 
-update_fonts_cache
+if $fonts_installed; then
+	update_fonts_cache
+fi
 
 # If running in WSL, copy fonts to Windows host
 if is_wsl; then
