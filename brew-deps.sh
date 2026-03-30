@@ -27,6 +27,11 @@ fi
 printf "\nUpdating Homebrew...\n"
 brew update && brew upgrade
 
+if ! brew tap | grep -qx "mobile-dev-inc/tap"; then
+	echo "Tapping ${yellow}mobile-dev-inc/tap${reset}"
+	brew tap mobile-dev-inc/tap
+fi
+
 ## Fetch installed lists once (avoids ~55 individual brew calls)
 installed_formulae=$(brew list --formula -1)
 installed_casks=$(brew list --cask -1)
@@ -53,7 +58,6 @@ declare -a deps=(
 	"jq"
 	"lazydocker"
 	"lazygit"
-	"maestro"
 	"media-info"
 	"mtr"
 	"neovim"
@@ -77,6 +81,13 @@ for i in "${deps[@]}"; do
 		brew install "$i"
 	fi
 done
+
+if echo "$installed_formulae" | grep -qx "maestro"; then
+	echo "${yellow}maestro${reset} is ${green}already installed${reset}."
+else
+	echo "Installing ${yellow}mobile-dev-inc/tap/maestro${reset}"
+	brew install mobile-dev-inc/tap/maestro
+fi
 
 printf "\n\nChecking cask dependencies...\n"
 declare -a caskdeps=(
@@ -105,6 +116,7 @@ declare -a caskdeps=(
 	"sublime-text"
 	"syncthing-app"
 	"tailscale-app"
+	"temurin@17"
 	"visual-studio-code"
 	"vlc"
 	"whatsapp"
