@@ -51,6 +51,7 @@ declare -a deps=(
 	"ffmpeg"
 	"fzf"
 	"gcc"
+	"gh"
 	"gnupg"
 	"htop"
 	"imagemagick"

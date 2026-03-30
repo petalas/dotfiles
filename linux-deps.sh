@@ -58,6 +58,7 @@ declare -a deps=(
 	"ffmpeg"
 	"fzf"
 	"git"
+	"gh"
 	"gnupg"
 	"grep"
 	"htop"
