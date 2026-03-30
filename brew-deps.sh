@@ -59,6 +59,7 @@ declare -a deps=(
 	"python-setuptools"
 	"rsync"
 	"sevenzip"
+	"tailscale"
 	"tldr"
 	"watch"
 	"wget"
