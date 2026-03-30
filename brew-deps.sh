@@ -66,7 +66,7 @@ declare -a deps=(
 for i in "${deps[@]}"; do
 	if [[ $(brew ls --versions $i) == "" ]]; then
 		echo "Installing ${yellow}$i${reset}"
-		brew install --no-quarantine $i
+		brew install $i
 	else
 		echo "${yellow}$i${reset} is ${green}already installed${reset}."
 	fi
@@ -104,7 +104,7 @@ declare -a caskdeps=(
 for i in "${caskdeps[@]}"; do
 	if [[ $(brew ls --cask --versions $i) == "" ]]; then
 		echo "Installing ${yellow}$i${reset}"
-		brew install --no-quarantine --cask $i
+		brew install --cask $i
 	else
 		echo "${yellow}$i${reset} is ${green}already installed${reset}."
 	fi
