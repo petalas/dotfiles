@@ -31,6 +31,7 @@ brew update && brew upgrade
 echo "Checking dependencies..."
 declare -a deps=(
 	"aria2"
+	"bash"
 	"bc"
 	"bind"
 	"btop"
