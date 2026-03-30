@@ -53,6 +53,7 @@ declare -a deps=(
 	"jq"
 	"lazydocker"
 	"lazygit"
+	"maestro"
 	"media-info"
 	"mtr"
 	"neovim"
