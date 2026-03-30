@@ -49,6 +49,7 @@ declare -a deps=(
 	"eza"
 	"fd"
 	"ffmpeg"
+	"fastlane"
 	"fzf"
 	"gcc"
 	"gh"
