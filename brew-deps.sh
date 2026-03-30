@@ -81,6 +81,7 @@ printf "\n\nChecking cask dependencies...\n"
 declare -a caskdeps=(
 	"bambu-studio"
 	"bitwarden"
+	"codex-app"
 	"dbeaver-community"
 	"discord"
 	"docker"
@@ -121,6 +122,7 @@ done
 source "$(dirname "$0")/installers/source_installers.sh"
 
 install_node
+install_bun
 install_node_deps
 install_sdkman
 install_sdkman_deps
