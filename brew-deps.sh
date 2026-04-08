@@ -118,12 +118,13 @@ declare -a caskdeps=(
 	"steam"
 	"sublime-text"
 	"syncthing-app"
+	"t3-code"
 	"tailscale-app"
 	"temurin@17"
 	"visual-studio-code"
 	"vlc"
 	"whatsapp"
-	"zed@preview"
+	"zed"
 )
 for i in "${caskdeps[@]}"; do
 	if echo "$installed_casks" | grep -qx "$i"; then
