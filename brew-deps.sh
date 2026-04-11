@@ -112,6 +112,7 @@ declare -a caskdeps=(
 	"qbittorrent"
 	"raycast"
 	"rectangle"
+	"shottr"
 	"slack"
 	"spotify"
 	"stats"
