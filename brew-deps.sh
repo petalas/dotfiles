@@ -70,7 +70,6 @@ declare -a deps=(
 	"python-setuptools"
 	"rsync"
 	"sevenzip"
-	"tldr"
 	"watch"
 	"wget"
 	"yt-dlp"
