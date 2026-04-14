@@ -92,6 +92,7 @@ alias fixperms='sudo chown -R $(whoami):$(whoami) . && sudo chmod -R a=,a+rX,u+w
 
 alias lg='lazygit'
 alias c='claude --dangerously-skip-permissions'
+alias cdx='codex --dangerously-bypass-approvals-and-sandbox'
 alias hl='rg --passthrough'
 
 if command -v nvim >/dev/null 2>&1; then
