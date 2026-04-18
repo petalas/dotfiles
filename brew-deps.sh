@@ -105,6 +105,7 @@ declare -a caskdeps=(
 	"jordanbaird-ice"
 	"keka"
 	"kitty"
+	"lm-studio"
 	"openscad@snapshot"
 	"parsec"
 	"private-internet-access"
