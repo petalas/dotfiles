@@ -1,3 +1,4 @@
 .vscode
 dot/.config/nvim/plugin/packer_compiled.lua
 dot/.config/yazi/plugins/
+dot/claude/settings.json
