@@ -273,3 +273,9 @@ fi
 if [[ -d "$HOME/.maestro/bin" ]]; then
   export PATH="$PATH:$HOME/.maestro/bin"
 fi
+
+# android sdk (homebrew cmdline-tools)
+if [[ -d "/opt/homebrew/share/android-commandlinetools" ]]; then
+  export ANDROID_HOME="/opt/homebrew/share/android-commandlinetools"
+  export PATH="$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools"
+fi
