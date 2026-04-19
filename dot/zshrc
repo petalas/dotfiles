@@ -161,6 +161,10 @@ function upd() {
     _upd_run "tldr" tldr -u
   fi
 
+  if command -v bunx >/dev/null 2>&1; then
+    _upd_run "skills" bunx skills update --global
+  fi
+
   # Summary
   echo ""
   if (( ${#failures[@]} )); then
@@ -247,9 +251,6 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
-# Added by LM Studio CLI (lms)
-export PATH="$PATH:$HOME/.lmstudio/bin"
-
 # pnpm
 export PNPM_HOME="$HOME/Library/pnpm"
 case ":$PATH:" in
@@ -279,3 +280,9 @@ if [[ -d "/opt/homebrew/share/android-commandlinetools" ]]; then
   export ANDROID_HOME="/opt/homebrew/share/android-commandlinetools"
   export PATH="$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools"
 fi
+
+# lm studio cli (lms)
+if [[ -d "$HOME/.lmstudio/bin" ]]; then
+  export PATH="$PATH:$HOME/.lmstudio/bin"
+fi
+
