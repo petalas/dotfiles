@@ -50,3 +50,9 @@ install_sdkman
 install_sdkman_deps
 install_rust
 install_rust_deps
+
+# Informational drift check at the end of setup. Anything listed here is
+# installed on this machine but not declared in Brewfile. Run with --force
+# (manually, not here) to actually uninstall: brew bundle cleanup --file=Brewfile --force
+printf "\n${yellow}Checking for drift (installed but not in Brewfile)...${reset}\n"
+brew bundle cleanup --file="$(dirname "$0")/Brewfile" || true
