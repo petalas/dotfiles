@@ -149,11 +149,11 @@ install_paru() {
 
 	if ! makepkg -si --noconfirm; then
 		print_error "Failed to build/install paru"
-		cd "$original_dir"
+		cd "$original_dir" || return 1
 		return 1
 	fi
 
-	cd "$original_dir"
+	cd "$original_dir" || return 1
 	print_success "${yellow}paru${reset} has been installed successfully"
 	echo
 }

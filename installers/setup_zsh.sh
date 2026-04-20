@@ -35,7 +35,7 @@ setup_zsh() {
     fi
 
     echo "Making ${yellow}ZSH${reset} the default shell."
-    chsh -s $(which zsh)
+    chsh -s "$(which zsh)"
 }
 
 # Call the function if this script is executed directly
