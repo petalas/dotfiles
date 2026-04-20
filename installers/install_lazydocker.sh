@@ -5,7 +5,7 @@ install_lazydocker() {
         return 0
     fi
 
-    curl https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
+    curl https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash || return 1
 }
 
 # Call the function if this script is executed directly

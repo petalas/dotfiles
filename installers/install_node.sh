@@ -15,7 +15,7 @@ install_node() {
                     | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4)
                 nvm_version="${nvm_version:-v0.40.3}"
                 echo "Installing nvm ${nvm_version}..."
-                curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/${nvm_version}/install.sh" | bash
+                curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/${nvm_version}/install.sh" | bash || return 1
                 source ~/.nvm/nvm.sh
             elif [[ "$os" == "arch" ]]; then
                 paru -S --noconfirm nvm

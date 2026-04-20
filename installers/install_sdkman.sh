@@ -9,7 +9,7 @@ install_sdkman() {
         if [[ "${BASH_VERSINFO[0]}" -lt 4 ]]; then
             if [[ -x "$brew_bash" ]]; then
                 echo "System bash is ${BASH_VERSION}, using brew bash for SDKMAN install..."
-                curl -s https://get.sdkman.io | "$brew_bash"
+                curl -s https://get.sdkman.io | "$brew_bash" || return 1
                 source "$HOME/.sdkman/bin/sdkman-init.sh"
                 return
             else
@@ -19,7 +19,7 @@ install_sdkman() {
             fi
         fi
         echo "Installing ${yellow}sdkman${reset}..."
-        curl -s https://get.sdkman.io | bash
+        curl -s https://get.sdkman.io | bash || return 1
         source "$HOME/.sdkman/bin/sdkman-init.sh"
     else
         source "${SDKMAN_DIR:-$HOME/.sdkman}/bin/sdkman-init.sh"

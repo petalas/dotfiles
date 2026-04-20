@@ -3,7 +3,7 @@
 install_bun() {
     if ! command -v bun >/dev/null 2>&1; then
         echo "Installing bun..."
-        curl -fsSL https://bun.sh/install | bash
+        curl -fsSL https://bun.sh/install | bash || return 1
     fi
 }
 
