@@ -6,7 +6,7 @@ yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
 install_neovim() {
-    if [[ $(which nvim) == *"nvim" ]]; then
+    if command -v nvim >/dev/null 2>&1; then
         return 0
     fi
 

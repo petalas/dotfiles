@@ -1,12 +1,7 @@
 #!/usr/bin/env bash
 
-red=$(tput setaf 1)
-green=$(tput setaf 2)
-yellow=$(tput setaf 3)
-reset=$(tput sgr0)
-
 install_bun() {
-    if [[ ! $(which bun) == *"bun" ]]; then
+    if ! command -v bun >/dev/null 2>&1; then
         echo "Installing bun..."
         curl -fsSL https://bun.sh/install | bash
     fi

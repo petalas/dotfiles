@@ -6,7 +6,7 @@ yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
 install_bitwarden() {
-    if [[ $(which bitwarden) == *"bitwarden" ]]; then
+    if command -v bitwarden >/dev/null 2>&1; then
         echo "${green}bitwarden${reset} is already installed."
         return 0
     fi

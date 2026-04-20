@@ -6,7 +6,7 @@ yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
 install_discord() {
-    if [[ $(which discord) == *"discord" ]]; then
+    if command -v discord >/dev/null 2>&1; then
         echo "${green}discord${reset} is already installed."
         return 0
     fi

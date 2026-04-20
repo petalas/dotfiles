@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
 
-red=$(tput setaf 1)
-green=$(tput setaf 2)
-yellow=$(tput setaf 3)
-reset=$(tput sgr0)
-
 install_node() {
     if [[ $OSTYPE == "darwin"* ]]; then
         # On macOS, nvm is installed via Homebrew — source it into the current session
