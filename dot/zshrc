@@ -5,6 +5,10 @@ if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 fi
 
+# Keep PATH-like arrays free of duplicates. Any subsequent `export PATH=...`
+# that prepends/appends an already-present entry is silently deduped.
+typeset -U path PATH fpath FPATH
+
 if command -v nvim >/dev/null 2>&1; then
     export EDITOR="$(which nvim)"
     export SUDO_EDITOR="$(which nvim)"
@@ -352,13 +356,6 @@ export PASSWORD_STORE_ENABLE_EXTENSIONS=true
 # Add Rust's cargo bin to PATH if it's not already there
 if [[ ":$PATH:" != *":$HOME/.cargo/bin:"* ]]; then
     export PATH="$HOME/.cargo/bin:$PATH"
-fi
-
-# bun
-if [[ -d "$HOME/.bun" ]]; then
-    [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
-    export BUN_INSTALL="$HOME/.bun"
-    export PATH="$BUN_INSTALL/bin:$PATH"
 fi
 
 if command -v brew >/dev/null 2>&1; then
