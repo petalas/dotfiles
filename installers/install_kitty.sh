@@ -12,7 +12,7 @@ install_kitty() {
 
     if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
         echo "Installing ${yellow}kitty${reset} ..."
-        curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin
+        curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin || return 1
         # Create symbolic links to add kitty and kitten to PATH (assuming ~/.local/bin is in
         # your system-wide PATH)
         ln -sf ~/.local/kitty.app/bin/kitty ~/.local/kitty.app/bin/kitten ~/.local/bin/

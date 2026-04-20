@@ -5,7 +5,7 @@
 install_zerotier() {
     if [ ! -f /usr/sbin/zerotier-one ]; then
         echo "Installing ${yellow}zerotier${reset}."
-        curl -s https://install.zerotier.com | sudo bash
+        curl -s https://install.zerotier.com | sudo bash || return 1
     fi
 }
 

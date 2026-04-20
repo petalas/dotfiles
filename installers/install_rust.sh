@@ -17,7 +17,7 @@ install_rust() {
         if [[ "$os" == "ubuntu" || "$os" == "debian" || "$os" == "macos" ]]; then
             echo
             echo ":: ${green}Installing rust...${reset}"
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y || return 1
             source "$HOME/.cargo/env"
         elif [[ "$os" == "arch" ]]; then
             sudo pacman -Sy --noconfirm rustup
