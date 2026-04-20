@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e
 
 if [[ $OSTYPE == "msys"* ]]; then
 	echo "Cannot install on windows, please install manually."
@@ -38,10 +39,13 @@ echo "${yellow}easy install -> configuring zsh...${reset}\n"
 echo "${yellow}easy install -> linking dotfiles...${reset}\n"
 ./link-dotfiles.sh
 
-# source ~/.zshrc
-SHELL=$(which zsh) kitty &
-
+# Print instructions BEFORE launching kitty so user sees them in the current
+# terminal. kitty is only launched if it's actually on PATH.
 printf "\n\nIf this is a fresh installation:\n"
 echo "Please ${yellow}log out${reset} (for chsh to take effect) and open a ${green}kitty terminal${reset} when you log back in."
 echo "If you want to use a different terminal make sure to set the newly installed nerd font before running p10k configure."
 echo "The configuration wizard for p10k should run automatically, if not run: ${green}p10k configure${reset}."
+
+if command -v kitty >/dev/null 2>&1; then
+	SHELL=$(which zsh) kitty &
+fi
