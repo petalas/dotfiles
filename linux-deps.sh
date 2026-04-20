@@ -2,10 +2,10 @@
 
 # Color setup with fallback for non-interactive terminals
 if tput setaf 1 &>/dev/null; then
-	red=$(tput setaf 1)
-	green=$(tput setaf 2)
-	yellow=$(tput setaf 3)
-	reset=$(tput sgr0)
+	red=$(tput setaf 1 2>/dev/null || true)
+	green=$(tput setaf 2 2>/dev/null || true)
+	yellow=$(tput setaf 3 2>/dev/null || true)
+	reset=$(tput sgr0 2>/dev/null || true)
 else
 	red=""
 	green=""

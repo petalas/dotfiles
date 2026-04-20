@@ -5,9 +5,9 @@ if [[ ! $OSTYPE == "darwin"* ]]; then
 	exit 1
 fi
 
-red=$(tput setaf 1)
-yellow=$(tput setaf 3)
-reset=$(tput sgr0)
+red=$(tput setaf 1 2>/dev/null || true)
+yellow=$(tput setaf 3 2>/dev/null || true)
+reset=$(tput sgr0 2>/dev/null || true)
 
 # Check if Homebrew is installed
 ./setup-brew.sh
