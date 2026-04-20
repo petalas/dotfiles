@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 
+# Terminal colors, available to all sourced installers. Defined here instead
+# of redeclared at the top of each installer. Installers run directly (i.e.
+# not via source_installers.sh, brew-deps.sh, linux-deps.sh, or ./install)
+# will have these undefined, and ${red} etc. will expand to empty strings —
+# output still works, just monochrome.
+red=$(tput setaf 1)
+green=$(tput setaf 2)
+yellow=$(tput setaf 3)
+reset=$(tput sgr0)
+
 # Get the directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
