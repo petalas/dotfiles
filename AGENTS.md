@@ -18,8 +18,8 @@ This project uses a routing table (below) to map file patterns to docs you must 
 *.sh                  # Root setup scripts (main entry points)
 installers/           # Individual tool installer scripts
 dot/                  # Config files symlinked to ~
-  .config/            # XDG configs (kitty, alacritty, bat, yazi)
-  Codex/             # Codex config (symlinked to ~/.Codex/)
+  .config/            # XDG configs (kitty, bat, yazi)
+  claude/             # Claude Code config (symlinked to ~/.claude/)
   zshrc               # Shell config
   gitconfig           # Git config
   work/               # Work-specific overrides
@@ -35,7 +35,7 @@ Before modifying code, find the matching file pattern and **read the linked doc 
 | `installers/*.sh` | Existing installers for patterns (apt vs brew detection) |
 | `dot/zshrc` | Current aliases/functions before adding duplicates |
 | `dot/.config/**` | App's official docs for config syntax |
-| `dot/Codex/**` | This is GLOBAL Codex config — changes affect all projects |
+| `dot/claude/**` | This is GLOBAL Claude config — changes affect all projects |
 | `link-dotfiles.sh` | Understand symlink structure before adding new dotfiles |
 | Weird bug or unexpected behavior | [LEARNINGS.md](docs/LEARNINGS.md) — search for the symptom |
 
