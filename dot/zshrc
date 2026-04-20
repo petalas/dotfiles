@@ -136,6 +136,11 @@ push-terminfo() {
   fi
 }
 
+# dssh and push-terminfo both take an SSH host as first arg — reuse ssh's
+# completion (which parses ~/.ssh/config + known_hosts).
+compdef dssh=ssh 2>/dev/null
+compdef push-terminfo=ssh 2>/dev/null
+
 # Sync ~/.config/nvim (fork of kickstart.nvim) with upstream.
 #   master  = clean mirror of nvim-lua/kickstart.nvim
 #   custom  = your modifications on top
