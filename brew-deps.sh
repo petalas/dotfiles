@@ -103,6 +103,7 @@ declare -a caskdeps=(
 	"google-chrome"
 	"grandperspective"
 	"jordanbaird-ice"
+	"keepingyouawake"
 	"keka"
 	"kitty"
 	"lm-studio"
