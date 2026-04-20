@@ -95,6 +95,116 @@ alias c='claude --dangerously-skip-permissions'
 alias cdx='codex --dangerously-bypass-approvals-and-sandbox'
 alias hl='rg --passthrough'
 
+# ssh with downgraded TERM for hosts that don't have xterm-kitty/alacritty
+# terminfo (TrueNAS, random boxes, fresh VMs). Fixes backspace/arrow-key
+# issues. For your own machines, plain `ssh` works. To teach a remote host
+# about your real TERM, run `push-terminfo HOST` once.
+alias dssh='TERM=xterm-256color ssh'
+
+# push-terminfo HOST: teach a remote host about your local $TERM by copying
+# the terminfo entry. Fixes curses apps (bash readline, less, vim, tmux)
+# that otherwise get garbage escape sequences for backspace, arrows, etc.
+#
+# Terminfo is a DB of terminal capabilities keyed by $TERM. Curses apps
+# query it at startup. Search order: ~/.terminfo, /etc/terminfo,
+# /usr/share/terminfo. If the remote has no entry for xterm-kitty, it
+# falls back to generic defaults that don't match what Kitty speaks.
+#
+# How it works:
+#   infocmp -a TERM        decompiles local compiled entry -> source form
+#   tic -x -o DIR /dev/stdin  recompiles source back into a binary entry
+#                             in DIR (~/.terminfo is user-level, no sudo)
+#   -x                     accept extended caps (kitty defines many)
+#
+# tic and infocmp both ship with ncurses (ncurses-bin on Debian).
+push-terminfo() {
+  [[ -z "$1" ]] && { echo "usage: push-terminfo HOST"; return 1; }
+  local entry
+  if ! entry=$(infocmp -a xterm-kitty 2>/dev/null) || [[ -z "$entry" ]]; then
+    echo "xterm-kitty not in local terminfo DB" >&2
+    return 1
+  fi
+  if print -r -- "$entry" | ssh "$1" "tic -x -o \$HOME/.terminfo /dev/stdin"; then
+    echo "pushed xterm-kitty to $1"
+  else
+    echo "remote tic error" >&2
+    return 1
+  fi
+}
+
+# Sync ~/.config/nvim (fork of kickstart.nvim) with upstream.
+#   master  = clean mirror of nvim-lua/kickstart.nvim
+#   custom  = your modifications on top
+# Fast-forwards master from upstream and pushes it, then rebases custom onto
+# master. Stops before pushing custom so you can verify in nvim first — if
+# happy, run: git -C ~/.config/nvim push --force-with-lease
+sync-nvim() {
+  local nvim_dir="$HOME/.config/nvim"
+  local upstream_url="https://github.com/nvim-lua/kickstart.nvim.git"
+
+  [[ -d "$nvim_dir/.git" ]] || { echo "not a git repo: $nvim_dir" >&2; return 1; }
+
+  if [[ -n "$(git -C "$nvim_dir" status --porcelain)" ]]; then
+    echo "refusing: $nvim_dir has uncommitted changes" >&2
+    git -C "$nvim_dir" status -s
+    return 1
+  fi
+
+  local ahead
+  ahead=$(git -C "$nvim_dir" rev-list --count origin/custom..custom 2>/dev/null)
+  if (( ahead > 0 )); then
+    echo "refusing: custom is $ahead commit(s) ahead of origin/custom — push first" >&2
+    return 1
+  fi
+
+  if ! git -C "$nvim_dir" remote | grep -qx upstream; then
+    echo ":: adding upstream -> $upstream_url"
+    git -C "$nvim_dir" remote add upstream "$upstream_url"
+  fi
+
+  echo ":: fetching upstream"
+  git -C "$nvim_dir" fetch upstream --quiet || return 1
+
+  # Capture current origin/master SHA so we can count new upstream commits
+  # later. Use fully-qualified ref because bare "master" is ambiguous once
+  # upstream is also a remote with its own master.
+  local master_before
+  master_before=$(git -C "$nvim_dir" rev-parse refs/remotes/origin/master)
+
+  echo ":: fast-forwarding master from upstream/master"
+  # Force-create (or reset) local master to origin/master's tip. Handles the
+  # case where master has never been checked out locally.
+  git -C "$nvim_dir" checkout -B master origin/master --quiet
+  if ! git -C "$nvim_dir" merge --ff-only upstream/master; then
+    echo "master diverged from upstream — resolve manually" >&2
+    return 1
+  fi
+  git -C "$nvim_dir" push origin master --quiet
+
+  local gained
+  gained=$(git -C "$nvim_dir" rev-list --count "$master_before..master")
+
+  echo ":: rebasing custom onto master"
+  git -C "$nvim_dir" checkout custom --quiet
+  if git -C "$nvim_dir" rebase master; then
+    echo ""
+    if (( gained > 0 )); then
+      echo "✓ rebased custom onto master ($gained new upstream commits)"
+    else
+      echo "✓ already up to date"
+    fi
+    echo "  verify:    nvim"
+    echo "  then push: git -C $nvim_dir push --force-with-lease"
+  else
+    echo ""
+    echo "rebase conflict. resolve in $nvim_dir, then:"
+    echo "  git -C $nvim_dir rebase --continue"
+    echo "  # or abort:"
+    echo "  git -C $nvim_dir rebase --abort"
+    return 1
+  fi
+}
+
 if command -v nvim >/dev/null 2>&1; then
     alias v="nvim"
     alias vi="nvim"
@@ -146,6 +256,17 @@ function upd() {
     _upd_run "rustup" rustup update
   fi
 
+  # sdkman (sdk is a shell function, not a binary)
+  if [[ -s "${SDKMAN_DIR:-$HOME/.sdkman}/bin/sdkman-init.sh" ]]; then
+    _upd_run "sdkman self" sdk selfupdate
+    _upd_run "sdkman candidates" sdk update
+    _upd_run "sdkman upgrade" sdk upgrade
+  fi
+
+  if command -v bun >/dev/null 2>&1; then
+    _upd_run "bun" bun upgrade
+  fi
+
   if command -v npm >/dev/null 2>&1; then
     local npm_pkgs=($(npm outdated -g --parseable 2>/dev/null | cut -d: -f4 | sed 's/@[^@]*$//' | grep -v '/\.' | sort -u))
     if (( ${#npm_pkgs[@]} )); then
@@ -156,9 +277,18 @@ function upd() {
     fi
   fi
 
+  if command -v pnpm >/dev/null 2>&1; then
+    _upd_run "pnpm globals" pnpm update -g --latest
+  fi
+
   # Misc tools
   if command -v tldr >/dev/null 2>&1; then
     _upd_run "tldr" tldr -u
+  fi
+
+  # neovim plugins (lazy.nvim)
+  if command -v nvim >/dev/null 2>&1 && [[ -d "${XDG_DATA_HOME:-$HOME/.local/share}/nvim/lazy/lazy.nvim" ]]; then
+    _upd_run "nvim plugins" nvim --headless "+Lazy! sync" +qa
   fi
 
   if command -v bunx >/dev/null 2>&1; then
