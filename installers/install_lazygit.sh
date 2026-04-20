@@ -6,7 +6,7 @@ yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
 install_lazygit() {
-    if [[ $(which lazygit) == *"lazygit" ]]; then
+    if command -v lazygit >/dev/null 2>&1; then
         return 0
     fi
 

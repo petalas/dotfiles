@@ -1,12 +1,7 @@
 #!/usr/bin/env bash
 
-red=$(tput setaf 1)
-green=$(tput setaf 2)
-yellow=$(tput setaf 3)
-reset=$(tput sgr0)
-
 install_lazydocker() {
-    if [[ $(which lazydocker) == *"lazydocker" ]]; then
+    if command -v lazydocker >/dev/null 2>&1; then
         return 0
     fi
 

@@ -9,7 +9,7 @@ reset=$(tput sgr0)
 # Install Docker function
 install_docker() {
 	# Check if Docker is already installed or if OS is not Linux
-	if [[ $(which docker) == *"docker"* ]]; then
+	if command -v docker >/dev/null 2>&1; then
 		echo "${green}Docker is already installed.${reset}"
 		return 0
 	fi

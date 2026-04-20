@@ -6,7 +6,7 @@ yellow=$(tput setaf 3)
 reset=$(tput sgr0)
 
 install_code() {
-    if [[ $(which code) == *"code" ]]; then
+    if command -v code >/dev/null 2>&1; then
         echo "${green}visual studio code${reset} is already installed."
         return 0
     fi
