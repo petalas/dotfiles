@@ -14,11 +14,16 @@ install_node() {
         os=$(grep -w ID /etc/os-release | cut -d '=' -f 2 | tr -d '"')
         if ! type nvm &>/dev/null; then
             if [[ "$os" == "ubuntu" || "$os" == "debian" ]]; then
-                echo "Installing nvm..."
-                curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.4/install.sh | bash
+                # Fetch latest nvm tag dynamically. grep instead of jq so we
+                # don't depend on jq being installed on a fresh box.
+                nvm_version=$(curl -s https://api.github.com/repos/nvm-sh/nvm/releases/latest \
+                    | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4)
+                nvm_version="${nvm_version:-v0.40.3}"
+                echo "Installing nvm ${nvm_version}..."
+                curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/${nvm_version}/install.sh" | bash
                 source ~/.nvm/nvm.sh
             elif [[ "$os" == "arch" ]]; then
-                yay -S --noconfirm nvm
+                paru -S --noconfirm nvm
             fi
         fi
     fi
