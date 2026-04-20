@@ -12,7 +12,7 @@ install_rust_deps() {
     local installed
     installed=$(cargo install --list)
 
-    declare -a rust_deps=("tree-sitter-cli" "ripgrep" "wasm-bindgen-cli" "cargo-edit" "tealdeer")
+    declare -a rust_deps=("tree-sitter-cli" "ripgrep" "wasm-bindgen-cli" "cargo-edit" "tealdeer" "bat")
     for i in "${rust_deps[@]}"; do
         if echo "$installed" | grep -q "^$i "; then
             echo "${green}$i${reset} is already installed."
