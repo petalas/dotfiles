@@ -36,14 +36,6 @@ function install_font() {
 	echo "${GREEN}$1 installation finished${RESET}"
 }
 
-function remove_zip_files() {
-	echo "${BLUE}Removing downloaded zip files from $down_dir...${RESET}"
-	for font in "${selected_fonts[@]}"; do
-		rm $down_dir/$font.zip
-	done
-	echo "${GREEN}Downloaded zip files removal suceeded!${RESET}"
-}
-
 function update_fonts_cache() {
 	echo "${BLUE}Updating fonts cache...${RESET}"
 	fc-cache -f 2>&1
@@ -84,14 +76,14 @@ for i in "${fonts[@]}"; do
 	if [[ $(fc-list | grep "$i" | tail -1) == *"$i"* ]]; then
 		echo "${GREEN}$i${RESET} is already installed."
 	else
-		pushd "$down_dir" >/dev/null
+		pushd "$down_dir" >/dev/null || exit 1
 		# remove the old download font if it exists
 		[ -f "$down_dir/$i.zip" ] && rm "$down_dir/$i.zip"
 		download_font "$i"
 		install_font "$i"
 		# cleanup
 		[ -f "$down_dir/$i.zip" ] && rm "$down_dir/$i.zip"
-		popd >/dev/null
+		popd >/dev/null || exit 1
 		fonts_installed=true
 	fi
 done
