@@ -24,6 +24,9 @@ link_path() {
 # ensure $HOME/.config exists
 mkdir -p "$HOME/.config"
 
+# activate repo's git hooks (.githooks/pre-commit runs shellcheck on *.sh)
+git config core.hooksPath .githooks
+
 # zshrc
 link_path "$(pwd)/dot/zshrc" "$HOME/.zshrc"
 
