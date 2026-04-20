@@ -12,8 +12,19 @@
 	required = true
 [core]
 	editor = nvim
+	pager = delta
+
+[interactive]
+	diffFilter = delta --color-only
+
+[delta]
+	navigate = true
+	line-numbers = true
+
+[merge]
+	conflictstyle = zdiff3
 
 [push]
 	autoSetupRemote = true
 [http]
-	postBuffer = 524288000   
+	postBuffer = 524288000
