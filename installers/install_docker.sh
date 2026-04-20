@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2154  # colors (red/green/yellow/reset) defined in source_installers.sh
 
-# Color variables
-red=$(tput setaf 1)
-green=$(tput setaf 2)
-yellow=$(tput setaf 3)
-reset=$(tput sgr0)
 
 # Install Docker function
 install_docker() {

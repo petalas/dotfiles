@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2154  # colors (red/green/yellow/reset) defined in source_installers.sh
 
-red=$(tput setaf 1)
-green=$(tput setaf 2)
-yellow=$(tput setaf 3)
-reset=$(tput sgr0)
 
 install_sdkman() {
     if [[ ! -s "${SDKMAN_DIR:-$HOME/.sdkman}/bin/sdkman-init.sh" ]]; then
