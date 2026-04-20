@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Run a single installer/setup function from ./installers/.
+#
+# Usage:
+#   ./install                   list available installers
+#   ./install list              same as above
+#   ./install rust              runs install_rust (or setup_rust if no install_X)
+#   ./install install_rust      accepts the full function name too
+#
+# Ran full-repo setup via brew-deps.sh / linux-deps.sh but want to re-run
+# just one piece? This is for that.
+
+set -euo pipefail
+cd "$(dirname "$0")"
+
+# shellcheck source=installers/source_installers.sh disable=SC1091
+source installers/source_installers.sh >/dev/null
+
+name="${1:-list}"
+if [[ "$name" == "list" || "$name" == "-h" || "$name" == "--help" ]]; then
+	list_installers
+	exit 0
+fi
+
+for fn in "$name" "install_$name" "setup_$name"; do
+	if declare -F "$fn" >/dev/null 2>&1; then
+		echo ":: running $fn"
+		"$fn"
+		exit $?
+	fi
+done
+
+echo "unknown installer: $name" >&2
+echo >&2
+list_installers >&2
+exit 1
