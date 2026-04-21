@@ -256,6 +256,7 @@ function upd() {
   if [[ $OSTYPE == darwin* ]]; then
     if command -v brew >/dev/null 2>&1; then
       _upd_run "brew update" brew update &&
+        _upd_run "brew bundle" brew bundle --file="${DOTFILES_DIR:-$HOME/git/dotfiles}/Brewfile" &&
         _upd_run "brew upgrade" brew upgrade
     fi
   fi
