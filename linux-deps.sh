@@ -393,7 +393,7 @@ else
 		echo
 		print_error "Failed dependencies (${#failed_deps[@]}):"
 		for dep in "${failed_deps[@]}"; do
-			echo "  ${red}✗${reset} $dep"
+			echo "  ${red}✗${reset} ${yellow}$dep${reset}: ${failed_errors[$dep]:-unknown error}"
 		done
 	fi
 
