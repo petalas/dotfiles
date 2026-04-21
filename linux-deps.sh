@@ -182,15 +182,34 @@ elif [[ "$os_id" == "arch" ]]; then
 		print_warning "System update failed, continuing anyway..."
 	fi
 
-	if ! sudo pacman -S --noconfirm --needed reflector; then
-		print_warning "Failed to install reflector, skipping mirror optimization"
-	else
-		print_info "Finding the ${green}fastest mirrors${reset}, this might take a while..."
-		if sudo reflector --threads 8 --latest 100 -n 10 --connection-timeout 1 --download-timeout 1 --sort rate --save /etc/pacman.d/mirrorlist >/dev/null 2>&1; then
-			cat /etc/pacman.d/mirrorlist
-			print_success "Fastest mirrors found!"
+	# Mirror optimization: reflector on x86 Arch, rankmirrors on Arch ARM.
+	# reflector fetches the x86 Arch mirror list and doesn't exist on archarm;
+	# rankmirrors (from pacman-contrib) is the generic ARM-compatible alternative.
+	if [[ "$os_id_raw" == "archarm" ]]; then
+		if ! sudo pacman -S --noconfirm --needed pacman-contrib; then
+			print_warning "Failed to install pacman-contrib, skipping mirror optimization"
 		else
-			print_warning "Mirror optimization failed, using existing mirrors"
+			print_info "Finding the ${green}fastest mirrors${reset} (rankmirrors)..."
+			sudo cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
+			sed 's/^#Server/Server/' /etc/pacman.d/mirrorlist.bak >/tmp/mirrorlist.all
+			if rankmirrors -n 6 /tmp/mirrorlist.all >/tmp/mirrorlist.ranked 2>/dev/null; then
+				sudo cp /tmp/mirrorlist.ranked /etc/pacman.d/mirrorlist
+				print_success "Fastest mirrors found!"
+			else
+				print_warning "Mirror optimization failed, using existing mirrors"
+			fi
+		fi
+	else
+		if ! sudo pacman -S --noconfirm --needed reflector; then
+			print_warning "Failed to install reflector, skipping mirror optimization"
+		else
+			print_info "Finding the ${green}fastest mirrors${reset} (reflector)..."
+			if sudo reflector --threads 8 --latest 100 -n 10 --connection-timeout 1 --download-timeout 1 --sort rate --save /etc/pacman.d/mirrorlist >/dev/null 2>&1; then
+				cat /etc/pacman.d/mirrorlist
+				print_success "Fastest mirrors found!"
+			else
+				print_warning "Mirror optimization failed, using existing mirrors"
+			fi
 		fi
 	fi
 
