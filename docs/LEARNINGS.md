@@ -20,3 +20,26 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Homebrew sanitises the environment before running the Brewfile. Arbitrary vars like `SKIP_GAMING` are stripped; only `HOMEBREW_*` (plus a small allow-list) survive.
 - Symptom: a gate like `unless ENV["SKIP_GAMING"]` never fires, regardless of whether you set `SKIP_GAMING=1`. Confusing because `if false` in the same Brewfile *does* work — ruling out "Ruby isn't evaluated."
 - Fix: either use `HOMEBREW_SKIP_GAMING` directly in the Brewfile, or translate in the wrapper script before invoking `brew bundle`. `brew-deps.sh` does the translation so the user-facing API stays as plain `SKIP_*`.
+
+---
+
+## `bun upgrade` re-appends its completions block to `~/.zshrc`
+
+- Symptom: after `bun upgrade` (invoked via `upd`), `dot/zshrc` shows an unsolicited trailing block:
+  ```
+  # bun completions
+  [ -s "/Users/nick/.bun/_bun" ] && source "/Users/nick/.bun/_bun"
+  ```
+- Cause: bun's `InstallCompletionsCommand` (Zig, `src/cli/install_completions_command.zig`) runs on every upgrade. It does a raw-text substring search over the rc file and appends unless it finds **either**:
+  1. The absolute resolved path of `_bun` (e.g. `/Users/nick/.bun/_bun`) literally present, OR
+  2. The exact string `# bun completions\n`.
+- `$HOME/.bun/_bun` does **not** satisfy #1 — the search is on raw file text, no shell expansion.
+- Fix: keep the literal `# bun completions` comment inside our `# bun` block in `dot/zshrc`. That sentinel is portable across machines; the absolute path isn't.
+
+---
+
+## gitconfig values containing `;` or `#` must be quoted
+
+- Symptom: `git config -f dot/gitconfig core.pager` returned `if command -v delta >/dev/null 2>&1` — the value was silently truncated at the first `;`.
+- Cause: in gitconfig syntax, unquoted `;` and `#` terminate the value as inline comments. An unquoted shell pipeline with semicolons is parsed as `value;  comment`.
+- Fix: wrap any multi-statement shell expression in double quotes, e.g. `pager = "if ...; then delta; else less -R; fi"`. Applies to `core.pager`, `interactive.diffFilter`, and any other config key whose value is executed by `/bin/sh -c`.
