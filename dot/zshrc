@@ -268,6 +268,12 @@ function upd() {
 
   # sdkman (sdk is a shell function, not a binary)
   if [[ -s "${SDKMAN_DIR:-$HOME/.sdkman}/bin/sdkman-init.sh" ]]; then
+    # sdk upgrade prompts "Use prescribed default version(s)?" unless
+    # sdkman_auto_answer=true; fix idempotently so upd stays non-interactive.
+    local sdkman_cfg="${SDKMAN_DIR:-$HOME/.sdkman}/etc/config"
+    if [[ -f "$sdkman_cfg" ]] && grep -q '^sdkman_auto_answer=false' "$sdkman_cfg"; then
+      sed -i.bak 's/^sdkman_auto_answer=false/sdkman_auto_answer=true/' "$sdkman_cfg" && rm -f "${sdkman_cfg}.bak"
+    fi
     _upd_run "sdkman self" sdk selfupdate
     _upd_run "sdkman candidates" sdk update
     _upd_run "sdkman upgrade" sdk upgrade
@@ -288,7 +294,8 @@ function upd() {
   fi
 
   if command -v pnpm >/dev/null 2>&1; then
-    _upd_run "pnpm globals" pnpm update -g --latest
+    # Corepack prompts before downloading a new pnpm tarball; suppress it.
+    _upd_run "pnpm globals" env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm update -g --latest
   fi
 
   # Misc tools
