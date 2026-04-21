@@ -1,17 +1,14 @@
 #!/usr/bin/env bash
 
-# Color setup with fallback for non-interactive terminals
-if tput setaf 1 &>/dev/null; then
-	red=$(tput setaf 1 2>/dev/null || true)
-	green=$(tput setaf 2 2>/dev/null || true)
-	yellow=$(tput setaf 3 2>/dev/null || true)
-	reset=$(tput sgr0 2>/dev/null || true)
-else
-	red=""
-	green=""
-	yellow=""
-	reset=""
+# Source installers + shared helpers (colors, detect_os, install_* functions).
+_sourcer="$(dirname "${BASH_SOURCE[0]}")/installers/source_installers.sh"
+if [[ ! -f "$_sourcer" ]]; then
+	echo "Installers source file not found: $_sourcer" >&2
+	exit 1
 fi
+# shellcheck source=installers/source_installers.sh disable=SC1091
+source "$_sourcer"
+unset _sourcer
 
 # Track failed installations for summary
 declare -a failed_deps=()
@@ -34,15 +31,9 @@ print_info() {
 	echo ":: $1"
 }
 
-# Detect OS with error handling
-if [[ ! -f /etc/os-release ]]; then
-	print_error "Cannot detect OS: /etc/os-release not found"
-	exit 1
-fi
-
-os=$(grep -w ID /etc/os-release 2>/dev/null | cut -d '=' -f 2 | tr -d '"')
-if [[ -z "$os" ]]; then
-	print_error "Cannot detect OS: Failed to parse /etc/os-release"
+# $os_id populated by detect_os in source_installers.sh (normalised archarm->arch)
+if [[ -z "$os_id" ]]; then
+	print_error "Cannot detect OS"
 	exit 1
 fi
 
@@ -83,7 +74,7 @@ declare -a deps=(
 )
 
 # Add OS-specific packages
-if [[ "$os" == "ubuntu" || "$os" == "debian" ]]; then
+if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
 	deps+=(
 		"7zip"
 		"apt-transport-https"
@@ -103,7 +94,7 @@ if [[ "$os" == "ubuntu" || "$os" == "debian" ]]; then
 		"python3-venv"
 		"ssh"
 	)
-elif [[ "$os" == "arch" ]]; then
+elif [[ "$os_id" == "arch" ]]; then
 	deps+=(
 		"base-devel" # includes gcc, g++, make, etc.
 		"bind"       # for dig, nslookup (dnsutils)
@@ -121,7 +112,7 @@ elif [[ "$os" == "arch" ]]; then
 		"visual-studio-code-bin"
 	)
 else
-	print_error "Unsupported OS: $os"
+	print_error "Unsupported OS: $os_id"
 	exit 1
 fi
 
@@ -178,12 +169,12 @@ set_parallel_downloads() {
 }
 
 # Update package list based on OS
-if [[ "$os" == "ubuntu" || "$os" == "debian" ]]; then
+if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
 	print_info "Updating apt package list..."
 	if ! sudo apt update; then
 		print_warning "apt update failed, some packages may not install correctly"
 	fi
-elif [[ "$os" == "arch" ]]; then
+elif [[ "$os_id" == "arch" ]]; then
 	set_parallel_downloads 8 # default is 5, probably won't make much of a difference
 
 	print_info "Updating system packages..."
@@ -214,9 +205,9 @@ fi
 is_installed() {
 	local pkg="$1"
 
-	if [[ "$os" == "arch" ]]; then
+	if [[ "$os_id" == "arch" ]]; then
 		pacman -Qi "$pkg" &>/dev/null
-	elif [[ "$os" == "ubuntu" || "$os" == "debian" ]]; then
+	elif [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
 		dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"
 	else
 		# Fallback to command check
@@ -314,15 +305,6 @@ install_missing_deps() {
 
 install_missing_deps
 echo
-
-# Source all installer scripts
-SCRIPT_DIR="$(dirname "$0")"
-if [[ -f "$SCRIPT_DIR/installers/source_installers.sh" ]]; then
-	source "$SCRIPT_DIR/installers/source_installers.sh"
-else
-	print_error "Installers source file not found: $SCRIPT_DIR/installers/source_installers.sh"
-	exit 1
-fi
 
 # Helper function to run an installer with tracking
 run_installer() {

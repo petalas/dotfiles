@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154  # colors (red/green/yellow/reset) defined in source_installers.sh
+# shellcheck disable=SC2154  # colors and $os_id provided by source_installers.sh
 
 
 setup_zsh() {
@@ -16,8 +16,6 @@ setup_zsh() {
     if [[ $(which zsh) != *"zsh" ]]; then
         echo "Installing ${yellow}ZSH${reset} ..."
         
-        # Detect OS
-        os_id=$(grep -w ID /etc/os-release | cut -d '=' -f 2 | tr -d '"')
 
         if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
             sudo apt update && sudo apt upgrade -y && sudo apt install zsh -y

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154  # colors (red/green/yellow/reset) defined in source_installers.sh
+# shellcheck disable=SC2154  # colors and $os_id provided by source_installers.sh
 
 
 # Install Docker function
@@ -12,13 +12,9 @@ install_docker() {
 
 	echo "Installing ${yellow}Docker${reset}..."
 
-	# Detect OS
-	os_id=$(grep -w ID /etc/os-release | cut -d '=' -f 2 | tr -d '"')
-	version_codename=$(grep -w VERSION_CODENAME /etc/os-release | cut -d '=' -f 2 | tr -d '"')
-
 	# Install Docker for Debian/Ubuntu
 	if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
-		if [[ -z "$version_codename" ]]; then
+		if [[ -z "$os_version_codename" ]]; then
 			echo "${red}Error: Could not determine OS version codename${reset}"
 			return 1
 		fi
@@ -40,7 +36,7 @@ install_docker() {
 
 		echo \
 			"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$os_id \
-            $version_codename stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+            $os_version_codename stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
 
 		if ! sudo apt update; then
 			echo "${red}Error: Failed to update apt repositories${reset}"

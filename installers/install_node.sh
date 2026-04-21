@@ -1,25 +1,23 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2154  # $os_id set by detect_os in source_installers.sh
 
 install_node() {
-    if [[ $OSTYPE == "darwin"* ]]; then
+    if [[ "$os_id" == "macos" ]]; then
         # On macOS, nvm is installed via Homebrew — source it into the current session
         export NVM_DIR="$HOME/.nvm"
         [ -s "$(brew --prefix nvm)/nvm.sh" ] && source "$(brew --prefix nvm)/nvm.sh"
-    else
-        os=$(grep -w ID /etc/os-release | cut -d '=' -f 2 | tr -d '"')
-        if ! type nvm &>/dev/null; then
-            if [[ "$os" == "ubuntu" || "$os" == "debian" ]]; then
-                # Fetch latest nvm tag dynamically. grep instead of jq so we
-                # don't depend on jq being installed on a fresh box.
-                nvm_version=$(curl -s https://api.github.com/repos/nvm-sh/nvm/releases/latest \
-                    | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4)
-                nvm_version="${nvm_version:-v0.40.3}"
-                echo "Installing nvm ${nvm_version}..."
-                curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/${nvm_version}/install.sh" | bash || return 1
-                source ~/.nvm/nvm.sh
-            elif [[ "$os" == "arch" ]]; then
-                paru -S --noconfirm nvm
-            fi
+    elif ! type nvm &>/dev/null; then
+        if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
+            # Fetch latest nvm tag dynamically. grep instead of jq so we
+            # don't depend on jq being installed on a fresh box.
+            nvm_version=$(curl -s https://api.github.com/repos/nvm-sh/nvm/releases/latest \
+                | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4)
+            nvm_version="${nvm_version:-v0.40.3}"
+            echo "Installing nvm ${nvm_version}..."
+            curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/${nvm_version}/install.sh" | bash || return 1
+            source ~/.nvm/nvm.sh
+        elif [[ "$os_id" == "arch" ]]; then
+            paru -S --noconfirm nvm
         fi
     fi
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154  # colors (red/green/yellow/reset) defined in source_installers.sh
+# shellcheck disable=SC2154  # colors and $os_id provided by source_installers.sh
 
 
 install_kitty() {
@@ -7,8 +7,6 @@ install_kitty() {
         return 0
     fi
     
-    # Detect OS
-    os_id=$(grep -w ID /etc/os-release | cut -d '=' -f 2 | tr -d '"')
 
     if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
         echo "Installing ${yellow}kitty${reset} ..."
