@@ -112,6 +112,7 @@ cask "maestro"
 # --- Mobile dev (fastlane, maestro, Java runtime) ---
 unless ENV["HOMEBREW_SKIP_MOBILE"]
   tap "mobile-dev-inc/tap"
+  brew "applesimutils"
   brew "cocoapods"
   brew "fastlane"
   brew "mobile-dev-inc/tap/maestro"
