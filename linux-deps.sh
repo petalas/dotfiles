@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2154  # colors and $os_id/$os_id_raw provided by source_installers.sh
 
 # Source installers + shared helpers (colors, detect_os, install_* functions).
 _sourcer="$(dirname "${BASH_SOURCE[0]}")/installers/source_installers.sh"
@@ -237,41 +238,49 @@ is_installed() {
 # Associative array to store error messages for failed packages
 declare -A failed_errors
 
-# Function to install a single package using the appropriate package manager
+# Install a single package using the detected package manager.
+# Retries up to 3 times with increasing delay (2s, 4s) to absorb transient
+# failures like stale-mirror hits or mid-download network drops — the most
+# common reason one package out of many fails.
 install_single_dep() {
 	local pkg="$1"
-	local error_output
-	local exit_code
+	local attempt error_output exit_code=0
 
-	if command -v paru >/dev/null 2>&1; then
-		error_output=$(paru -S --noconfirm --needed "$pkg" 2>&1)
-		exit_code=$?
-	elif command -v apt >/dev/null 2>&1; then
-		error_output=$(sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "$pkg" 2>&1)
-		exit_code=$?
-	elif command -v dnf >/dev/null 2>&1; then
-		error_output=$(sudo dnf install -y "$pkg" 2>&1)
-		exit_code=$?
-	elif command -v yum >/dev/null 2>&1; then
-		error_output=$(sudo yum install -y "$pkg" 2>&1)
-		exit_code=$?
-	else
-		print_error "No supported package manager found"
-		return 1
-	fi
-
-	if [[ $exit_code -ne 0 ]]; then
-		# Extract the most relevant error line
-		local error_line
-		error_line=$(echo "$error_output" | grep -iE "^(E:|error:)" | head -1)
-		if [[ -z "$error_line" ]]; then
-			# Fallback to last non-empty line
-			error_line=$(echo "$error_output" | grep -v '^$' | tail -1)
+	for attempt in 1 2 3; do
+		if command -v paru >/dev/null 2>&1; then
+			error_output=$(paru -S --noconfirm --needed "$pkg" 2>&1)
+			exit_code=$?
+		elif command -v apt >/dev/null 2>&1; then
+			error_output=$(sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "$pkg" 2>&1)
+			exit_code=$?
+		elif command -v dnf >/dev/null 2>&1; then
+			error_output=$(sudo dnf install -y "$pkg" 2>&1)
+			exit_code=$?
+		elif command -v yum >/dev/null 2>&1; then
+			error_output=$(sudo yum install -y "$pkg" 2>&1)
+			exit_code=$?
+		else
+			print_error "No supported package manager found"
+			return 1
 		fi
-		failed_errors["$pkg"]="$error_line"
-		return 1
+
+		if [[ $exit_code -eq 0 ]]; then
+			return 0
+		fi
+
+		if [[ $attempt -lt 3 ]]; then
+			sleep $((attempt * 2))
+		fi
+	done
+
+	# All attempts failed — record the best error line for the summary.
+	local error_line
+	error_line=$(echo "$error_output" | grep -iE "^(E:|error:)" | head -1)
+	if [[ -z "$error_line" ]]; then
+		error_line=$(echo "$error_output" | grep -v '^$' | tail -1)
 	fi
-	return 0
+	failed_errors["$pkg"]="$error_line"
+	return 1
 }
 
 # Iterate over dependencies and install missing ones
