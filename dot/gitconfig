@@ -12,10 +12,10 @@
 	required = true
 [core]
 	editor = nvim
-	pager = delta
+	pager = "if command -v delta >/dev/null 2>&1; then delta; else less -R; fi"
 
 [interactive]
-	diffFilter = delta --color-only
+	diffFilter = "if command -v delta >/dev/null 2>&1; then delta --color-only; else cat; fi"
 
 [delta]
 	navigate = true
