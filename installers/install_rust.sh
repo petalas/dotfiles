@@ -1,25 +1,15 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154  # colors (red/green/yellow/reset) defined in source_installers.sh
+# shellcheck disable=SC2154  # colors and $os_id provided by source_installers.sh
 
 
 install_rust() {
-    # Detect OS
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        os="macos"
-    elif [[ -f /etc/os-release ]]; then
-        os=$(grep -w ID /etc/os-release | cut -d '=' -f 2 | tr -d '"')
-    else
-        echo ":: ${red}Unable to detect OS${reset}"
-        return 1
-    fi
-    
     if ! command -v rustc || ! command -v cargo >/dev/null 2>&1 || ! command -v rustup >/dev/null 2>&1; then
-        if [[ "$os" == "ubuntu" || "$os" == "debian" || "$os" == "macos" ]]; then
+        if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" || "$os_id" == "macos" ]]; then
             echo
             echo ":: ${green}Installing rust...${reset}"
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y || return 1
             source "$HOME/.cargo/env"
-        elif [[ "$os" == "arch" ]]; then
+        elif [[ "$os_id" == "arch" ]]; then
             sudo pacman -Sy --noconfirm rustup
             rustup default stable
         fi

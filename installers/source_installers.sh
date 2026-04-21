@@ -10,6 +10,24 @@ green=$(tput setaf 2 2>/dev/null || true)
 yellow=$(tput setaf 3 2>/dev/null || true)
 reset=$(tput sgr0 2>/dev/null || true)
 
+# Detect current OS. Sets globals:
+#   $os_id                 — "macos" on darwin, /etc/os-release ID on linux
+#   $os_version_codename   — /etc/os-release VERSION_CODENAME (may be empty)
+# Normalizes Arch Linux ARM (archarm) to arch so downstream checks don't need
+# to special-case it. Safe to call repeatedly.
+detect_os() {
+	if [[ "$OSTYPE" == darwin* ]]; then
+		os_id="macos"
+		return 0
+	fi
+	if [[ -f /etc/os-release ]]; then
+		os_id=$(grep -w ID /etc/os-release 2>/dev/null | cut -d'=' -f2 | tr -d '"')
+		os_version_codename=$(grep -w VERSION_CODENAME /etc/os-release 2>/dev/null | cut -d'=' -f2 | tr -d '"')
+	fi
+	[[ "$os_id" == "archarm" ]] && os_id="arch"
+}
+detect_os
+
 # Get the directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 

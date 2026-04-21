@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154  # colors (red/green/yellow/reset) defined in source_installers.sh
+# shellcheck disable=SC2154  # colors and $os_id provided by source_installers.sh
 
 
 install_sdkman_deps() {
