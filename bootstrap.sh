@@ -84,8 +84,24 @@ ensure_git
 
 mkdir -p "$(dirname "$TARGET")"
 if [[ -d "$TARGET/.git" ]]; then
-	echo "Already cloned at $TARGET — pulling latest"
-	git -C "$TARGET" pull --ff-only
+	# Refuse if there are uncommitted changes — bootstrap is a sync tool, not
+	# a backup tool. Users with in-progress edits need to handle those first.
+	if [[ -n "$(git -C "$TARGET" status --porcelain)" ]]; then
+		echo "ERROR: uncommitted changes in $TARGET — commit/stash them or delete the dir" >&2
+		exit 1
+	fi
+
+	echo "Already cloned at $TARGET — syncing to origin/main"
+	git -C "$TARGET" fetch origin --quiet
+	git -C "$TARGET" checkout main >/dev/null 2>&1 || true
+
+	# Try fast-forward; on divergence (typically a force-push of rewritten
+	# history) hard-reset instead. The local clone is treated as a cache —
+	# no assumption that local commits are preserved.
+	if ! git -C "$TARGET" merge --ff-only origin/main >/dev/null 2>&1; then
+		echo "  local main diverged from origin (likely a force-push); resetting --hard"
+		git -C "$TARGET" reset --hard origin/main
+	fi
 else
 	echo "Cloning $REPO_URL -> $TARGET"
 	git clone "$REPO_URL" "$TARGET"
