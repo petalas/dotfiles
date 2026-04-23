@@ -87,6 +87,7 @@ if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
 		"gpg"
 		"libnotify4"
 		"libssl-dev"
+		"libxml2-utils"
 		"linux-perf"
 		"make"
 		"pkg-config"
@@ -99,18 +100,23 @@ elif [[ "$os_id" == "arch" ]]; then
 	deps+=(
 		"base-devel" # includes gcc, g++, make, etc.
 		"bind"       # for dig, nslookup (dnsutils)
+		"bottom"
+		"dust"
 		"fd"
 		"libnotify"
+		"libxml2"
 		"openssh"
 		"openssl" # libssl-dev equivalent
 		"p7zip"
 		"perf"
 		"pkgconf"
 		"poppler"
+		"procs"
 		"python"
 		"python-virtualenv"
 		"spotify"
 		"visual-studio-code-bin"
+		"xh"
 	)
 else
 	print_error "Unsupported OS: $os_id"
