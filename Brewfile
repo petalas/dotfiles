@@ -28,11 +28,15 @@ brew "watch"
 brew "wget"
 
 # --- Modern CLI ---
+brew "bottom"
+brew "dust"
 brew "eza"
 brew "fd"
 brew "fzf"
 brew "jq"
+brew "procs"
 brew "sevenzip"
+brew "xh"
 
 # --- Dev tools ---
 brew "cmake"
