@@ -111,7 +111,6 @@ cask "docker-desktop"
 
 # --- AI ---
 cask "lm-studio"
-cask "maestro"
 
 # --- Mobile dev (fastlane, maestro, Java runtime) ---
 unless ENV["HOMEBREW_SKIP_MOBILE"]
