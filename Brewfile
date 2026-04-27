@@ -24,6 +24,7 @@ brew "mosh"
 brew "mtr"
 brew "nmap"
 brew "rsync"
+brew "tmux"
 brew "watch"
 brew "wget"
 
