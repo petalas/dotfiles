@@ -99,6 +99,12 @@ alias c='claude --dangerously-skip-permissions'
 alias cdx='codex --dangerously-bypass-approvals-and-sandbox'
 alias hl='rg --passthrough'
 
+# Clear bunx's per-package temp caches under $TMPDIR. Useful when a cached
+# install is corrupt (e.g. partial node_modules from an interrupted download
+# causing ERR_MODULE_NOT_FOUND). The (N) qualifier is zsh's NULL_GLOB so
+# the alias is a no-op when nothing matches instead of erroring.
+alias bunx-clean='rm -rf /private/var/folders/*/*/T/bunx-*(N)'
+
 # ssh with downgraded TERM for hosts that don't have xterm-kitty/alacritty
 # terminfo (TrueNAS, random boxes, fresh VMs). Fixes backspace/arrow-key
 # issues. For your own machines, plain `ssh` works. To teach a remote host
