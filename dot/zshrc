@@ -102,8 +102,11 @@ alias hl='rg --passthrough'
 # Clear bunx's per-package temp caches under $TMPDIR. Useful when a cached
 # install is corrupt (e.g. partial node_modules from an interrupted download
 # causing ERR_MODULE_NOT_FOUND). The (N) qualifier is zsh's NULL_GLOB so
-# the alias is a no-op when nothing matches instead of erroring.
-alias bunx-clean='rm -rf /private/var/folders/*/*/T/bunx-*(N)'
+# this is a no-op when nothing matches instead of erroring.
+bunx-clean() {
+  local tmp="${TMPDIR:-/tmp}"
+  rm -rf "${tmp%/}"/bunx-*(N)
+}
 
 # ssh with downgraded TERM for hosts that don't have xterm-kitty/alacritty
 # terminfo (TrueNAS, random boxes, fresh VMs). Fixes backspace/arrow-key
@@ -247,6 +250,26 @@ function upd() {
     return $rc
   }
 
+  _upd_run_bunx_skills() {
+    local rc=0
+    echo "\n\033[1;34m:: skills\033[0m"
+    bunx skills update --global
+    rc=$?
+
+    if (( rc != 0 )); then
+      echo "skills update failed; clearing bunx temp cache and retrying"
+      bunx-clean
+      bunx skills update --global
+      rc=$?
+    fi
+
+    if (( rc != 0 )); then
+      printf '\033[1;31mcommand failed (%d): %s\033[0m\n' "$rc" "bunx skills update --global"
+      failures+=("skills")
+    fi
+    return $rc
+  }
+
   # System packages
   if [[ $OSTYPE == linux* ]]; then
     if command -v paru >/dev/null 2>&1; then
@@ -327,19 +350,20 @@ function upd() {
   fi
 
   if command -v bunx >/dev/null 2>&1; then
-    _upd_run "skills" bunx skills update --global
+    _upd_run_bunx_skills
   fi
 
   # Summary
   echo ""
   if (( ${#failures[@]} )); then
     echo "\033[1;31m✗ Failed: ${(j:, :)failures}\033[0m"
+    unset -f _upd_run _upd_run_bunx_skills
     return 1
   else
     echo "\033[1;32m✓ Everything up to date.\033[0m"
   fi
 
-  unset -f _upd_run
+  unset -f _upd_run _upd_run_bunx_skills
 }
 
 # kill anything taking up the specified port, usage example: killport 6060
