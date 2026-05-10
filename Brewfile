@@ -119,6 +119,7 @@ cask "lm-studio"
 unless ENV["HOMEBREW_SKIP_MOBILE"]
   tap "mobile-dev-inc/tap"
   brew "applesimutils"
+  brew "bundletool"
   brew "cocoapods"
   brew "fastlane"
   brew "mobile-dev-inc/tap/maestro"
