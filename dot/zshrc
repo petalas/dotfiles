@@ -75,8 +75,8 @@ HISTSIZE=10000
 SAVEHIST=10000
 setopt appendhistory
 
-# nvim manual installation
-export PATH="$PATH:/opt/nvim/bin"
+# nvim manual installation — prepend so it wins over brew/apt copies
+export PATH="/opt/nvim/bin:$PATH"
 
 # Aliases
 alias ll="ls -lah"
@@ -342,6 +342,12 @@ function upd() {
   # Misc tools
   if command -v tldr >/dev/null 2>&1; then
     _upd_run "tldr" tldr -u
+  fi
+
+  # neovim itself (nightly) — run before plugin sync so :Lazy uses the new binary
+  local nvim_installer="${DOTFILES_DIR:-$HOME/git/dotfiles}/installers/install_neovim.sh"
+  if [[ -f "$nvim_installer" ]]; then
+    _upd_run "neovim" bash "$nvim_installer"
   fi
 
   # neovim plugins (lazy.nvim)
