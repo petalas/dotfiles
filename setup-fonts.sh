@@ -68,7 +68,7 @@ function copy_fonts_to_windows() {
 	echo "${BLUE}Note: You may need to manually install the fonts on Windows by selecting them in $win_fonts_dir and right-clicking -> Install${RESET}"
 }
 
-declare -a fonts=("Hack" "FantasqueSansMono" "InconsolataLGC" "Ubuntu")
+declare -a fonts=("Hack" "FantasqueSansMono" "InconsolataLGC" "Ubuntu" "Iosevka")
 fonts_installed=false
 
 echo "Installing patched nerd fonts..."
