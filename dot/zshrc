@@ -485,3 +485,7 @@ fi
 if [[ -d "$HOME/.lmstudio/bin" ]]; then
   export PATH="$PATH:$HOME/.lmstudio/bin"
 fi
+
+# Local machine-specific secrets and overrides. This file lives outside the
+# dotfiles repo because ~/.zshrc is a symlink to dot/zshrc.
+[[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
