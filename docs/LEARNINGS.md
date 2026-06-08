@@ -63,6 +63,14 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## kitty font families should use kitty syntax, not shell quotes
+
+- Symptom: `kitty --debug-font-fallback` says a font is not found even though Font Book and `fc-match` can resolve it.
+- Cause: shell-style single quotes in `kitty.conf` are not the right way to disambiguate a font family with spaces. Also, kitty may list only terminal-usable mono families, so a Font Book family like `Iosevka NF` can exist while kitty accepts `Iosevka Nerd Font Mono`.
+- Fix: use kitty's documented font selector syntax, e.g. `font_family family="Iosevka Nerd Font Mono"`, and verify with `kitty --debug-font-fallback` or `kitten choose-fonts`.
+
+---
+
 ## The nvim config is a separate repo (cloned, not symlinked) — keep it pulled
 
 - `~/.config/nvim` is **not** part of this dotfiles repo and is **not** symlinked. `link-dotfiles.sh` clones it from `petalas/nvim` (a kickstart.nvim fork). Edit and commit nvim config **in that repo**, not under `dot/` — adding it to `dot/.config/nvim/` would duplicate a repo that manages itself.
