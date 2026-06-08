@@ -344,6 +344,17 @@ function upd() {
     _upd_run "tldr" tldr -u
   fi
 
+  # neovim config repo (petalas/nvim @ custom) lives at ~/.config/nvim and is
+  # cloned, not symlinked, so it must be pulled explicitly. Do this BEFORE the
+  # plugin sync so :Lazy operates on current specs — a stale config here is what
+  # caused the nvim-treesitter breakage. See docs/LEARNINGS.md.
+  local git_sync="${DOTFILES_DIR:-$HOME/git/dotfiles}/lib/git-sync.sh"
+  local nvim_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/nvim"
+  if [[ -f "$git_sync" && -d "$nvim_cfg/.git" ]]; then
+    source "$git_sync"
+    _upd_run "nvim config" git_ff "$nvim_cfg"
+  fi
+
   # neovim itself (nightly) — run before plugin sync so :Lazy uses the new binary
   local nvim_installer="${DOTFILES_DIR:-$HOME/git/dotfiles}/installers/install_neovim.sh"
   if [[ -f "$nvim_installer" ]]; then

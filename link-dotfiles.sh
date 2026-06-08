@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# shellcheck source=lib/git-sync.sh disable=SC1091
+source "$(dirname "${BASH_SOURCE[0]}")/lib/git-sync.sh"
+
 # Link source to target, skipping if already correctly linked.
 # Backs up existing files/dirs before replacing.
 link_path() {
@@ -41,10 +44,10 @@ link_path "$(pwd)/dot/work/gitconfig" "$HOME/git/work/.gitconfig"
 mkdir -p "$HOME/.config/kitty"
 link_path "$(pwd)/dot/.config/kitty/kitty.conf" "$HOME/.config/kitty/kitty.conf"
 
-# nvim
-if [ ! -d "$HOME/.config/nvim" ]; then
-    git clone https://github.com/petalas/nvim.git "$HOME/.config/nvim" -b custom
-fi
+# nvim — separate repo (petalas/nvim @ custom), cloned (NOT symlinked) into
+# ~/.config/nvim, so it must be kept current explicitly or it silently drifts
+# behind the plugins lazy.nvim keeps updating. See docs/LEARNINGS.md.
+clone_or_ff https://github.com/petalas/nvim.git "$HOME/.config/nvim" custom
 
 # yazi
 link_path "$(pwd)/dot/.config/yazi" "$HOME/.config/yazi"
