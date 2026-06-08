@@ -13,6 +13,7 @@
 # --- Core CLI ---
 brew "aria2"
 brew "bash"
+brew "bat"
 brew "bc"
 brew "bind"
 brew "btop"
