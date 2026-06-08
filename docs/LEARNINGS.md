@@ -60,3 +60,12 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Cause: kitty's `globinclude` directive requires the pattern to be relative to the config file's directory (`~/.config/kitty/`). Absolute paths and `$HOME` expansion are rejected. `include` accepts absolute paths; `globinclude` does not.
 - Why we use globinclude anyway: `include` on a missing file still logs a warning, whereas `globinclude` is silent when the pattern matches zero files — the right semantics for **optional** machine-specific configs (ml4w, pywal).
 - Fix: write the pattern relative to `~/.config/kitty/`, e.g. `globinclude ../ml4w/settings/kitty-cursor-trail.conf` or `globinclude ../../.cache/wal/colors-kitty.conf`.
+
+---
+
+## The nvim config is a separate repo (cloned, not symlinked) — keep it pulled
+
+- `~/.config/nvim` is **not** part of this dotfiles repo and is **not** symlinked. `link-dotfiles.sh` clones it from `petalas/nvim` (a kickstart.nvim fork). Edit and commit nvim config **in that repo**, not under `dot/` — adding it to `dot/.config/nvim/` would duplicate a repo that manages itself.
+- **Drift trap:** the clone used to be set up once and never updated, while `upd` kept updating the neovim binary and the lazy.nvim plugins. A config left far behind the plugins it configures breaks when a plugin changes its API (this is how a treesitter breakage happened — lazy installed a new major version of a plugin while the stale config still called the old API).
+- **Fix:** `lib/git-sync.sh` provides `clone_or_ff` / `git_ff` (clone if missing, else fast-forward; non-destructive — skips a dirty or diverged worktree). `link-dotfiles.sh` uses it for the nvim repo and the oh-my-zsh theme/plugins, and `upd` fast-forwards the nvim config **before** syncing plugins so plugins always match the current specs.
+- **Reconciling a diverged machine** (stale local commits vs. a rebased remote): the remote tracking branch is canonical. After confirming it contains your customizations, `git -C ~/.config/nvim fetch && git -C ~/.config/nvim reset --hard @{u}`; the reflog recovers anything if needed.

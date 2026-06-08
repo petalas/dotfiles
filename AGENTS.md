@@ -37,6 +37,7 @@ Before modifying code, find the matching file pattern and **read the linked doc 
 | `dot/.config/**` | App's official docs for config syntax |
 | `dot/claude/**` | This is GLOBAL Claude config — changes affect all projects |
 | `link-dotfiles.sh` | Understand symlink structure before adding new dotfiles |
+| nvim config (`~/.config/nvim`) | [LEARNINGS.md](docs/LEARNINGS.md) — it's the **external `petalas/nvim` repo** (cloned, not symlinked); edit there, not under `dot/` |
 | Weird bug or unexpected behavior | [LEARNINGS.md](docs/LEARNINGS.md) — search for the symptom |
 
 ## When You Struggle (Mandatory)
