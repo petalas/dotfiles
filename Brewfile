@@ -50,9 +50,8 @@ brew "lazydocker"
 brew "lazygit"
 brew "luarocks"
 brew "mas"
-# neovim is installed via installers/install_neovim.sh (nightly tarball -> /opt/nvim)
-# so kickstart's treesitter config has the 0.12+ APIs it needs. Run `brew uninstall
-# neovim` once on Mac to remove the old brew copy; /opt/nvim/bin is PATH-first.
+# HEAD tracks Neovim nightly for kickstart/nvim-treesitter APIs.
+brew "neovim", args: ["HEAD"]
 brew "shellcheck"
 
 # --- Languages ---
