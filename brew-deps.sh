@@ -40,9 +40,13 @@ done
 # Drift check: brew bundle cleanup --file=Brewfile
 brew bundle --file="$(dirname "$0")/Brewfile"
 
-# source installers for non-brew deps (Node, Bun, Rust, SDKMAN)
+# source installers for non-Brewfile deps and macOS Neovim HEAD conversion
+# shellcheck source=installers/source_installers.sh disable=SC1091
 source "$(dirname "$0")/installers/source_installers.sh"
 
+# Neovim is declared in Brewfile with HEAD, but brew bundle will not convert an
+# already-installed stable formula to HEAD. The installer handles that case.
+install_neovim
 install_node
 install_bun
 install_node_deps
@@ -54,5 +58,5 @@ install_rust_deps
 # Informational drift check at the end of setup. Anything listed here is
 # installed on this machine but not declared in Brewfile. Run with --force
 # (manually, not here) to actually uninstall: brew bundle cleanup --file=Brewfile --force
-printf "\n${yellow}Checking for drift (installed but not in Brewfile)...${reset}\n"
+printf '\n%sChecking for drift (installed but not in Brewfile)...%s\n' "$yellow" "$reset"
 brew bundle cleanup --file="$(dirname "$0")/Brewfile" || true

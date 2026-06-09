@@ -9,6 +9,14 @@ fi
 # that prepends/appends an already-present entry is silently deduped.
 typeset -U path PATH fpath FPATH
 
+# macOS uses Homebrew Neovim; Linux keeps the /opt/nvim tarball ahead of
+# distro packages.
+if [[ $OSTYPE == darwin* ]]; then
+    path=(${path:#/opt/nvim/bin})
+elif [[ $OSTYPE == linux* ]]; then
+    path=(/opt/nvim/bin $path)
+fi
+
 if command -v nvim >/dev/null 2>&1; then
     export EDITOR="$(which nvim)"
     export SUDO_EDITOR="$(which nvim)"
@@ -74,9 +82,6 @@ HISTFILE=~/.zsh_history
 HISTSIZE=10000
 SAVEHIST=10000
 setopt appendhistory
-
-# nvim manual installation — prepend so it wins over brew/apt copies
-export PATH="/opt/nvim/bin:$PATH"
 
 # Aliases
 alias ll="ls -lah"
@@ -355,7 +360,7 @@ function upd() {
     _upd_run "nvim config" git_ff "$nvim_cfg"
   fi
 
-  # neovim itself (nightly) — run before plugin sync so :Lazy uses the new binary
+  # neovim itself (nightly/HEAD) — run before plugin sync so :Lazy uses the new binary
   local nvim_installer="${DOTFILES_DIR:-$HOME/git/dotfiles}/installers/install_neovim.sh"
   if [[ -f "$nvim_installer" ]]; then
     _upd_run "neovim" bash "$nvim_installer"
