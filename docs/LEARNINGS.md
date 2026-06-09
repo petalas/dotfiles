@@ -23,6 +23,14 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Homebrew `reinstall` does not accept `--HEAD`
+
+- Symptom: `upd` fails in `installers/install_neovim.sh` with `Error: invalid option: --HEAD` when trying to convert an existing stable `neovim` install to nightly.
+- Cause: `brew install neovim --HEAD` is valid, but `brew reinstall neovim --HEAD` is not accepted by Homebrew. A linked stable keg also blocks a direct HEAD install with Homebrew's own instruction to run `brew unlink neovim` first.
+- Fix: when stable Neovim is already installed on macOS, `install_neovim` unlinks it, runs `brew install neovim --HEAD`, then links the HEAD keg with `brew link --overwrite --HEAD neovim`. If the HEAD install fails, it attempts to relink the previous Homebrew install.
+
+---
+
 ## `bun upgrade` re-appends its completions block to `~/.zshrc`
 
 - Symptom: after `bun upgrade` (invoked via `upd`), `dot/zshrc` shows an unsolicited trailing block:

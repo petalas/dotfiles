@@ -11,7 +11,7 @@
 # Arch:         AUR neovim-nightly-bin via paru
 install_neovim() {
     local tag="nightly"
-    local tarball url dirname
+    local tarball url dirname outdated linked_neovim
 
     case "$os_id" in
         ubuntu|debian)
@@ -37,14 +37,29 @@ install_neovim() {
             fi
 
             if brew list --versions neovim 2>/dev/null | grep -q 'HEAD'; then
-                echo "Upgrading ${yellow}nvim (HEAD)${reset} via Homebrew ..."
-                brew upgrade --fetch-HEAD neovim
+                outdated=$(brew outdated --fetch-HEAD neovim) || return 1
+                if [[ -n "$outdated" ]]; then
+                    echo "Upgrading ${yellow}nvim (HEAD)${reset} via Homebrew ..."
+                    brew upgrade --fetch-HEAD neovim || return 1
+                else
+                    echo "${yellow}nvim (HEAD)${reset} is up to date."
+                fi
             elif brew list --versions neovim >/dev/null 2>&1; then
-                echo "Reinstalling ${yellow}nvim (HEAD)${reset} via Homebrew ..."
-                brew reinstall neovim --HEAD
+                echo "Switching ${yellow}nvim${reset} from stable to HEAD via Homebrew ..."
+                brew unlink neovim || return 1
+                if ! brew install neovim --HEAD; then
+                    echo "${red}nvim: HEAD install failed; relinking previous Homebrew install${reset}"
+                    brew link neovim >/dev/null 2>&1 || true
+                    return 1
+                fi
             else
                 echo "Installing ${yellow}nvim (HEAD)${reset} via Homebrew ..."
                 brew install neovim --HEAD
+            fi
+
+            linked_neovim=$(readlink "$(brew --prefix)/opt/neovim" 2>/dev/null || true)
+            if [[ "$linked_neovim" != *"/Cellar/neovim/HEAD-"* ]]; then
+                brew link --overwrite --HEAD neovim || return 1
             fi
             ;;
         arch)
