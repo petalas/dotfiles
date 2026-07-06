@@ -369,6 +369,7 @@ declare -a installers=(
 	"code"
 	"discord"
 	"docker"
+	"herdr"
 	"kitty"
 	"lazydocker"
 	"lazygit"

@@ -113,6 +113,7 @@ cask "zed"
 cask "docker-desktop"
 
 # --- AI ---
+brew "herdr"
 cask "lm-studio"
 
 # --- Mobile dev (fastlane, maestro, Java runtime) ---
