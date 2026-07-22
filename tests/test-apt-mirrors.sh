@@ -77,7 +77,22 @@ APT_SOURCES_ROOT="$ubuntu_override_root" \
 	"$repo_dir/setup-apt-mirrors.sh"
 assert_contains 'http://us.archive.ubuntu.com/ubuntu' "$ubuntu_override_root/sources.list"
 assert_not_contains 'mirrors.ubuntu.com' "$ubuntu_override_root/sources.list"
-assert_not_contains 'security.ubuntu.com' "$ubuntu_override_root/sources.list"
+assert_contains 'http://security.ubuntu.com/ubuntu' "$ubuntu_override_root/sources.list"
+
+ubuntu_security_override_root="$fixture_dir/ubuntu-security-override"
+mkdir -p "$ubuntu_security_override_root"
+cat >"$ubuntu_security_override_root/sources.list" <<'EOF'
+deb http://archive.ubuntu.com/ubuntu noble main universe
+deb http://security.ubuntu.com/ubuntu noble-security main universe
+EOF
+APT_SOURCES_ROOT="$ubuntu_security_override_root" \
+	APT_MIRROR_OS_ID=ubuntu \
+	APT_PRIMARY_MIRROR=http://us.archive.ubuntu.com/ubuntu \
+	APT_SECURITY_MIRROR=http://security-mirror.example.com/ubuntu \
+	"$repo_dir/setup-apt-mirrors.sh"
+assert_contains 'http://us.archive.ubuntu.com/ubuntu' "$ubuntu_security_override_root/sources.list"
+assert_contains 'http://security-mirror.example.com/ubuntu' "$ubuntu_security_override_root/sources.list"
+assert_not_contains 'security.ubuntu.com' "$ubuntu_security_override_root/sources.list"
 
 debian_root="$fixture_dir/debian"
 mkdir -p "$debian_root/sources.list.d"

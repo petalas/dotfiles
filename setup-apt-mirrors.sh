@@ -36,16 +36,18 @@ fi
 
 backup_dir="${APT_MIRROR_BACKUP_DIR:-$apt_root/.dotfiles-backups}"
 changed_count=0
-ubuntu_mirror="${APT_PRIMARY_MIRROR:-mirror+http://mirrors.ubuntu.com/mirrors.txt}"
-ubuntu_mirror="${ubuntu_mirror%/}"
+ubuntu_primary_mirror="${APT_PRIMARY_MIRROR:-mirror+http://mirrors.ubuntu.com/mirrors.txt}"
+ubuntu_primary_mirror="${ubuntu_primary_mirror%/}"
+ubuntu_security_mirror="${APT_SECURITY_MIRROR:-}"
+ubuntu_security_mirror="${ubuntu_security_mirror%/}"
 ubuntu_source_pattern='https?://([[:alnum:]-]+\.)?archive\.ubuntu\.com/ubuntu/?'
 ubuntu_rewrite_args=(
-	-e "s#https?://([[:alnum:]-]+\.)?archive\\.ubuntu\\.com/ubuntu/?#$ubuntu_mirror#g"
+	-e "s#https?://([[:alnum:]-]+\.)?archive\\.ubuntu\\.com/ubuntu/?#$ubuntu_primary_mirror#g"
 )
-if [[ -n "${APT_PRIMARY_MIRROR:-}" ]]; then
+if [[ -n "$ubuntu_security_mirror" ]]; then
 	ubuntu_source_pattern+='|https?://security\.ubuntu\.com/ubuntu/?'
 	ubuntu_rewrite_args+=(
-		-e "s#https?://security\\.ubuntu\\.com/ubuntu/?#$ubuntu_mirror#g"
+		-e "s#https?://security\\.ubuntu\\.com/ubuntu/?#$ubuntu_security_mirror#g"
 	)
 fi
 
@@ -95,9 +97,8 @@ for source_file in "${source_files[@]}"; do
 			# Canonical's mirror index is generated from the requester IP and
 			# returns nearby, current official mirrors. APT's mirror transport
 			# transparently falls back to another entry when one is unavailable.
-			# Keep security.ubuntu.com unchanged for normal installs. Integration
-			# tests may supply a benchmarked official mirror after verifying that
-			# it serves both the release and security pockets.
+			# Keep security.ubuntu.com unchanged unless the caller supplies a
+			# separate security override explicitly.
 			if grep -Eq "$ubuntu_source_pattern" "$source_file"; then
 				backup_source "$source_file"
 				rewrite_source "$source_file" "${ubuntu_rewrite_args[@]}"
@@ -110,5 +111,5 @@ done
 if [[ $changed_count -eq 0 ]]; then
 	echo "$os_id APT sources already use the preferred mirror service."
 else
-	echo "Configured $changed_count $os_id APT source file(s) to use the preferred mirror service${APT_PRIMARY_MIRROR:+ ($ubuntu_mirror)}."
+	echo "Configured $changed_count $os_id APT source file(s) to use the preferred mirror service."
 fi
