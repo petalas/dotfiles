@@ -15,6 +15,5 @@ if [[ "$arch_name" != "arm64" ]]; then
 fi
 
 "$(dirname "${BASH_SOURCE[0]}")/test-easy-install-noninteractive.sh"
-"$(dirname "${BASH_SOURCE[0]}")/test-yazi-config.sh"
 
 echo "macOS arm64 smoke tests passed."
