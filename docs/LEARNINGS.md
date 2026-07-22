@@ -111,3 +111,11 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - `DOTFILES_INTEGRATION_TEST=1` is set only by the Dockerfile. It keeps the real orchestration, package manager, locale setup, shell configuration, and linking stages while limiting Linux packages to portable core dependencies and skipping fonts, GUI apps, services, SDKs, and AUR packages that have no useful container behavior.
 - Even the container's one-package bootstrap can hit transient mirror or DNS failures before repository retry logic exists, so `bootstrap-container.sh` gives APT and pacman three bounded attempts.
 - Do not use that profile for a normal machine install: its intentionally reduced dependency set is a test boundary, not a lightweight install mode.
+
+---
+
+## TPM's CLI uses state from the running tmux server
+
+- Symptom: `bin/install_plugins` prints `unknown variable: TMUX_PLUGIN_MANAGER_PATH`, says TPM is not configured in `tmux.conf`, and aborts even though the linked config contains both `@plugin` declarations and the final TPM `run` line.
+- Cause: TPM parses plugin declarations from the config file, but obtains its installation path from the tmux server's global environment. If `easy-install.sh` is run while an older tmux server is alive, that server may never have loaded the newly linked config and therefore lacks the variable.
+- Fix: after linking the config and cloning TPM, `link-dotfiles.sh` starts or connects to the tmux server and sources `~/.tmux.conf` before invoking TPM's command-line installer. The second Docker integration pass deliberately removes the variable from a live server to cover this state.

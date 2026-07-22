@@ -102,21 +102,21 @@ MSG
 echo "Checking sudo permissions..."
 ensure_sudo
 
-echo "${yellow}easy install -> setting up dependencies...${reset}\n"
+printf '%seasy install -> setting up dependencies...%s\n\n' "$yellow" "$reset"
 ./setup-deps.sh
 
-echo "${yellow}easy install -> setting up fonts...${reset}\n"
+printf '%seasy install -> setting up fonts...%s\n\n' "$yellow" "$reset"
 ./setup-fonts.sh
 
 # Source setup_zsh function
-echo "${yellow}easy install -> setting up zsh...${reset}\n"
+printf '%seasy install -> setting up zsh...%s\n\n' "$yellow" "$reset"
 source installers/setup_zsh.sh
 setup_zsh
 
-echo "${yellow}easy install -> configuring zsh...${reset}\n"
+printf '%seasy install -> configuring zsh...%s\n\n' "$yellow" "$reset"
 ./configure-zsh.sh
 
-echo "${yellow}easy install -> linking dotfiles...${reset}\n"
+printf '%seasy install -> linking dotfiles...%s\n\n' "$yellow" "$reset"
 ./link-dotfiles.sh
 
 # Print instructions BEFORE launching kitty so user sees them in the current
