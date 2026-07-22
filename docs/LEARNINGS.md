@@ -85,3 +85,11 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - **Drift trap:** the clone used to be set up once and never updated, while `upd` kept updating the neovim binary and the lazy.nvim plugins. A config left far behind the plugins it configures breaks when a plugin changes its API (this is how a treesitter breakage happened — lazy installed a new major version of a plugin while the stale config still called the old API).
 - **Fix:** `lib/git-sync.sh` provides `clone_or_ff` / `git_ff` (clone if missing, else fast-forward; non-destructive — skips a dirty or diverged worktree). `link-dotfiles.sh` uses it for the nvim repo and the oh-my-zsh theme/plugins, and `upd` fast-forwards the nvim config **before** syncing plugins so plugins always match the current specs.
 - **Reconciling a diverged machine** (stale local commits vs. a rebased remote): the remote tracking branch is canonical. After confirming it contains your customizations, `git -C ~/.config/nvim fetch && git -C ~/.config/nvim reset --hard @{u}`; the reflog recovers anything if needed.
+
+---
+
+## Mosh needs the client locale before `.zshrc` runs remotely
+
+- Symptom: `mosh-server` reports that a client-supplied UTF-8 locale is unavailable, falls back to US-ASCII, and exits even though Mosh is installed on both machines.
+- Cause: Mosh starts its server through a non-interactive SSH command, so changing the remote `.zshrc` alone is too late. Any locale forwarded by the client must already be generated on the server.
+- Fix: Linux setup installs/generates `en_US.UTF-8` and selects it as the system `LANG`. `dot/zshrc` uses the same `LANG` locally and clears `LC_ALL`/`LC_CTYPE` overrides so SSH and Mosh forward the shared locale.
