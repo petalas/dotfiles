@@ -98,7 +98,9 @@ fi
 mkdir -p "$HOME/.claude/commands"
 
 link_path "$dotfiles_dir/dot/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
-link_path "$dotfiles_dir/dot/claude/settings.json" "$HOME/.claude/settings.json"
+if [ -e "$dotfiles_dir/dot/claude/settings.json" ]; then
+    link_path "$dotfiles_dir/dot/claude/settings.json" "$HOME/.claude/settings.json"
+fi
 
 # commands/ (symlink each .md file)
 for cmd in "$dotfiles_dir"/dot/claude/commands/*.md; do
