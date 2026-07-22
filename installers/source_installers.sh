@@ -26,10 +26,11 @@ detect_os() {
 	fi
 	if [[ -f /etc/os-release ]]; then
 		os_id=$(grep -w ID /etc/os-release 2>/dev/null | cut -d'=' -f2 | tr -d '"')
-		os_version_codename=$(grep -w VERSION_CODENAME /etc/os-release 2>/dev/null | cut -d'=' -f2 | tr -d '"')
+		os_version_codename=$(grep -w VERSION_CODENAME /etc/os-release 2>/dev/null | cut -d'=' -f2 | tr -d '"' || true)
 	fi
 	os_id_raw="$os_id"
 	[[ "$os_id" == "archarm" ]] && os_id="arch"
+	return 0
 }
 detect_os
 
@@ -67,4 +68,4 @@ list_installers() {
             echo "  - $(basename "$setup" .sh)"
         fi
     done
-} 
+}

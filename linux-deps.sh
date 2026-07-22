@@ -38,21 +38,29 @@ if [[ -z "$os_id" ]]; then
 	exit 1
 fi
 
-declare -a deps=(
-	"bat"
-	"bc"
-	"btop"
+declare -a required_deps=(
 	"ca-certificates"
 	"clang"
 	"cmake"
 	"curl"
+	"git"
+	"gnupg"
+	"grep"
+	"tar"
+	"unzip"
+	"wget"
+	"zip"
+	"zsh"
+)
+
+declare -a deps=(
+	"bat"
+	"bc"
+	"btop"
 	"eza"
 	"ffmpeg"
 	"fzf"
-	"git"
 	"gh"
-	"gnupg"
-	"grep"
 	"htop"
 	"imagemagick"
 	"iperf3"
@@ -65,42 +73,43 @@ declare -a deps=(
 	"rsync"
 	"shellcheck"
 	"sshpass"
-	"tar"
 	"tmux"
-	"unzip"
-	"wget"
 	"xclip"
 	"xdg-utils"
-	"zip"
-	"zsh"
 )
 
 # Add OS-specific packages
 if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
-	deps+=(
-		"7zip"
-		"apt-transport-https"
+	required_deps+=(
 		"build-essential"
-		"dnsutils"
-		"fd-find"
 		"g++"
 		"gcc"
 		"gpg"
-		"libnotify4"
 		"libssl-dev"
-		"libxml2-utils"
-		"linux-perf"
 		"locales"
 		"make"
 		"pkg-config"
+	)
+	deps+=(
+		"7zip"
+		"apt-transport-https"
+		"dnsutils"
+		"fd-find"
+		"libnotify4"
+		"libxml2-utils"
+		"linux-perf"
 		"poppler-utils"
 		"python3"
 		"python3-venv"
 		"ssh"
 	)
 elif [[ "$os_id" == "arch" ]]; then
-	deps+=(
+	required_deps+=(
 		"base-devel" # includes gcc, g++, make, etc.
+		"openssl"    # libssl-dev equivalent
+		"pkgconf"
+	)
+	deps+=(
 		"bind"       # for dig, nslookup (dnsutils)
 		"bottom"
 		"dust"
@@ -108,10 +117,8 @@ elif [[ "$os_id" == "arch" ]]; then
 		"libnotify"
 		"libxml2"
 		"openssh"
-		"openssl" # libssl-dev equivalent
 		"p7zip"
 		"perf"
-		"pkgconf"
 		"poppler"
 		"procs"
 		"python"
@@ -123,6 +130,28 @@ elif [[ "$os_id" == "arch" ]]; then
 else
 	print_error "Unsupported OS: $os_id"
 	exit 1
+fi
+
+# The Docker integration suite runs the real public easy-install pipeline on
+# clean distributions. Keep that profile focused on portable command-line
+# prerequisites: GUI applications, system services, language SDKs, and AUR
+# packages cannot be meaningfully exercised in a container. Normal installs
+# continue to use the complete dependency and installer lists above.
+if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == "1" ]]; then
+	required_deps=(
+		"ca-certificates"
+		"curl"
+		"git"
+		"grep"
+		"tar"
+		"unzip"
+		"wget"
+		"zsh"
+	)
+	if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
+		required_deps+=("locales")
+	fi
+	deps=("mosh" "tmux")
 fi
 
 install_paru() {
@@ -184,47 +213,53 @@ if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
 		print_warning "apt update failed, some packages may not install correctly"
 	fi
 elif [[ "$os_id" == "arch" ]]; then
-	set_parallel_downloads 8 # default is 5, probably won't make much of a difference
-
-	print_info "Updating system packages..."
-	if ! sudo pacman -Syu --noconfirm; then
-		print_warning "System update failed, continuing anyway..."
-	fi
-
-	# Mirror optimization: reflector on x86 Arch, rankmirrors on Arch ARM.
-	# reflector fetches the x86 Arch mirror list and doesn't exist on archarm;
-	# rankmirrors (from pacman-contrib) is the generic ARM-compatible alternative.
-	if [[ "$os_id_raw" == "archarm" ]]; then
-		if ! sudo pacman -S --noconfirm --needed pacman-contrib; then
-			print_warning "Failed to install pacman-contrib, skipping mirror optimization"
-		else
-			print_info "Finding the ${green}fastest mirrors${reset} (rankmirrors)..."
-			sudo cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
-			sed 's/^#Server/Server/' /etc/pacman.d/mirrorlist.bak >/tmp/mirrorlist.all
-			if rankmirrors -n 6 /tmp/mirrorlist.all >/tmp/mirrorlist.ranked 2>/dev/null; then
-				sudo cp /tmp/mirrorlist.ranked /etc/pacman.d/mirrorlist
-				print_success "Fastest mirrors found!"
-			else
-				print_warning "Mirror optimization failed, using existing mirrors"
-			fi
-		fi
+	if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == "1" ]]; then
+		print_info "Refreshing Arch package databases for integration testing..."
+		sudo pacman --disable-sandbox -Sy --noconfirm
 	else
-		if ! sudo pacman -S --noconfirm --needed reflector; then
-			print_warning "Failed to install reflector, skipping mirror optimization"
-		else
-			print_info "Finding the ${green}fastest mirrors${reset} (reflector)..."
-			if sudo reflector --threads 8 --latest 100 -n 10 --connection-timeout 1 --download-timeout 1 --sort rate --save /etc/pacman.d/mirrorlist >/dev/null 2>&1; then
-				cat /etc/pacman.d/mirrorlist
-				print_success "Fastest mirrors found!"
+		set_parallel_downloads 8 # default is 5, probably won't make much of a difference
+
+		print_info "Updating system packages..."
+		if ! sudo pacman -Syu --noconfirm; then
+			print_warning "System update failed, continuing anyway..."
+		fi
+
+		# Mirror optimization: reflector on x86 Arch, rankmirrors on Arch ARM.
+		# reflector fetches the x86 Arch mirror list and doesn't exist on archarm;
+		# rankmirrors (from pacman-contrib) is the generic ARM-compatible alternative.
+		if [[ "$os_id_raw" == "archarm" ]]; then
+			if ! sudo pacman -S --noconfirm --needed pacman-contrib; then
+				print_warning "Failed to install pacman-contrib, skipping mirror optimization"
 			else
-				print_warning "Mirror optimization failed, using existing mirrors"
+				print_info "Finding the ${green}fastest mirrors${reset} (rankmirrors)..."
+				sudo cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
+				sed 's/^#Server/Server/' /etc/pacman.d/mirrorlist.bak >/tmp/mirrorlist.all
+				if rankmirrors -n 6 /tmp/mirrorlist.all >/tmp/mirrorlist.ranked 2>/dev/null; then
+					sudo cp /tmp/mirrorlist.ranked /etc/pacman.d/mirrorlist
+					print_success "Fastest mirrors found!"
+				else
+					print_warning "Mirror optimization failed, using existing mirrors"
+				fi
+			fi
+		else
+			if ! sudo pacman -S --noconfirm --needed reflector; then
+				print_warning "Failed to install reflector, skipping mirror optimization"
+			else
+				print_info "Finding the ${green}fastest mirrors${reset} (reflector)..."
+				if sudo reflector --threads 8 --latest 100 -n 10 --connection-timeout 1 --download-timeout 1 --sort rate --save /etc/pacman.d/mirrorlist >/dev/null 2>&1; then
+					cat /etc/pacman.d/mirrorlist
+					print_success "Fastest mirrors found!"
+				else
+					print_warning "Mirror optimization failed, using existing mirrors"
+				fi
 			fi
 		fi
-	fi
 
-	if ! command -v paru &>/dev/null; then
-		if ! install_paru; then
-			print_error "paru installation failed - AUR packages will not be available"
+		if ! command -v paru &>/dev/null; then
+			if ! install_paru; then
+				print_error "paru installation failed - cannot install Arch dependencies"
+				exit 1
+			fi
 		fi
 	fi
 fi
@@ -255,7 +290,10 @@ install_single_dep() {
 	local attempt error_output exit_code=0
 
 	for attempt in 1 2 3; do
-		if command -v paru >/dev/null 2>&1; then
+		if [[ "$os_id" == "arch" && "${DOTFILES_INTEGRATION_TEST:-0}" == "1" ]]; then
+			error_output=$(sudo pacman --disable-sandbox -S --noconfirm --needed "$pkg" 2>&1)
+			exit_code=$?
+		elif command -v paru >/dev/null 2>&1; then
 			error_output=$(paru -S --noconfirm --needed "$pkg" 2>&1)
 			exit_code=$?
 		elif command -v apt >/dev/null 2>&1; then
@@ -293,14 +331,16 @@ install_single_dep() {
 
 # Iterate over dependencies and install missing ones
 install_missing_deps() {
+	local phase="$1"
+	shift
 	local installed_count=0
 	local failed_count=0
 	local skipped_count=0
 
-	print_info "Installing base dependencies..."
+	print_info "Installing $phase..."
 	echo
 
-	for dep in "${deps[@]}"; do
+	for dep in "$@"; do
 		if is_installed "$dep"; then
 			echo "  ${green}✓${reset} ${yellow}$dep${reset} already installed"
 			((skipped_count++))
@@ -337,16 +377,16 @@ install_missing_deps() {
 			echo "  ${red}✗${reset} ${yellow}$pkg${reset}: ${failed_errors[$pkg]:-unknown error}"
 		done
 	fi
+
+	[[ $failed_count -eq 0 ]]
 }
 
-install_missing_deps
-echo
-
-print_info "Configuring UTF-8 locale..."
-if ! setup_locale; then
-	print_error "Failed to configure UTF-8 locale"
-	failed_installers+=("locale")
+if ! install_missing_deps "required setup dependencies" "${required_deps[@]}"; then
+	print_error "Required setup dependencies failed; skipping downstream installers"
+	exit 1
 fi
+
+install_missing_deps "remaining dependencies" "${deps[@]}" || true
 echo
 
 # Helper function to run an installer with tracking
@@ -392,6 +432,11 @@ declare -a installers=(
 	"zerotier"
 )
 
+if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == "1" ]]; then
+	print_info "Skipping GUI, service, language SDK, and AUR installers in the container profile"
+	installers=()
+fi
+
 for installer in "${installers[@]}"; do
 	run_installer "$installer"
 done
@@ -423,6 +468,7 @@ else
 
 	echo
 	print_warning "Some installations failed. You may need to install them manually."
+	exit 1
 fi
 
 echo

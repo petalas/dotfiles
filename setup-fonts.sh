@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == "1" ]]; then
+	echo "Skipping desktop font installation in the container integration profile."
+	exit 0
+fi
+
 # Set colors
 RED=$(tput setaf 1 2>/dev/null || true)
 GREEN=$(tput setaf 2 2>/dev/null || true)

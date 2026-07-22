@@ -13,7 +13,12 @@ setup_zsh() {
         return 0
     fi
 
-    if [[ $(which zsh) != *"zsh" ]]; then
+    if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == "1" ]] && command -v zsh >/dev/null 2>&1; then
+        echo "ZSH is installed; skipping the login-shell change in the container integration profile."
+        return 0
+    fi
+
+    if ! command -v zsh >/dev/null 2>&1; then
         echo "Installing ${yellow}ZSH${reset} ..."
         
 
@@ -30,7 +35,7 @@ setup_zsh() {
     fi
 
     echo "Making ${yellow}ZSH${reset} the default shell."
-    chsh -s "$(which zsh)"
+    chsh -s "$(command -v zsh)"
 }
 
 # Call the function if this script is executed directly

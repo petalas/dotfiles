@@ -19,6 +19,13 @@ setup_locale() {
 		return 1
 	fi
 
+	if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]] &&
+		{ [[ ! -f "$locale_gen_file" ]] || ! command -v locale-gen >/dev/null 2>&1; }; then
+		echo "Installing locale support..."
+		sudo env LC_ALL=C LANG=C apt-get update
+		sudo env LC_ALL=C LANG=C DEBIAN_FRONTEND=noninteractive apt-get install -y locales
+	fi
+
 	if [[ ! -f "$locale_gen_file" ]]; then
 		echo "$locale_gen_file not found; install the system locales package first" >&2
 		return 1

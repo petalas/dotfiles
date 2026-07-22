@@ -1,7 +1,17 @@
 # Use the UTF-8 locale provisioned by the Linux setup scripts and available by
-# default on macOS. LANG provides defaults for every locale category; clearing
-# overrides prevents SSH and Mosh from forwarding a stale, unavailable locale.
-export LANG=en_US.UTF-8
+# default on macOS. Fall back cleanly while bootstrapping an existing machine;
+# exporting a locale that does not exist makes tools such as manpath print
+# during shell startup and trips Powerlevel10k's instant-prompt warning.
+if LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null | grep -qx UTF-8; then
+    export LANG=en_US.UTF-8
+elif LC_ALL=C.UTF-8 locale charmap 2>/dev/null | grep -qx UTF-8; then
+    export LANG=C.UTF-8
+else
+    export LANG=C
+fi
+
+# LANG provides defaults for every category; clearing overrides prevents SSH
+# and Mosh from forwarding a stale, unavailable locale.
 unset LC_ALL LC_CTYPE
 
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
@@ -502,4 +512,4 @@ fi
 [[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
 
 # Vite+ bin (https://viteplus.dev)
-. "$HOME/.vite-plus/env"
+[[ -r "$HOME/.vite-plus/env" ]] && source "$HOME/.vite-plus/env"
