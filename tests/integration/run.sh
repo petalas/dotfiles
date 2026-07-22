@@ -15,15 +15,6 @@ run_distro() {
         debian) image="debian:bookworm-slim" ;;
         ubuntu)
             image="ubuntu:24.04"
-            if [[ -z "$apt_primary_mirror" && -z "$apt_security_mirror" &&
-                ${GITHUB_ACTIONS:-} == true ]]; then
-                case "$(uname -m)" in
-                    x86_64|amd64)
-                        apt_primary_mirror="http://azure.archive.ubuntu.com/ubuntu"
-                        apt_security_mirror="$apt_primary_mirror"
-                        ;;
-                esac
-            fi
             ;;
         arch)
             image="archlinux:base"
