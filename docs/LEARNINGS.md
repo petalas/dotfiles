@@ -92,4 +92,22 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 - Symptom: `mosh-server` reports that a client-supplied UTF-8 locale is unavailable, falls back to US-ASCII, and exits even though Mosh is installed on both machines.
 - Cause: Mosh starts its server through a non-interactive SSH command, so changing the remote `.zshrc` alone is too late. Any locale forwarded by the client must already be generated on the server.
-- Fix: Linux setup installs/generates `en_US.UTF-8` and selects it as the system `LANG`. `dot/zshrc` uses the same `LANG` locally and clears `LC_ALL`/`LC_CTYPE` overrides so SSH and Mosh forward the shared locale.
+- Fix: `easy-install.sh` configures the locale before the general dependency phase. The locale setup installs/generates `en_US.UTF-8` and selects it as the system `LANG`; the targeted `./install locale` repair command also bootstraps Debian's `locales` package when necessary. `dot/zshrc` uses the same `LANG` when available, falls back to an installed locale during bootstrap, and clears `LC_ALL`/`LC_CTYPE` overrides so SSH and Mosh forward a valid locale.
+
+---
+
+## Sourced detection helpers must return success explicitly
+
+- Symptom: every `./install NAME` command exits silently on Linux while working on macOS.
+- Cause: `install` uses `set -euo pipefail` and sources `source_installers.sh`. `detect_os` both treated the optional `VERSION_CODENAME` field as mandatory and ended with an ArchARM normalization check joined by `&&`; either false status could trigger `set -e` before dispatch.
+- Fix: optional `/etc/os-release` fields tolerate absence, and detection helpers explicitly `return 0` after identifying a supported OS. Do not let an optional lookup or final conditional determine a sourced setup file's status.
+
+---
+
+## Test the public installer without pretending Docker is a desktop host
+
+- A disposable locale-only container proved the immediate Mosh fix, but it did not protect the ordering or idempotency of `easy-install.sh`.
+- The checked-in suite under `tests/integration/` starts from clean Debian, Ubuntu, and Arch images and invokes `./easy-install.sh` twice. Assertions cover the generated locale, Mosh, tmux mouse mode and plugin installation, zsh startup, external config clones, and the managed symlinks.
+- `DOTFILES_INTEGRATION_TEST=1` is set only by the Dockerfile. It keeps the real orchestration, package manager, locale setup, shell configuration, and linking stages while limiting Linux packages to portable core dependencies and skipping fonts, GUI apps, services, SDKs, and AUR packages that have no useful container behavior.
+- Even the container's one-package bootstrap can hit transient mirror or DNS failures before repository retry logic exists, so `bootstrap-container.sh` gives APT and pacman three bounded attempts.
+- Do not use that profile for a normal machine install: its intentionally reduced dependency set is a test boundary, not a lightweight install mode.

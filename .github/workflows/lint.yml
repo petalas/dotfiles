@@ -1,4 +1,4 @@
-name: Lint
+name: Checks
 
 on:
   push:
@@ -19,3 +19,17 @@ jobs:
             $(git ls-files '*.sh') \
             install \
             .githooks/pre-commit
+
+  linux-integration:
+    name: easy-install (${{ matrix.distro }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [debian, ubuntu, arch]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run easy-install twice from a clean image
+        run: ./tests/integration/run.sh "${{ matrix.distro }}"

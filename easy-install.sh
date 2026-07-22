@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
 if [[ $OSTYPE == "msys"* ]]; then
 	echo "Cannot install on windows, please install manually."
 	exit 1
