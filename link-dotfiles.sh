@@ -45,6 +45,9 @@ git -C "$dotfiles_dir" config core.hooksPath .githooks
 # zshrc
 link_path "$dotfiles_dir/dot/zshrc" "$HOME/.zshrc"
 
+# hushlogin (suppress terminal "Last login" banner)
+link_path "$dotfiles_dir/dot/hushlogin" "$HOME/.hushlogin"
+
 # gitconfig
 link_path "$dotfiles_dir/dot/gitconfig" "$HOME/.gitconfig"
 
