@@ -63,9 +63,9 @@ if command -v tmux &>/dev/null; then
     "$HOME/.tmux/plugins/tpm/bin/install_plugins"
 fi
 
-# kitty
-mkdir -p "$HOME/.config/kitty"
-link_path "$dotfiles_dir/dot/.config/kitty/kitty.conf" "$HOME/.config/kitty/kitty.conf"
+# ghostty (kitty config remains in dot/.config/kitty/ for easy rollback)
+mkdir -p "$HOME/.config/ghostty"
+link_path "$dotfiles_dir/dot/.config/ghostty/config.ghostty" "$HOME/.config/ghostty/config.ghostty"
 
 # pi
 pi_agent_dir="$HOME/.pi/agent"

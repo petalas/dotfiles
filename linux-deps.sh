@@ -464,7 +464,7 @@ declare -a installers=(
 	"discord"
 	"docker"
 	"herdr"
-	"kitty"
+	"ghostty"
 	"lazydocker"
 	"lazygit"
 	"neovim"
