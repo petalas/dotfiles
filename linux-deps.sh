@@ -143,6 +143,7 @@ if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == "1" ]]; then
 		"curl"
 		"git"
 		"grep"
+		"jq"
 		"tar"
 		"unzip"
 		"wget"
