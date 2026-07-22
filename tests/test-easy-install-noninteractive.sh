@@ -31,6 +31,7 @@ PROMPT
 fi
 [[ "${NONINTERACTIVE:-}" == "1" ]]
 printf 'dependencies\n' >>"$EASY_INSTALL_STEPS"
+[[ "${EASY_INSTALL_TEST_SCENARIO:-}" != "dependency_failure" ]]
 EOF
 
 cat >"$fixture_dir/setup-fonts.sh" <<'EOF'
@@ -38,6 +39,7 @@ cat >"$fixture_dir/setup-fonts.sh" <<'EOF'
 [[ "${HOMEBREW_NO_ASK:-}" == "1" ]]
 [[ "${NONINTERACTIVE:-}" == "1" ]]
 printf 'fonts\n' >>"$EASY_INSTALL_STEPS"
+[[ "${EASY_INSTALL_TEST_SCENARIO:-}" != "font_failure" ]]
 EOF
 
 cat >"$fixture_dir/installers/setup_zsh.sh" <<'EOF'
@@ -60,12 +62,20 @@ done
 chmod +x "$fixture_dir/bin/sudo" "$fixture_dir"/*.sh
 
 export EASY_INSTALL_STEPS="$fixture_dir/steps"
-output=$(env \
-	HOME="$fixture_dir/home" \
-	OSTYPE=darwin-test \
-	PATH="$fixture_dir/bin:/usr/bin:/bin" \
-	bash "$fixture_dir/easy-install.sh" </dev/null 2>&1) || {
-	printf '%s\n' "$output" >&2
+run_easy_install() {
+	local scenario="$1"
+	local output_file="$fixture_dir/$scenario-output"
+	: >"$EASY_INSTALL_STEPS"
+	env \
+		EASY_INSTALL_TEST_SCENARIO="$scenario" \
+		HOME="$fixture_dir/home" \
+		OSTYPE=darwin-test \
+		PATH="$fixture_dir/bin:/usr/bin:/bin" \
+		bash "$fixture_dir/easy-install.sh" </dev/null >"$output_file" 2>&1
+}
+
+run_easy_install success || {
+	cat "$fixture_dir/success-output" >&2
 	exit 1
 }
 
@@ -83,9 +93,32 @@ actual_steps=$(cat "$EASY_INSTALL_STEPS")
 	exit 1
 }
 
-if grep -Fq 'Do you want to proceed' <<<"$output"; then
+if grep -Fq 'Do you want to proceed' "$fixture_dir/success-output"; then
 	echo "easy-install emitted an interactive package-manager prompt" >&2
 	exit 1
 fi
+
+# Optional setup failures should not block later independent stages.
+run_easy_install font_failure || {
+	cat "$fixture_dir/font_failure-output" >&2
+	exit 1
+}
+actual_steps=$(cat "$EASY_INSTALL_STEPS")
+[[ "$actual_steps" == "$expected_steps" ]] || {
+	printf 'Unexpected steps after optional font failure:\n%s\n' "$actual_steps" >&2
+	exit 1
+}
+grep -Fq 'Setup completed with 1 warning(s)' "$fixture_dir/font_failure-output"
+
+# Dependency setup is a hard requirement for the remaining pipeline.
+if run_easy_install dependency_failure; then
+	echo "Expected dependency setup failure to stop easy-install" >&2
+	exit 1
+fi
+actual_steps=$(cat "$EASY_INSTALL_STEPS")
+[[ "$actual_steps" == "dependencies" ]] || {
+	printf 'Unexpected steps after required dependency failure:\n%s\n' "$actual_steps" >&2
+	exit 1
+}
 
 echo "easy-install macOS non-interactive environment test passed."

@@ -119,7 +119,9 @@ cask "lm-studio"
 # --- Mobile dev (fastlane, maestro, Java runtime) ---
 unless ENV["HOMEBREW_SKIP_MOBILE"]
   tap "mobile-dev-inc/tap"
-  brew "applesimutils"
+  # Homebrew 6 requires explicit trust for third-party formulae. Scope trust to
+  # this formula rather than allowing every current and future item in the tap.
+  brew "wix-incubator/brew/applesimutils", trusted: true
   brew "bundletool"
   brew "cocoapods"
   brew "fastlane"

@@ -20,6 +20,19 @@ red=$(tput setaf 1 2>/dev/null || true)
 green=$(tput setaf 2 2>/dev/null || true)
 yellow=$(tput setaf 3 2>/dev/null || true)
 reset=$(tput sgr0 2>/dev/null || true)
+declare -a install_warnings=()
+
+run_optional_stage() {
+	local label="$1"
+	shift
+	if "$@"; then
+		return 0
+	fi
+	install_warnings+=("$label")
+	printf '%sWarning: %s failed; continuing with independent stages.%s\n' \
+		"$yellow" "$label" "$reset" >&2
+	return 0
+}
 
 # Handles three cases:
 #   1. User already has passwordless sudo — no-op
@@ -116,25 +129,39 @@ ensure_sudo
 
 if [[ $OSTYPE == "linux"* ]]; then
 	printf '%seasy install -> configuring package mirrors...%s\n\n' "$yellow" "$reset"
-	./setup-apt-mirrors.sh
+	run_optional_stage "package mirror configuration" ./setup-apt-mirrors.sh
 fi
 
 printf '%seasy install -> setting up dependencies...%s\n\n' "$yellow" "$reset"
-./setup-deps.sh
+if ! ./setup-deps.sh; then
+	echo "${red}Dependency setup failed; cannot continue safely.${reset}" >&2
+	exit 1
+fi
 
 printf '%seasy install -> setting up fonts...%s\n\n' "$yellow" "$reset"
-./setup-fonts.sh
+run_optional_stage "font setup" ./setup-fonts.sh
 
 # Source setup_zsh function
 printf '%seasy install -> setting up zsh...%s\n\n' "$yellow" "$reset"
 source installers/setup_zsh.sh
-setup_zsh
+run_optional_stage "Zsh setup" setup_zsh
 
 printf '%seasy install -> configuring zsh...%s\n\n' "$yellow" "$reset"
-./configure-zsh.sh
+run_optional_stage "Zsh configuration" ./configure-zsh.sh
 
 printf '%seasy install -> linking dotfiles...%s\n\n' "$yellow" "$reset"
-./link-dotfiles.sh
+if ! ./link-dotfiles.sh; then
+	echo "${red}Dotfile linking failed; setup is incomplete.${reset}" >&2
+	exit 1
+fi
+
+if ((${#install_warnings[@]} > 0)); then
+	printf '\n%sSetup completed with %d warning(s):%s\n' \
+		"$yellow" "${#install_warnings[@]}" "$reset" >&2
+	for warning in "${install_warnings[@]}"; do
+		printf '  - %s\n' "$warning" >&2
+	done
+fi
 
 # Print instructions BEFORE launching kitty so user sees them in the current
 # terminal. kitty is only launched if it's actually on PATH.
