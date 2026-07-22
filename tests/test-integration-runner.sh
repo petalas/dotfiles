@@ -16,11 +16,7 @@ cat >"$fixture_dir/bin/docker" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$@" >"$DOCKER_ARGS_FILE"
 EOF
-cat >"$fixture_dir/bin/uname" <<'EOF'
-#!/usr/bin/env bash
-printf '%s\n' "${FAKE_UNAME:-x86_64}"
-EOF
-chmod +x "$fixture_dir/bin/docker" "$fixture_dir/bin/uname"
+chmod +x "$fixture_dir/bin/docker"
 
 assert_arg() {
 	local expected="$1"
@@ -41,22 +37,11 @@ export PATH="$fixture_dir/bin:$PATH"
 export DOCKER_ARGS_FILE="$fixture_dir/docker-args"
 unset APT_PRIMARY_MIRROR APT_SECURITY_MIRROR
 
-GITHUB_ACTIONS=true FAKE_UNAME=x86_64 \
-	"$repo_dir/tests/integration/run.sh" ubuntu >/dev/null
-assert_arg 'APT_PRIMARY_MIRROR=http://azure.archive.ubuntu.com/ubuntu'
-assert_arg 'APT_SECURITY_MIRROR=http://azure.archive.ubuntu.com/ubuntu'
-
-GITHUB_ACTIONS=true FAKE_UNAME=arm64 \
-	"$repo_dir/tests/integration/run.sh" ubuntu >/dev/null
+"$repo_dir/tests/integration/run.sh" ubuntu >/dev/null
 assert_no_mirror_args
 
-GITHUB_ACTIONS='' FAKE_UNAME=x86_64 \
-	"$repo_dir/tests/integration/run.sh" ubuntu >/dev/null
-assert_no_mirror_args
-
-	APT_PRIMARY_MIRROR=http://primary.example.com/ubuntu \
+APT_PRIMARY_MIRROR=http://primary.example.com/ubuntu \
 	APT_SECURITY_MIRROR=http://security.example.com/ubuntu \
-	GITHUB_ACTIONS='' FAKE_UNAME=x86_64 \
 	"$repo_dir/tests/integration/run.sh" ubuntu >/dev/null
 assert_arg 'APT_PRIMARY_MIRROR=http://primary.example.com/ubuntu'
 assert_arg 'APT_SECURITY_MIRROR=http://security.example.com/ubuntu'

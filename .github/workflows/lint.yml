@@ -42,4 +42,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run easy-install twice from a clean image
+        env:
+          APT_PRIMARY_MIRROR: ${{ matrix.distro == 'ubuntu' && 'http://azure.archive.ubuntu.com/ubuntu' || '' }}
+          APT_SECURITY_MIRROR: ${{ matrix.distro == 'ubuntu' && 'http://azure.archive.ubuntu.com/ubuntu' || '' }}
         run: ./tests/integration/run.sh "${{ matrix.distro }}"
