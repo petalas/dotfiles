@@ -47,7 +47,8 @@ jobs:
 
   macos-arm:
     name: macOS arm64 smoke
-    runs-on: macos-14-arm64
+    # GitHub's macos-14 hosted image is Apple Silicon arm64.
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
