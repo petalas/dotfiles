@@ -8,7 +8,8 @@ select_fastest_ubuntu_mirror() {
     local codename="noble"
     local country_code=""
     local geoip_response
-    local candidate elapsed best_mirror="" best_time="" seen=""
+    local candidate archive_time security_time elapsed
+    local best_mirror="" best_time="" seen=""
 
     if ! command -v curl >/dev/null 2>&1; then
         return 1
@@ -35,10 +36,16 @@ select_fastest_ubuntu_mirror() {
         fi
         seen="$seen $candidate"
 
-        if elapsed=$(curl --silent --show-error --fail --location \
+        if archive_time=$(curl --silent --show-error --fail --location \
             --connect-timeout 2 --max-time 5 --output /dev/null \
             --write-out '%{time_total}' \
-            "$candidate/dists/$codename/InRelease"); then
+            "$candidate/dists/$codename/InRelease") &&
+            security_time=$(curl --silent --show-error --fail --location \
+                --connect-timeout 2 --max-time 5 --output /dev/null \
+                --write-out '%{time_total}' \
+                "$candidate/dists/$codename-security/InRelease"); then
+            elapsed=$(awk -v archive="$archive_time" -v security="$security_time" \
+                'BEGIN { printf "%.6f", archive + security }')
             printf '    %ss  %s\n' "$elapsed" "$candidate" >&2
             if [[ -z "$best_time" ]] ||
                 awk -v candidate_time="$elapsed" -v current_time="$best_time" \
