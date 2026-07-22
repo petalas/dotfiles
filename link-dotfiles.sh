@@ -67,6 +67,23 @@ fi
 mkdir -p "$HOME/.config/kitty"
 link_path "$dotfiles_dir/dot/.config/kitty/kitty.conf" "$HOME/.config/kitty/kitty.conf"
 
+# pi
+pi_agent_dir="$HOME/.pi/agent"
+pi_settings="$pi_agent_dir/settings.json"
+mkdir -p "$pi_agent_dir/themes"
+link_path "$dotfiles_dir/dot/.pi/agent/themes/seashells.json" "$pi_agent_dir/themes/seashells.json"
+
+# Pi owns the rest of settings.json, so preserve its model, provider, and
+# changelog state while selecting the managed theme.
+pi_settings_tmp=$(mktemp)
+if [ -f "$pi_settings" ]; then
+    jq '.theme = "seashells"' "$pi_settings" > "$pi_settings_tmp"
+else
+    jq -n '{theme: "seashells"}' > "$pi_settings_tmp"
+fi
+cat "$pi_settings_tmp" > "$pi_settings"
+rm -f "$pi_settings_tmp"
+
 # nvim — separate repo (petalas/nvim @ custom), cloned (NOT symlinked) into
 # ~/.config/nvim, so it must be kept current explicitly or it silently drifts
 # behind the plugins lazy.nvim keeps updating. See docs/LEARNINGS.md.

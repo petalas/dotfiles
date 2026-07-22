@@ -13,6 +13,9 @@ install_node_deps() {
         echo "Installing ${yellow}$i${reset}"
         npm i -g "$i" || return 1
     done
+
+    echo "Installing ${yellow}@earendil-works/pi-coding-agent${reset}"
+    npm i -g --ignore-scripts @earendil-works/pi-coding-agent || return 1
 }
 
 # Call the function if this script is executed directly
