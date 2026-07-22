@@ -69,7 +69,7 @@ brew "poppler"
 brew "yt-dlp"
 
 # --- Terminal ---
-cask "kitty"
+cask "ghostty"
 
 # --- Browsers / comms ---
 cask "discord"

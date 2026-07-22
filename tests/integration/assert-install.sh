@@ -31,7 +31,7 @@ done
 assert_link "$HOME/.zshrc" "$repo_dir/dot/zshrc"
 assert_link "$HOME/.gitconfig" "$repo_dir/dot/gitconfig"
 assert_link "$HOME/.tmux.conf" "$repo_dir/dot/tmux.conf"
-assert_link "$HOME/.config/kitty/kitty.conf" "$repo_dir/dot/.config/kitty/kitty.conf"
+assert_link "$HOME/.config/ghostty/config.ghostty" "$repo_dir/dot/.config/ghostty/config.ghostty"
 assert_link "$HOME/.pi/agent/themes/seashells.json" "$repo_dir/dot/.pi/agent/themes/seashells.json"
 [[ "$(jq -r '.theme' "$HOME/.pi/agent/settings.json")" == "seashells" ]] ||
     fail "Pi does not select the managed seashells theme"

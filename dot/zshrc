@@ -129,10 +129,10 @@ bunx-clean() {
   rm -rf "${tmp%/}"/bunx-*(N)
 }
 
-# ssh with downgraded TERM for hosts that don't have xterm-kitty/alacritty
-# terminfo (TrueNAS, random boxes, fresh VMs). Fixes backspace/arrow-key
-# issues. For your own machines, plain `ssh` works. To teach a remote host
-# about your real TERM, run `push-terminfo HOST` once.
+# ssh with downgraded TERM for hosts that don't have terminal-specific
+# terminfo (xterm-ghostty, xterm-kitty, alacritty, etc.). Fixes
+# backspace/arrow-key issues. For your own machines, plain `ssh` works.
+# To teach a remote host about your real TERM, run `push-terminfo HOST` once.
 alias dssh='TERM=xterm-256color ssh'
 
 # push-terminfo HOST: teach a remote host about your local $TERM by copying
@@ -141,25 +141,26 @@ alias dssh='TERM=xterm-256color ssh'
 #
 # Terminfo is a DB of terminal capabilities keyed by $TERM. Curses apps
 # query it at startup. Search order: ~/.terminfo, /etc/terminfo,
-# /usr/share/terminfo. If the remote has no entry for xterm-kitty, it
-# falls back to generic defaults that don't match what Kitty speaks.
+# /usr/share/terminfo. If the remote has no entry for your terminal-specific
+# $TERM, it falls back to generic defaults that don't match the emulator.
 #
 # How it works:
 #   infocmp -a TERM        decompiles local compiled entry -> source form
 #   tic -x -o DIR /dev/stdin  recompiles source back into a binary entry
 #                             in DIR (~/.terminfo is user-level, no sudo)
-#   -x                     accept extended caps (kitty defines many)
+#   -x                     accept extended caps (Ghostty/Kitty define many)
 #
 # tic and infocmp both ship with ncurses (ncurses-bin on Debian).
 push-terminfo() {
   [[ -z "$1" ]] && { echo "usage: push-terminfo HOST"; return 1; }
-  local entry
-  if ! entry=$(infocmp -a xterm-kitty 2>/dev/null) || [[ -z "$entry" ]]; then
-    echo "xterm-kitty not in local terminfo DB" >&2
+  local entry term
+  term="${TERM:-xterm-ghostty}"
+  if ! entry=$(infocmp -a "$term" 2>/dev/null) || [[ -z "$entry" ]]; then
+    echo "$term not in local terminfo DB" >&2
     return 1
   fi
   if print -r -- "$entry" | ssh "$1" "tic -x -o \$HOME/.terminfo /dev/stdin"; then
-    echo "pushed xterm-kitty to $1"
+    echo "pushed $term to $1"
   else
     echo "remote tic error" >&2
     return 1
