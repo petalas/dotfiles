@@ -29,6 +29,7 @@ for command_name in git jq locale mosh mosh-server tmux zsh; do
 done
 
 assert_link "$HOME/.zshrc" "$repo_dir/dot/zshrc"
+assert_link "$HOME/.hushlogin" "$repo_dir/dot/hushlogin"
 assert_link "$HOME/.gitconfig" "$repo_dir/dot/gitconfig"
 assert_link "$HOME/.tmux.conf" "$repo_dir/dot/tmux.conf"
 assert_link "$HOME/.config/ghostty/config.ghostty" "$repo_dir/dot/.config/ghostty/config.ghostty"
