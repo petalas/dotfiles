@@ -20,5 +20,9 @@ WORKDIR /home/dotfiles/repo
 # validates that the same public entry point is idempotent.
 RUN ./easy-install.sh \
     && ./tests/integration/assert-install.sh
-RUN ./easy-install.sh \
+# Keep a tmux server alive but remove TPM's server-local path to reproduce a
+# machine whose tmux session predates the newly linked configuration.
+RUN tmux new-session -d -s stale-config \
+    && tmux set-environment -gu TMUX_PLUGIN_MANAGER_PATH \
+    && ./easy-install.sh \
     && ./tests/integration/assert-install.sh

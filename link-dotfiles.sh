@@ -54,6 +54,10 @@ link_path "$dotfiles_dir/dot/work/gitconfig" "$HOME/git/work/.gitconfig"
 link_path "$dotfiles_dir/dot/tmux.conf" "$HOME/.tmux.conf"
 clone_or_ff https://github.com/tmux-plugins/tpm.git "$HOME/.tmux/plugins/tpm"
 if command -v tmux &>/dev/null; then
+    # TPM's CLI queries the running tmux server for its plugin path. If this
+    # installer was launched from a server that predates the linked config,
+    # load the config before asking TPM to install anything.
+    tmux start-server \; source-file "$HOME/.tmux.conf"
     "$HOME/.tmux/plugins/tpm/bin/install_plugins"
 fi
 
