@@ -8,6 +8,14 @@ if [[ $OSTYPE == "msys"* ]]; then
 	exit 1
 fi
 
+# Homebrew 6 enables confirmation prompts by default. Keep the whole macOS
+# pipeline unattended, including the Homebrew bootstrap and later brew calls
+# made by sourced installers.
+if [[ $OSTYPE == "darwin"* ]]; then
+	export NONINTERACTIVE=1
+	export HOMEBREW_NO_ASK=1
+fi
+
 red=$(tput setaf 1 2>/dev/null || true)
 green=$(tput setaf 2 2>/dev/null || true)
 yellow=$(tput setaf 3 2>/dev/null || true)

@@ -35,7 +35,13 @@ setup_zsh() {
     fi
 
     echo "Making ${yellow}ZSH${reset} the default shell."
-    chsh -s "$(command -v zsh)"
+    if [[ $OSTYPE == "darwin"* ]]; then
+        # easy-install configures passwordless sudo before reaching this point;
+        # change the login shell without triggering chsh's password prompt.
+        sudo chsh -s "$(command -v zsh)" "$(whoami)"
+    else
+        chsh -s "$(command -v zsh)"
+    fi
 }
 
 # Call the function if this script is executed directly

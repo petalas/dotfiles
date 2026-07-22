@@ -30,6 +30,9 @@ jobs:
       - name: Test integration runner policy
         run: ./tests/test-integration-runner.sh
 
+      - name: Test macOS non-interactive install policy
+        run: ./tests/test-easy-install-noninteractive.sh
+
       - name: Test Yazi installer compatibility
         run: ./tests/test-yazi.sh
 

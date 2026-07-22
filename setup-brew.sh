@@ -9,7 +9,7 @@ if [[ $(uname -p) == 'arm' ]]; then # detect Apple Silicon
 	echo "Checking rosetta installation..."
 	if [[ "$(pkgutil --files com.apple.pkg.RosettaUpdateAuto)" == "" ]]; then
 		echo "Not detected, installing rosetta..."
-		sudo softwareupdate --install-rosetta
+		sudo softwareupdate --install-rosetta --agree-to-license
 	else
 		echo "rosetta is already installed."
 	fi
