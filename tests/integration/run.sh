@@ -4,76 +4,26 @@ set -euo pipefail
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 dockerfile="$repo_dir/tests/integration/Dockerfile"
 
-select_fastest_ubuntu_mirror() {
-    local codename="noble"
-    local country_code=""
-    local geoip_response
-    local candidate archive_time security_time elapsed
-    local best_mirror="" best_time="" seen=""
-
-    if ! command -v curl >/dev/null 2>&1; then
-        return 1
-    fi
-
-    geoip_response=$(curl --silent --show-error --fail --max-time 3 \
-        https://geoip.ubuntu.com/lookup 2>/dev/null || true)
-    country_code=$(printf '%s\n' "$geoip_response" |
-        sed -n 's:.*<CountryCode>\([A-Za-z][A-Za-z]\)</CountryCode>.*:\1:p' |
-        tr '[:upper:]' '[:lower:]')
-
-    local candidates=(
-        "http://azure.archive.ubuntu.com/ubuntu"
-        "http://archive.ubuntu.com/ubuntu"
-    )
-    if [[ "$country_code" =~ ^[a-z][a-z]$ ]]; then
-        candidates=("http://$country_code.archive.ubuntu.com/ubuntu" "${candidates[@]}")
-    fi
-
-    echo "==> Benchmarking official Ubuntu mirrors" >&2
-    for candidate in "${candidates[@]}"; do
-        if [[ " $seen " == *" $candidate "* ]]; then
-            continue
-        fi
-        seen="$seen $candidate"
-
-        if archive_time=$(curl --silent --show-error --fail --location \
-            --connect-timeout 2 --max-time 5 --output /dev/null \
-            --write-out '%{time_total}' \
-            "$candidate/dists/$codename/InRelease") &&
-            security_time=$(curl --silent --show-error --fail --location \
-                --connect-timeout 2 --max-time 5 --output /dev/null \
-                --write-out '%{time_total}' \
-                "$candidate/dists/$codename-security/InRelease"); then
-            elapsed=$(awk -v archive="$archive_time" -v security="$security_time" \
-                'BEGIN { printf "%.6f", archive + security }')
-            printf '    %ss  %s\n' "$elapsed" "$candidate" >&2
-            if [[ -z "$best_time" ]] ||
-                awk -v candidate_time="$elapsed" -v current_time="$best_time" \
-                    'BEGIN { exit !(candidate_time < current_time) }'; then
-                best_time="$elapsed"
-                best_mirror="$candidate"
-            fi
-        else
-            printf '    unavailable  %s\n' "$candidate" >&2
-        fi
-    done
-
-    [[ -n "$best_mirror" ]] || return 1
-    printf '==> Selected Ubuntu mirror: %s (%ss)\n' "$best_mirror" "$best_time" >&2
-    printf '%s\n' "$best_mirror"
-}
-
 run_distro() {
     local distro="$1"
     local image
     local platform=""
-    local apt_primary_mirror=""
+    local apt_primary_mirror="${APT_PRIMARY_MIRROR:-}"
+    local apt_security_mirror="${APT_SECURITY_MIRROR:-}"
 
     case "$distro" in
         debian) image="debian:bookworm-slim" ;;
         ubuntu)
             image="ubuntu:24.04"
-            apt_primary_mirror=$(select_fastest_ubuntu_mirror || true)
+            if [[ -z "$apt_primary_mirror" && -z "$apt_security_mirror" &&
+                ${GITHUB_ACTIONS:-} == true ]]; then
+                case "$(uname -m)" in
+                    x86_64|amd64)
+                        apt_primary_mirror="http://azure.archive.ubuntu.com/ubuntu"
+                        apt_security_mirror="$apt_primary_mirror"
+                        ;;
+                esac
+            fi
             ;;
         arch)
             image="archlinux:base"
@@ -93,6 +43,9 @@ run_distro() {
     fi
     if [[ -n "$apt_primary_mirror" ]]; then
         build_command+=(--build-arg "APT_PRIMARY_MIRROR=$apt_primary_mirror")
+    fi
+    if [[ -n "$apt_security_mirror" ]]; then
+        build_command+=(--build-arg "APT_SECURITY_MIRROR=$apt_security_mirror")
     fi
 
     echo "==> Testing $distro from $image on $platform"

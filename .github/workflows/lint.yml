@@ -27,6 +27,9 @@ jobs:
       - name: Test APT mirror configuration
         run: ./tests/test-apt-mirrors.sh
 
+      - name: Test integration runner policy
+        run: ./tests/test-integration-runner.sh
+
   linux-integration:
     name: easy-install (${{ matrix.distro }})
     runs-on: ubuntu-latest
