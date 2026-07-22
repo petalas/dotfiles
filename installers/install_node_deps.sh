@@ -11,7 +11,7 @@ install_node_deps() {
     declare -a node_deps=("@anthropic-ai/claude-code" "@openai/codex" "typescript" "typescript-language-server")
     for i in "${node_deps[@]}"; do
         echo "Installing ${yellow}$i${reset}"
-        npm i -g $i
+        npm i -g "$i" || return 1
     done
 }
 
