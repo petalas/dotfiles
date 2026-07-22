@@ -45,6 +45,15 @@ jobs:
       - name: Test config against latest stable Yazi
         run: ./tests/test-yazi-config.sh
 
+  macos-arm:
+    name: macOS arm64 smoke
+    runs-on: macos-14-arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run macOS arm64 smoke tests
+        run: ./tests/test-macos-arm.sh
+
   linux-integration:
     name: easy-install (${{ matrix.distro }})
     runs-on: ubuntu-latest
