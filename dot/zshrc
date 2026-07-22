@@ -494,3 +494,6 @@ fi
 # Local machine-specific secrets and overrides. This file lives outside the
 # dotfiles repo because ~/.zshrc is a symlink to dot/zshrc.
 [[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
+
+# Vite+ bin (https://viteplus.dev)
+. "$HOME/.vite-plus/env"

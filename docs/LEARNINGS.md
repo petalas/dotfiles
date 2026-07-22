@@ -19,7 +19,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - `brew bundle` evaluates the Brewfile as Ruby, so `unless ENV["..."]` conditionals *do* work — but only for env vars Homebrew lets through.
 - Homebrew sanitises the environment before running the Brewfile. Arbitrary vars like `SKIP_GAMING` are stripped; only `HOMEBREW_*` (plus a small allow-list) survive.
 - Symptom: a gate like `unless ENV["SKIP_GAMING"]` never fires, regardless of whether you set `SKIP_GAMING=1`. Confusing because `if false` in the same Brewfile *does* work — ruling out "Ruby isn't evaluated."
-- Fix: either use `HOMEBREW_SKIP_GAMING` directly in the Brewfile, or translate in the wrapper script before invoking `brew bundle`. `brew-deps.sh` does the translation so the user-facing API stays as plain `SKIP_*`.
+- Fix: either use `HOMEBREW_SKIP_GAMING` directly in the Brewfile, or translate in the wrapper script before invoking `brew bundle`. `brew-deps.sh` does the translation so the user-facing API stays as plain `SKIP_*`. The `upd` shell function invokes `brew bundle` directly, so persistent per-machine skips used by both paths must use the `HOMEBREW_SKIP_*` names.
 
 ---
 
