@@ -65,6 +65,18 @@ APT_SOURCES_ROOT="$ubuntu_root" APT_MIRROR_OS_ID=ubuntu "$repo_dir/setup-apt-mir
 	exit 1
 }
 
+ubuntu_override_root="$fixture_dir/ubuntu-override"
+mkdir -p "$ubuntu_override_root"
+cat >"$ubuntu_override_root/sources.list" <<'EOF'
+deb http://archive.ubuntu.com/ubuntu noble main universe
+EOF
+APT_SOURCES_ROOT="$ubuntu_override_root" \
+	APT_MIRROR_OS_ID=ubuntu \
+	APT_PRIMARY_MIRROR=http://us.archive.ubuntu.com/ubuntu \
+	"$repo_dir/setup-apt-mirrors.sh"
+assert_contains 'http://us.archive.ubuntu.com/ubuntu' "$ubuntu_override_root/sources.list"
+assert_not_contains 'mirrors.ubuntu.com' "$ubuntu_override_root/sources.list"
+
 debian_root="$fixture_dir/debian"
 mkdir -p "$debian_root/sources.list.d"
 cat >"$debian_root/sources.list" <<'EOF'

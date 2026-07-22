@@ -36,6 +36,8 @@ fi
 
 backup_dir="${APT_MIRROR_BACKUP_DIR:-$apt_root/.dotfiles-backups}"
 changed_count=0
+ubuntu_mirror="${APT_PRIMARY_MIRROR:-mirror+http://mirrors.ubuntu.com/mirrors.txt}"
+ubuntu_mirror="${ubuntu_mirror%/}"
 
 backup_source() {
 	local source_file="$1"
@@ -88,7 +90,7 @@ for source_file in "${source_files[@]}"; do
 			if grep -Eq 'https?://([[:alnum:]-]+\.)?archive\.ubuntu\.com/ubuntu/?' "$source_file"; then
 				backup_source "$source_file"
 				rewrite_source "$source_file" \
-					-e 's#https?://([[:alnum:]-]+\.)?archive\.ubuntu\.com/ubuntu/?#mirror+http://mirrors.ubuntu.com/mirrors.txt#g'
+					-e "s#https?://([[:alnum:]-]+\.)?archive\\.ubuntu\\.com/ubuntu/?#$ubuntu_mirror#g"
 				((changed_count += 1))
 			fi
 			;;
@@ -98,5 +100,5 @@ done
 if [[ $changed_count -eq 0 ]]; then
 	echo "$os_id APT sources already use the preferred mirror service."
 else
-	echo "Configured $changed_count $os_id APT source file(s) to use the preferred mirror service."
+	echo "Configured $changed_count $os_id APT source file(s) to use the preferred mirror service${APT_PRIMARY_MIRROR:+ ($ubuntu_mirror)}."
 fi
