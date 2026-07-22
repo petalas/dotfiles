@@ -70,10 +70,23 @@ assert_failed_after_attempting \
 	"Node dependencies" \
 	"npm i -g --ignore-scripts @earendil-works/pi-coding-agent" \
 	install_node_deps
+
+# GitHub runner images can already include Java/Kotlin/Gradle. Keep this test
+# focused on SDKMAN failure resilience by forcing those command checks to miss.
+command() {
+	if [[ "${1:-}" == "-v" ]]; then
+		case "${2:-}" in
+			java | kotlin | gradle) return 1 ;;
+		esac
+	fi
+	builtin command "$@"
+}
 assert_failed_after_attempting \
 	"SDKMAN dependencies" \
 	"sdk install gradle" \
 	install_sdkman_deps
+unset -f command
+
 assert_failed_after_attempting \
 	"Rust dependencies" \
 	"cargo install --locked watchexec-cli" \
