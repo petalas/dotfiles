@@ -55,6 +55,7 @@ install_sdkman
 install_sdkman_deps
 install_rust
 install_rust_deps
+install_yazi
 
 # Informational drift check at the end of setup. Anything listed here is
 # installed on this machine but not declared in Brewfile. Run with --force

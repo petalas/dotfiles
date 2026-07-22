@@ -28,6 +28,7 @@ SKIP_GAMING=1 SKIP_CAD=1 SKIP_MOBILE=1 ./easy-install.sh
 
 ```sh
 ./install rust         # install Rust toolchain
+./install yazi         # install/upgrade a compatible yazi + ya pair
 ./install docker       # install Docker (Linux)
 ./install locale       # repair/reconfigure UTF-8 locale manually
 ./install ssh_keys     # generate ed25519 key + copy pubkey to clipboard
@@ -50,7 +51,10 @@ Mosh, tmux mouse mode and plugins, zsh startup, cloned configuration repos,
 and dotfile symlinks, then reruns the pipeline to check idempotency. The
 container profile skips desktop fonts, GUI applications, system services,
 language SDKs, and AUR packages because they cannot be exercised meaningfully
-inside Docker. Normal host installs continue to install the complete set.
+inside Docker. Fast host-independent tests separately cover the Yazi
+installer's legacy-version migration, component matching, and locked plugin
+restoration, and validate the managed config against the latest stable Yazi
+release. Normal host installs continue to install the complete set.
 
 macOS cannot be represented by a Docker image; its scripts remain covered by
 the shared ShellCheck gate and should be smoke-tested on a Mac when changing

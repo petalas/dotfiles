@@ -4,7 +4,8 @@
 # of redeclared at the top of each installer. Installers run directly (i.e.
 # not via source_installers.sh, brew-deps.sh, linux-deps.sh, or ./install)
 # will have these undefined, and ${red} etc. will expand to empty strings —
-# output still works, just monochrome.
+# output still works, just monochrome. Installers that can be sourced by a
+# `set -u` caller must use ${red:-}/${reset:-} when colors are optional.
 red=$(tput setaf 1 2>/dev/null || true)
 green=$(tput setaf 2 2>/dev/null || true)
 yellow=$(tput setaf 3 2>/dev/null || true)

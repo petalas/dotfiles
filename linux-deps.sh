@@ -389,21 +389,66 @@ fi
 install_missing_deps "remaining dependencies" "${deps[@]}" || true
 echo
 
-# Helper function to run an installer with tracking
+# Application installers have a small dependency graph. Keep it explicit so a
+# failed prerequisite prevents noisy or misleading downstream install attempts.
+declare -A installer_status=()
+declare -A installer_dependencies=(
+	["node_deps"]="node"
+	["sdkman_deps"]="sdkman"
+	["rust_deps"]="rust"
+	["yazi"]="rust rust_deps"
+)
+declare -a skipped_installers=()
+
+validate_installer_order() {
+	local name dependency
+	local -a dependencies=()
+	local -A seen=()
+
+	for name in "$@"; do
+		dependencies=()
+		read -r -a dependencies <<< "${installer_dependencies[$name]:-}"
+		for dependency in "${dependencies[@]}"; do
+			if [[ "${seen[$dependency]:-0}" != "1" ]]; then
+				print_error "Installer order is invalid: $name must run after $dependency"
+				return 1
+			fi
+		done
+		seen["$name"]=1
+	done
+}
+
+# Helper function to run an installer with dependency and failure tracking.
 run_installer() {
 	local name="$1"
 	local func="install_$name"
+	local dependency
+	local -a dependencies=()
+	read -r -a dependencies <<< "${installer_dependencies[$name]:-}"
+
+	for dependency in "${dependencies[@]}"; do
+		if [[ "${installer_status[$dependency]:-missing}" != "succeeded" ]]; then
+			print_warning "Skipping $name because prerequisite $dependency did not succeed"
+			installer_status["$name"]="skipped"
+			skipped_installers+=("$name (requires $dependency)")
+			return 1
+		fi
+	done
 
 	if ! declare -f "$func" >/dev/null 2>&1; then
-		print_warning "Installer function '$func' not found, skipping"
-		return 0
+		print_error "Installer function '$func' not found"
+		installer_status["$name"]="failed"
+		failed_installers+=("$name")
+		return 1
 	fi
 
 	if ! "$func"; then
 		print_error "Failed to install $name"
+		installer_status["$name"]="failed"
 		failed_installers+=("$name")
 		return 1
 	fi
+	installer_status["$name"]="succeeded"
 	return 0
 }
 
@@ -429,8 +474,11 @@ declare -a installers=(
 	"sdkman_deps"
 	"rust"
 	"rust_deps"
+	"yazi"
 	"zerotier"
 )
+
+validate_installer_order "${installers[@]}" || exit 1
 
 if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == "1" ]]; then
 	print_info "Skipping GUI, service, language SDK, and AUR installers in the container profile"
@@ -447,7 +495,7 @@ echo "=============================================="
 print_info "Installation Summary"
 echo "=============================================="
 
-if [[ ${#failed_deps[@]} -eq 0 && ${#failed_installers[@]} -eq 0 ]]; then
+if [[ ${#failed_deps[@]} -eq 0 && ${#failed_installers[@]} -eq 0 && ${#skipped_installers[@]} -eq 0 ]]; then
 	print_success "All installations completed successfully!"
 else
 	if [[ ${#failed_deps[@]} -gt 0 ]]; then
@@ -462,6 +510,14 @@ else
 		echo
 		print_error "Failed installers (${#failed_installers[@]}):"
 		for installer in "${failed_installers[@]}"; do
+			echo "  ${red}✗${reset} $installer"
+		done
+	fi
+
+	if [[ ${#skipped_installers[@]} -gt 0 ]]; then
+		echo
+		print_error "Skipped installers (${#skipped_installers[@]}):"
+		for installer in "${skipped_installers[@]}"; do
 			echo "  ${red}✗${reset} $installer"
 		done
 	fi

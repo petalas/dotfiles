@@ -101,6 +101,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Symptom: every `./install NAME` command exits silently on Linux while working on macOS.
 - Cause: `install` uses `set -euo pipefail` and sources `source_installers.sh`. `detect_os` both treated the optional `VERSION_CODENAME` field as mandatory and ended with an ArchARM normalization check joined by `&&`; either false status could trigger `set -e` before dispatch.
 - Fix: optional `/etc/os-release` fields tolerate absence, and detection helpers explicitly `return 0` after identifying a supported OS. Do not let an optional lookup or final conditional determine a sourced setup file's status.
+- Sourced installers also inherit `set -u` from callers such as `./install` and focused tests. Optional globals (notably terminal colors when an installer is sourced directly) must use default-safe expansion such as `${yellow:-}` rather than assuming the central loader ran.
 
 ---
 
@@ -121,3 +122,14 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Symptom: `bin/install_plugins` prints `unknown variable: TMUX_PLUGIN_MANAGER_PATH`, says TPM is not configured in `tmux.conf`, and aborts even though the linked config contains both `@plugin` declarations and the final TPM `run` line.
 - Cause: TPM parses plugin declarations from the config file, but obtains its installation path from the tmux server's global environment. If `easy-install.sh` is run while an older tmux server is alive, that server may never have loaded the newly linked config and therefore lacks the variable.
 - Fix: after linking the config and cloning TPM, `link-dotfiles.sh` starts or connects to the tmux server and sources `~/.tmux.conf` before invoking TPM's command-line installer. The second Docker integration pass deliberately removes the variable from a live server to cover this state.
+
+---
+
+## Yazi's `ya` and `yazi` binaries are a versioned pair
+
+- Symptom: `easy-install.sh` reaches Yazi package restoration after TPM, then aborts with `error: unrecognized subcommand 'pkg'`.
+- Cause: Yazi 25.4.8 exposes the legacy `ya pack` interface; `ya pkg` arrived in 25.5.28. The old Rust dependency installer treated the presence of any `yazi-fm` crate as sufficient, so rerunning setup preserved an incompatible `ya`/`yazi` pair after the managed config moved to `ya pkg` and `[mgr]` syntax.
+- Fix: Yazi has its own ordered installer after Rust and the other Cargo tools. It checks crates.io for a newer `yazi-build`, repairs with `--force` when the child binaries are missing, stale, or mismatched, and verifies that `ya`/`yazi` versions match and `ya pkg` exists before setup continues.
+- Current `[filetype].rules` match paths with `url`, not `name`; use `url = "*"` and `url = "*/"` for the file and directory fallbacks. The latest stable Yazi rejects the old `name` form and falls back to its preset theme.
+- `dot/.config/yazi/package.toml` is canonical. Restore it with `ya pkg install`; do not re-add each dependency, which can rewrite the lockfile instead of installing its pinned revisions.
+- The Docker profile intentionally skips language toolchains, so `tests/test-yazi.sh` provides the fast regression seam for legacy migration, forced repair, post-install verification, and lockfile restoration. `tests/test-yazi-config.sh` downloads the latest stable official binary and rejects config syntax that release no longer accepts.

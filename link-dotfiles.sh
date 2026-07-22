@@ -5,6 +5,8 @@ dotfiles_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=lib/git-sync.sh disable=SC1091
 source "$dotfiles_dir/lib/git-sync.sh"
+# shellcheck source=lib/yazi.sh disable=SC1091
+source "$dotfiles_dir/lib/yazi.sh"
 
 # Link source to target, skipping if already correctly linked.
 # Backs up existing files/dirs before replacing.
@@ -72,9 +74,10 @@ clone_or_ff https://github.com/petalas/nvim.git "$HOME/.config/nvim" custom
 
 # yazi
 link_path "$dotfiles_dir/dot/.config/yazi" "$HOME/.config/yazi"
-if command -v ya &>/dev/null; then
-    ya pkg add boydaihungst/mediainfo
-    ya pkg add kirasok/torrent-preview
+if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == "1" ]]; then
+    echo "Skipping Yazi package installation in the container profile"
+else
+    install_yazi_packages
 fi
 
 # bat

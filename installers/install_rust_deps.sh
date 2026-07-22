@@ -4,28 +4,15 @@
 
 install_rust_deps() {
     echo "Updating rustup"
-    rustup update
-
-    local installed
-    installed=$(cargo install --list)
+    rustup update || return 1
 
     declare -a rust_deps=("tree-sitter-cli" "ripgrep" "wasm-bindgen-cli" "cargo-edit" "tealdeer" "bat" "watchexec-cli")
     for i in "${rust_deps[@]}"; do
-        if echo "$installed" | grep -q "^$i "; then
-            echo "${green}$i${reset} is already installed."
-        else
-            echo "Installing ${yellow}$i${reset}"
-            cargo install --locked "$i"
-        fi
+        # Cargo skips recompilation when the latest compatible release is
+        # already installed and upgrades when crates.io has a newer one.
+        echo "Installing/updating ${yellow}$i${reset}"
+        cargo install --locked "$i" || return 1
     done
-
-    # yazi requires yazi-build instead of direct cargo install
-    if echo "$installed" | grep -q "^yazi-fm "; then
-        echo "${green}yazi${reset} is already installed."
-    else
-        echo "Installing ${yellow}yazi${reset}"
-        cargo install --locked yazi-build
-    fi
 }
 
 # Call the function if this script is executed directly
