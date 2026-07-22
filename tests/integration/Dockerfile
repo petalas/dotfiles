@@ -3,8 +3,10 @@ FROM ${BASE_IMAGE}
 
 ARG DISTRO
 
+COPY setup-apt-mirrors.sh /usr/local/bin/setup-dotfiles-apt-mirrors
 COPY tests/integration/bootstrap-container.sh /usr/local/bin/bootstrap-dotfiles-container
-RUN chmod +x /usr/local/bin/bootstrap-dotfiles-container \
+RUN chmod +x /usr/local/bin/setup-dotfiles-apt-mirrors /usr/local/bin/bootstrap-dotfiles-container \
+    && /usr/local/bin/setup-dotfiles-apt-mirrors \
     && DISTRO="$DISTRO" /usr/local/bin/bootstrap-dotfiles-container
 
 COPY --chown=dotfiles:dotfiles . /home/dotfiles/repo

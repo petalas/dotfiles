@@ -59,6 +59,7 @@ Homebrew-specific behavior.
 ## Notes
 
 - Setup needs passwordless sudo to avoid repeated prompts. `easy-install.sh` adds a `/etc/sudoers.d/<user>` entry on first run.
+- Debian and Ubuntu package sources are routed through their official nearby-mirror services before the first dependency refresh; existing source files are backed up under `/etc/apt/.dotfiles-backups/`.
 - `easy-install.sh` configures `en_US.UTF-8` before installing the remaining dependencies; `./install locale` is only needed for a manual repair.
 - CI runs `easy-install.sh` twice on clean Debian, Ubuntu, and Arch images using the Docker suite above.
 - Commits are gated by a shellcheck pre-commit hook (`.githooks/pre-commit`). Wired up automatically by `link-dotfiles.sh` via `core.hooksPath`.
