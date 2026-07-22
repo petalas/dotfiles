@@ -59,6 +59,7 @@ declare -a deps=(
 	"iptables"
 	"jq"
 	"mediainfo"
+	"mosh"
 	"nmap"
 	"pass"
 	"rsync"
