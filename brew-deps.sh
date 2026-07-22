@@ -33,19 +33,51 @@ skip_dependent() {
 	printf '%sSkipping %s because its prerequisite failed.%s\n' "$yellow" "$label" "$reset" >&2
 }
 
+contains_line() {
+	local expected="$1"
+	local values="$2"
+	local value
+	while IFS= read -r value; do
+		[[ "$value" == "$expected" ]] && return 0
+	done <<<"$values"
+	return 1
+}
+
 install_brewfile_individually() {
 	local brewfile="$1"
-	local kind entries entry
+	local kind entries entry installed
+	local installed_taps installed_formulae installed_casks
+
+	if ! installed_taps=$(brew tap); then
+		warn_failure "listing installed Homebrew taps"
+		installed_taps=""
+	fi
+	if ! installed_formulae=$(brew list --formula --full-name); then
+		warn_failure "listing installed Homebrew formulae"
+		installed_formulae=""
+	fi
+	if ! installed_casks=$(brew list --cask --full-name); then
+		warn_failure "listing installed Homebrew casks"
+		installed_casks=""
+	fi
 
 	printf '%sRetrying Brewfile entries individually so one failure does not block the rest.%s\n' \
 		"$yellow" "$reset" >&2
 	for kind in tap formula cask; do
+		case "$kind" in
+			tap) installed="$installed_taps" ;;
+			formula) installed="$installed_formulae" ;;
+			cask) installed="$installed_casks" ;;
+		esac
 		if ! entries=$(brew bundle list "--$kind" --file="$brewfile"); then
 			warn_failure "listing Brewfile $kind entries"
 			continue
 		fi
 		while IFS= read -r entry; do
 			[[ -n "$entry" ]] || continue
+			if contains_line "$entry" "$installed"; then
+				continue
+			fi
 			case "$kind" in
 				tap) run_optional "Brewfile tap $entry" brew tap "$entry" || true ;;
 				formula) run_optional "Brewfile formula $entry" brew install "$entry" || true ;;
@@ -146,12 +178,6 @@ else
 	skip_dependent "Rust packages"
 	skip_dependent "Yazi"
 fi
-
-# Informational drift check at the end of setup. Anything listed here is
-# installed on this machine but not declared in Brewfile. Run with --force
-# (manually, not here) to actually uninstall: brew bundle cleanup --file=Brewfile --force
-printf '\n%sChecking for drift (installed but not in Brewfile)...%s\n' "$yellow" "$reset"
-brew bundle cleanup --file="$(dirname "$0")/Brewfile" || true
 
 if ((${#warnings[@]} > 0)); then
 	printf '\n%sSetup completed with %d warning(s):%s\n' "$yellow" "${#warnings[@]}" "$reset" >&2
