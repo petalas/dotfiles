@@ -25,14 +25,14 @@
   },
   "colors": {
     "accent": "cursor",
-    "border": "cyan",
+    "border": "brightGreen",
     "borderAccent": "brightBlue",
     "borderMuted": "brightBlack",
-    "success": "brightGreen",
-    "error": "red",
-    "warning": "yellow",
+    "success": "brightCyan",
+    "error": "brightRed",
+    "warning": "brightYellow",
     "muted": "brightGreen",
-    "dim": "brightBlack",
+    "dim": "green",
     "text": "foreground",
     "thinkingText": "brightGreen",
 
@@ -42,10 +42,10 @@
     "customMessageBg": "blue",
     "customMessageText": "brightWhite",
     "customMessageLabel": "magenta",
-    "toolPendingBg": "background",
+    "toolPendingBg": "blue",
     "toolSuccessBg": "black",
-    "toolErrorBg": "black",
-    "toolTitle": "brightYellow",
+    "toolErrorBg": "background",
+    "toolTitle": "yellow",
     "toolOutput": "foreground",
 
     "mdHeading": "brightYellow",
@@ -59,9 +59,9 @@
     "mdHr": "brightBlack",
     "mdListBullet": "cursor",
 
-    "toolDiffAdded": "brightGreen",
+    "toolDiffAdded": "brightCyan",
     "toolDiffRemoved": "brightRed",
-    "toolDiffContext": "brightBlack",
+    "toolDiffContext": "foreground",
 
     "syntaxComment": "brightGreen",
     "syntaxKeyword": "brightBlue",
@@ -70,8 +70,8 @@
     "syntaxString": "brightCyan",
     "syntaxNumber": "brightRed",
     "syntaxType": "magenta",
-    "syntaxOperator": "yellow",
-    "syntaxPunctuation": "white",
+    "syntaxOperator": "cyan",
+    "syntaxPunctuation": "brightGreen",
 
     "thinkingOff": "brightBlack",
     "thinkingMinimal": "brightGreen",
@@ -81,7 +81,7 @@
     "thinkingXhigh": "brightYellow",
     "thinkingMax": "brightWhite",
 
-    "bashMode": "green"
+    "bashMode": "magenta"
   },
   "export": {
     "pageBg": "background",
