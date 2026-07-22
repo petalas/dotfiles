@@ -19,8 +19,9 @@ reset=$(tput sgr0 2>/dev/null || true)
 #   3. User has no sudo at all (fresh Arch, custom-created user) — bootstrap
 #      via 'su' using the root password, then configure sudoers
 ensure_sudo() {
-	local user
+	local user apt_mirror_setup
 	user=$(whoami)
+	apt_mirror_setup="$(pwd)/setup-apt-mirrors.sh"
 
 	if sudo -n true 2>/dev/null; then
 		echo "${green}$user${reset} is already a passwordless sudoer."
@@ -41,6 +42,9 @@ ensure_sudo() {
 	cat >"$script" <<EOF
 #!/bin/sh
 set -e
+if [ -x '$apt_mirror_setup' ]; then
+	'$apt_mirror_setup'
+fi
 if ! command -v sudo >/dev/null 2>&1; then
 	if command -v pacman >/dev/null 2>&1; then
 		pacman -Sy --noconfirm sudo
@@ -101,6 +105,11 @@ MSG
 
 echo "Checking sudo permissions..."
 ensure_sudo
+
+if [[ $OSTYPE == "linux"* ]]; then
+	printf '%seasy install -> configuring package mirrors...%s\n\n' "$yellow" "$reset"
+	./setup-apt-mirrors.sh
+fi
 
 printf '%seasy install -> setting up dependencies...%s\n\n' "$yellow" "$reset"
 ./setup-deps.sh

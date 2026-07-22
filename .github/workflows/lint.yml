@@ -24,6 +24,9 @@ jobs:
             install \
             .githooks/pre-commit
 
+      - name: Test APT mirror configuration
+        run: ./tests/test-apt-mirrors.sh
+
   linux-integration:
     name: easy-install (${{ matrix.distro }})
     runs-on: ubuntu-latest
