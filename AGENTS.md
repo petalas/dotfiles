@@ -33,6 +33,7 @@ Before modifying code, find the matching file pattern and **read the linked doc 
 |------------------------------|-----------|
 | `*.sh` (root) | README.md for sudoers note; check script dependencies |
 | `installers/*.sh` | Existing installers for patterns (apt vs brew detection) |
+| `Brewfile`, `brew-deps.sh` | [LEARNINGS.md](docs/LEARNINGS.md) — Homebrew env, trust, and failure-boundary gotchas |
 | `dot/zshrc` | Current aliases/functions before adding duplicates |
 | `dot/.config/**` | App's official docs for config syntax |
 | `dot/claude/**` | This is GLOBAL Claude config — changes affect all projects |

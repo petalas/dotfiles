@@ -23,6 +23,15 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Homebrew 6 requires explicit third-party tap trust
+
+- Symptom: `brew bundle` aborts with `Refusing to load formula ... from untrusted tap`, and `set -e` prevents every later installer from running.
+- Cause: Homebrew 6 treats non-official taps as executable, untrusted code by default. A short formula name can resolve to an already-tapped third-party repository, but Homebrew will not evaluate it without explicit trust.
+- Fix: declare formula-scoped trust in the Brewfile, e.g. `brew "wix-incubator/brew/applesimutils", trusted: true`. Do not disable tap trust globally or trust a whole tap when only one formula is needed.
+- Failure boundary: `brew-deps.sh` treats Homebrew itself and `jq` as hard prerequisites because the required dotfile-linking stage consumes them. Brewfile apps and language-package batches are best-effort: collect failures, skip only their dependants, continue unrelated work, and print a warning summary. If Homebrew's batch fetch fails, retry the evaluated taps, formulae, and casks individually so the failed item does not block later Brewfile entries. Guard expected failures explicitly rather than removing `set -e` wholesale.
+
+---
+
 ## Homebrew `reinstall` does not accept `--HEAD`
 
 - Symptom: `upd` fails in `installers/install_neovim.sh` with `Error: invalid option: --HEAD` when trying to convert an existing stable `neovim` install to nightly.

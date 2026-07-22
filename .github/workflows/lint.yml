@@ -33,6 +33,12 @@ jobs:
       - name: Test macOS non-interactive install policy
         run: ./tests/test-easy-install-noninteractive.sh
 
+      - name: Test Homebrew dependency resilience
+        run: ./tests/test-brew-deps-resilience.sh
+
+      - name: Test language dependency resilience
+        run: ./tests/test-language-deps-resilience.sh
+
       - name: Test Yazi installer compatibility
         run: ./tests/test-yazi.sh
 

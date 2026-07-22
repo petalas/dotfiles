@@ -3,13 +3,18 @@
 
 
 install_sdkman_deps() {
+    local failed=0
     declare -a sdkman_deps=("java" "kotlin" "gradle")
     for i in "${sdkman_deps[@]}"; do
-        if [[ ! $(which $i) == *"$i" ]]; then
+        if ! command -v "$i" >/dev/null 2>&1; then
             echo "Installing ${yellow}$i${reset}"
-            sdk install $i
+            if ! sdk install "$i"; then
+                failed=1
+            fi
         fi
     done
+
+    return "$failed"
 }
 
 # Call the function if this script is executed directly
