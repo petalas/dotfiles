@@ -29,6 +29,7 @@ SKIP_GAMING=1 SKIP_CAD=1 SKIP_MOBILE=1 ./easy-install.sh
 ```sh
 ./install rust         # install Rust toolchain
 ./install docker       # install Docker (Linux)
+./install locale       # generate and select en_US.UTF-8 (Linux)
 ./install ssh_keys     # generate ed25519 key + copy pubkey to clipboard
 ./install list         # show all available installers
 ```

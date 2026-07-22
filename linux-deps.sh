@@ -90,6 +90,7 @@ if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
 		"libssl-dev"
 		"libxml2-utils"
 		"linux-perf"
+		"locales"
 		"make"
 		"pkg-config"
 		"poppler-utils"
@@ -339,6 +340,13 @@ install_missing_deps() {
 }
 
 install_missing_deps
+echo
+
+print_info "Configuring UTF-8 locale..."
+if ! setup_locale; then
+	print_error "Failed to configure UTF-8 locale"
+	failed_installers+=("locale")
+fi
 echo
 
 # Helper function to run an installer with tracking
