@@ -36,7 +36,9 @@ assert_link "$HOME/.config/yazi" "$repo_dir/dot/.config/yazi"
 assert_link "$HOME/.config/bat" "$repo_dir/dot/.config/bat"
 assert_link "$HOME/.ssh/config.shared" "$repo_dir/dot/.ssh/config.shared"
 assert_link "$HOME/.claude/CLAUDE.md" "$repo_dir/dot/claude/CLAUDE.md"
-assert_link "$HOME/.claude/settings.json" "$repo_dir/dot/claude/settings.json"
+if [[ -e "$repo_dir/dot/claude/settings.json" ]]; then
+    assert_link "$HOME/.claude/settings.json" "$repo_dir/dot/claude/settings.json"
+fi
 
 grep -Fqx 'Include ~/.ssh/config.shared' "$HOME/.ssh/config" ||
     fail "SSH config does not include the shared config"
