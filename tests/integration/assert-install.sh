@@ -24,7 +24,7 @@ assert_link() {
 LC_ALL=en_US.UTF-8 locale charmap | grep -qx UTF-8 ||
     fail "en_US.UTF-8 is not generated"
 
-for command_name in git locale mosh mosh-server tmux zsh; do
+for command_name in git jq locale mosh mosh-server tmux zsh; do
     assert_command "$command_name"
 done
 
@@ -32,6 +32,9 @@ assert_link "$HOME/.zshrc" "$repo_dir/dot/zshrc"
 assert_link "$HOME/.gitconfig" "$repo_dir/dot/gitconfig"
 assert_link "$HOME/.tmux.conf" "$repo_dir/dot/tmux.conf"
 assert_link "$HOME/.config/kitty/kitty.conf" "$repo_dir/dot/.config/kitty/kitty.conf"
+assert_link "$HOME/.pi/agent/themes/seashells.json" "$repo_dir/dot/.pi/agent/themes/seashells.json"
+[[ "$(jq -r '.theme' "$HOME/.pi/agent/settings.json")" == "seashells" ]] ||
+    fail "Pi does not select the managed seashells theme"
 assert_link "$HOME/.config/yazi" "$repo_dir/dot/.config/yazi"
 assert_link "$HOME/.config/bat" "$repo_dir/dot/.config/bat"
 assert_link "$HOME/.ssh/config.shared" "$repo_dir/dot/.ssh/config.shared"
