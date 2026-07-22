@@ -27,12 +27,33 @@ cat >"$fixture_dir/bin/brew" <<'EOF'
 #!/usr/bin/env bash
 printf 'brew %s\n' "$*" >>"$BREW_TEST_LOG"
 
+if [[ "$1" == "list" && "${2:-}" == "--formula" && "${3:-}" == "--full-name" ]]; then
+	printf '%s\n' installed-formula neovim
+	exit 0
+fi
+
+if [[ "$1" == "list" && "${2:-}" == "--cask" && "${3:-}" == "--full-name" ]]; then
+	printf '%s\n' installed-cask
+	exit 0
+fi
+
 if [[ "$1" == "list" ]]; then
 	exit 1
 fi
 
+if [[ "$1" == "tap" && "$#" == "1" && "$BREW_TEST_SCENARIO" == "bundle_failure" ]]; then
+	printf '%s\n' installed-tap
+	exit 0
+fi
+
 if [[ "$1" == "install" && "$BREW_TEST_SCENARIO" == "required_failure" && "$2" == "jq" ]]; then
 	echo "Error: jq failed to install" >&2
+	exit 1
+fi
+
+if [[ "$1" == "bundle" && "${2:-}" == "cleanup" ]]; then
+	echo 'Run `brew bundle cleanup --force` to make these changes.'
+	echo '==> Do you want to proceed with the cleanup? [y/n]'
 	exit 1
 fi
 
@@ -46,10 +67,33 @@ fi
 
 if [[ "$1" == "bundle" && "${2:-}" == "list" && "$BREW_TEST_SCENARIO" == "bundle_failure" ]]; then
 	case "${3:-}" in
-		--tap) printf '%s\n' wix-incubator/brew ;;
-		--formula) printf '%s\n' wix-incubator/brew/applesimutils later-formula ;;
-		--cask) printf '%s\n' later-cask ;;
+		--tap) printf '%s\n' installed-tap wix-incubator/brew ;;
+		--formula) printf '%s\n' installed-formula neovim wix-incubator/brew/applesimutils later-formula ;;
+		--cask) printf '%s\n' installed-cask later-cask ;;
 	esac
+fi
+
+if [[ "$BREW_TEST_SCENARIO" == "bundle_failure" && "$*" == "tap installed-tap" ]]; then
+	echo "Warning: installed-tap is already tapped." >&2
+	exit 0
+fi
+
+if [[ "$BREW_TEST_SCENARIO" == "bundle_failure" && "$*" == "install installed-formula" ]]; then
+	echo "Warning: installed-formula is already installed and up-to-date." >&2
+	echo "To reinstall, run:" >&2
+	echo "  brew reinstall installed-formula" >&2
+	exit 0
+fi
+
+if [[ "$BREW_TEST_SCENARIO" == "bundle_failure" && "$*" == "install neovim" ]]; then
+	echo "Error: neovim HEAD is already installed" >&2
+	echo "To install stable first run: brew unlink neovim" >&2
+	exit 1
+fi
+
+if [[ "$BREW_TEST_SCENARIO" == "bundle_failure" && "$*" == "install --cask installed-cask" ]]; then
+	echo "Warning: installed-cask is already installed and up-to-date." >&2
+	exit 0
 fi
 
 if [[ "$1" == "install" && "${2:-}" == "wix-incubator/brew/applesimutils" && "$BREW_TEST_SCENARIO" == "bundle_failure" ]]; then
@@ -134,6 +178,22 @@ grep -Fq 'Refusing to load formula wix-incubator/brew/applesimutils' \
 assert_logged 'brew tap wix-incubator/brew'
 assert_logged 'brew install later-formula'
 assert_logged 'brew install --cask later-cask'
+assert_logged 'brew tap'
+assert_logged 'brew list --formula --full-name'
+assert_logged 'brew list --cask --full-name'
+assert_not_logged 'brew tap installed-tap'
+assert_not_logged 'brew install installed-formula'
+assert_not_logged 'brew install neovim'
+assert_not_logged 'brew install --cask installed-cask'
+if grep -Fq 'already installed and up-to-date' "$fixture_dir/bundle_failure-output"; then
+	echo "Fallback retried packages that were already installed" >&2
+	exit 1
+fi
+assert_not_logged 'brew bundle cleanup --file=./Brewfile'
+if grep -Fq 'Do you want to proceed with the cleanup' "$fixture_dir/bundle_failure-output"; then
+	echo "brew-deps emitted an interactive cleanup prompt" >&2
+	exit 1
+fi
 grep -Fq 'Setup completed with 2 warning(s)' "$fixture_dir/bundle_failure-output"
 for installer in neovim node node_deps bun sdkman sdkman_deps rust rust_deps yazi; do
 	assert_logged "$installer"
