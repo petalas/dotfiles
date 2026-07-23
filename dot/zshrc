@@ -172,77 +172,14 @@ push-terminfo() {
 compdef dssh=ssh 2>/dev/null
 compdef push-terminfo=ssh 2>/dev/null
 
-# Sync ~/.config/nvim (fork of kickstart.nvim) with upstream.
-#   master  = clean mirror of nvim-lua/kickstart.nvim
-#   custom  = your modifications on top
-# Fast-forwards master from upstream and pushes it, then rebases custom onto
-# master. Stops before pushing custom so you can verify in nvim first — if
-# happy, run: git -C ~/.config/nvim push --force-with-lease
+# Sync ~/.config/nvim with nvim-lua/kickstart.nvim. The fork's master branch
+# remains a clean upstream mirror; custom receives ordinary merge commits so
+# every machine can fast-forward without force-pushing rewritten history.
 sync-nvim() {
-  local nvim_dir="$HOME/.config/nvim"
-  local upstream_url="https://github.com/nvim-lua/kickstart.nvim.git"
-
-  [[ -d "$nvim_dir/.git" ]] || { echo "not a git repo: $nvim_dir" >&2; return 1; }
-
-  if [[ -n "$(git -C "$nvim_dir" status --porcelain)" ]]; then
-    echo "refusing: $nvim_dir has uncommitted changes" >&2
-    git -C "$nvim_dir" status -s
-    return 1
-  fi
-
-  local ahead
-  ahead=$(git -C "$nvim_dir" rev-list --count origin/custom..custom 2>/dev/null)
-  if (( ahead > 0 )); then
-    echo "refusing: custom is $ahead commit(s) ahead of origin/custom — push first" >&2
-    return 1
-  fi
-
-  if ! git -C "$nvim_dir" remote | grep -qx upstream; then
-    echo ":: adding upstream -> $upstream_url"
-    git -C "$nvim_dir" remote add upstream "$upstream_url"
-  fi
-
-  echo ":: fetching upstream"
-  git -C "$nvim_dir" fetch upstream --quiet || return 1
-
-  # Capture current origin/master SHA so we can count new upstream commits
-  # later. Use fully-qualified ref because bare "master" is ambiguous once
-  # upstream is also a remote with its own master.
-  local master_before
-  master_before=$(git -C "$nvim_dir" rev-parse refs/remotes/origin/master)
-
-  echo ":: fast-forwarding master from upstream/master"
-  # Force-create (or reset) local master to origin/master's tip. Handles the
-  # case where master has never been checked out locally.
-  git -C "$nvim_dir" checkout -B master origin/master --quiet
-  if ! git -C "$nvim_dir" merge --ff-only upstream/master; then
-    echo "master diverged from upstream — resolve manually" >&2
-    return 1
-  fi
-  git -C "$nvim_dir" push origin master --quiet
-
-  local gained
-  gained=$(git -C "$nvim_dir" rev-list --count "$master_before..master")
-
-  echo ":: rebasing custom onto master"
-  git -C "$nvim_dir" checkout custom --quiet
-  if git -C "$nvim_dir" rebase master; then
-    echo ""
-    if (( gained > 0 )); then
-      echo "✓ rebased custom onto master ($gained new upstream commits)"
-    else
-      echo "✓ already up to date"
-    fi
-    echo "  verify:    nvim"
-    echo "  then push: git -C $nvim_dir push --force-with-lease"
-  else
-    echo ""
-    echo "rebase conflict. resolve in $nvim_dir, then:"
-    echo "  git -C $nvim_dir rebase --continue"
-    echo "  # or abort:"
-    echo "  git -C $nvim_dir rebase --abort"
-    return 1
-  fi
+  local sync_script="${DOTFILES_DIR:-$HOME/git/dotfiles}/lib/nvim-sync.sh"
+  [[ -f "$sync_script" ]] || { echo "missing: $sync_script" >&2; return 1; }
+  source "$sync_script"
+  nvim_sync_fork "${XDG_CONFIG_HOME:-$HOME/.config}/nvim"
 }
 
 if command -v nvim >/dev/null 2>&1; then
@@ -366,26 +303,23 @@ function upd() {
     _upd_run "tldr" tldr -u
   fi
 
-  # neovim config repo (petalas/nvim @ custom) lives at ~/.config/nvim and is
-  # cloned, not symlinked, so it must be pulled explicitly. Do this BEFORE the
-  # plugin sync so :Lazy operates on current specs — a stale config here is what
-  # caused the nvim-treesitter breakage. See docs/LEARNINGS.md.
-  local git_sync="${DOTFILES_DIR:-$HOME/git/dotfiles}/lib/git-sync.sh"
-  local nvim_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/nvim"
-  if [[ -f "$git_sync" && -d "$nvim_cfg/.git" ]]; then
-    source "$git_sync"
-    _upd_run "nvim config" git_ff "$nvim_cfg"
-  fi
-
-  # neovim itself (nightly/HEAD) — run before plugin sync so :Lazy uses the new binary
+  # Upgrade Neovim before config/plugin synchronization so current Kickstart
+  # and vim.pack APIs are available.
   local nvim_installer="${DOTFILES_DIR:-$HOME/git/dotfiles}/installers/install_neovim.sh"
   if [[ -f "$nvim_installer" ]]; then
     _upd_run "neovim" bash "$nvim_installer"
   fi
 
-  # neovim plugins (lazy.nvim)
-  if command -v nvim >/dev/null 2>&1 && [[ -d "${XDG_DATA_HOME:-$HOME/.local/share}/nvim/lazy/lazy.nvim" ]]; then
-    _upd_run "nvim plugins" nvim --headless "+Lazy! sync" +qa
+  # Keep petalas/nvim/master mirrored from Kickstart, merge upstream into the
+  # custom branch, smoke-test it, and publish the merge. Ordinary merges let
+  # other machines fast-forward safely without force-push reconciliation.
+  local nvim_sync="${DOTFILES_DIR:-$HOME/git/dotfiles}/lib/nvim-sync.sh"
+  local nvim_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/nvim"
+  if [[ -f "$nvim_sync" && -d "$nvim_cfg/.git" ]]; then
+    source "$nvim_sync"
+    if _upd_run "nvim config + upstream" nvim_sync_fork "$nvim_cfg"; then
+      _upd_run "nvim plugins" nvim_update_plugins "$nvim_cfg"
+    fi
   fi
 
   if command -v bunx >/dev/null 2>&1; then
