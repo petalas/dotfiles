@@ -115,6 +115,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - **Drift trap:** the clone used to be set up once and never updated, while `upd` kept updating the neovim binary and the lazy.nvim plugins. A config left far behind the plugins it configures breaks when a plugin changes its API (this is how a treesitter breakage happened — lazy installed a new major version of a plugin while the stale config still called the old API).
 - **Fix:** `lib/git-sync.sh` provides `clone_or_ff` / `git_ff` (clone if missing, else fast-forward; non-destructive — skips a dirty or diverged worktree). `link-dotfiles.sh` uses it for the nvim repo and the oh-my-zsh theme/plugins, and `upd` fast-forwards the nvim config **before** syncing plugins so plugins always match the current specs.
 - **Reconciling a diverged machine** (stale local commits vs. a rebased remote): the remote tracking branch is canonical. After confirming it contains your customizations, `git -C ~/.config/nvim fetch && git -C ~/.config/nvim reset --hard @{u}`; the reflog recovers anything if needed.
+- **Headless Treesitter repairs must wait for the asynchronous task.** A command such as `nvim --headless '+TSUpdate diff' +qa` can exit after the download starts but before compilation and installation finish, leaving the old parser and errors such as `Invalid node type "special"`. For a scripted repair, wait explicitly: `nvim --headless '+lua require("nvim-treesitter").update({"diff"}):wait(300000)' +qa`.
 
 ---
 
