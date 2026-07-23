@@ -89,8 +89,8 @@ cat "$pi_settings_tmp" > "$pi_settings"
 rm -f "$pi_settings_tmp"
 
 # nvim — separate repo (petalas/nvim @ custom), cloned (NOT symlinked) into
-# ~/.config/nvim, so it must be kept current explicitly or it silently drifts
-# behind the plugins lazy.nvim keeps updating. See docs/LEARNINGS.md.
+# ~/.config/nvim. `upd` mirrors Kickstart upstream into the fork and updates
+# the vim.pack plugin lockfile. See docs/LEARNINGS.md.
 clone_or_ff https://github.com/petalas/nvim.git "$HOME/.config/nvim" custom
 
 # yazi
