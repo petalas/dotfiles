@@ -36,6 +36,7 @@ Before modifying code, find the matching file pattern and **read the linked doc 
 | `Brewfile`, `brew-deps.sh` | [LEARNINGS.md](docs/LEARNINGS.md) — Homebrew env, trust, and failure-boundary gotchas |
 | `dot/zshrc` | Current aliases/functions before adding duplicates |
 | `dot/.config/**` | App's official docs for config syntax |
+| `dot/.pi/**` | Pi's installed docs (`docs/extensions.md`, plus linked TUI docs) and [LEARNINGS.md](docs/LEARNINGS.md) — global extensions affect every project |
 | `dot/claude/**` | This is GLOBAL Claude config — changes affect all projects |
 | `link-dotfiles.sh` | Understand symlink structure before adding new dotfiles |
 | nvim config (`~/.config/nvim`) | [LEARNINGS.md](docs/LEARNINGS.md) — it's the **external `petalas/nvim` repo** (cloned, not symlinked); edit there, not under `dot/` |

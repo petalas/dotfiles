@@ -4,6 +4,15 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Pi Codex fast-mode benchmarks need visible-token timing and socket cleanup
+
+- `gpt-5.6-sol` advertises Codex's `fast` speed tier as request `service_tier: "priority"`; this is the correct mapping, not a reversed toggle.
+- Pi's `usage.output` includes hidden reasoning tokens. For the footer's user-visible TPS, subtract `usage.reasoning` and measure from the first `text_start` through the last `text_end`. Measuring all output from stream start mixes reasoning/prefill latency into TPS and can make a faster tier look slower.
+- Short responses are noisy, and prompt-cache state can dominate comparisons. The first manual fast test after `/reload` had a full cache miss while the standard test immediately reused the prompt cache, so those two numbers were not comparable.
+- Standalone Codex WebSocket benchmarks must call `closeOpenAICodexWebSocketSessions()` when finished; otherwise Pi's reusable connection timer keeps Node alive for several minutes and looks like a hung benchmark.
+
+---
+
 ## Homebrew package name collisions
 
 - `maestro` on Homebrew splits into two completely unrelated projects:
