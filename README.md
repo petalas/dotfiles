@@ -12,9 +12,21 @@ Installs git if missing, clones this repo to `~/git/dotfiles` (override with `$D
 
 ## Already cloned
 
+Run the full setup pipeline:
+
 ```sh
 cd ~/git/dotfiles && ./easy-install.sh
 ```
+
+After a pull, relink managed files without reinstalling packages:
+
+```sh
+cd ~/git/dotfiles
+git pull --ff-only
+./link-dotfiles.sh
+```
+
+The linker is idempotent and preserves any replaced file, directory, or symlink as `<path>.old`.
 
 ## Per-machine subsetting
 

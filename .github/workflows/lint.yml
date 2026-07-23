@@ -30,6 +30,9 @@ jobs:
       - name: Test integration runner policy
         run: ./tests/test-integration-runner.sh
 
+      - name: Test dotfile link state transitions
+        run: ./tests/test-link-path.sh
+
       - name: Test macOS non-interactive install policy
         run: ./tests/test-easy-install-noninteractive.sh
 
@@ -54,6 +57,9 @@ jobs:
 
       - name: Test Apple Bash to Homebrew Bash bootstrap
         run: /bin/bash ./tests/test-macos-arm.sh
+
+      - name: Test dotfile links with macOS utilities
+        run: /bin/bash ./tests/test-link-path.sh
 
   linux-integration:
     name: easy-install (${{ matrix.distro }})
