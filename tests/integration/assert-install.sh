@@ -33,6 +33,7 @@ assert_link "$HOME/.hushlogin" "$repo_dir/dot/hushlogin"
 assert_link "$HOME/.gitconfig" "$repo_dir/dot/gitconfig"
 assert_link "$HOME/.tmux.conf" "$repo_dir/dot/tmux.conf"
 assert_link "$HOME/.config/ghostty/config.ghostty" "$repo_dir/dot/.config/ghostty/config.ghostty"
+assert_link "$HOME/.pi/agent/extensions/openai-fast-mode.ts" "$repo_dir/dot/.pi/agent/extensions/openai-fast-mode.ts"
 assert_link "$HOME/.pi/agent/themes/seashells.json" "$repo_dir/dot/.pi/agent/themes/seashells.json"
 [[ "$(jq -r '.theme' "$HOME/.pi/agent/settings.json")" == "seashells" ]] ||
     fail "Pi does not select the managed seashells theme"

@@ -73,7 +73,8 @@ link_path "$dotfiles_dir/dot/.config/ghostty/config.ghostty" "$HOME/.config/ghos
 # pi
 pi_agent_dir="$HOME/.pi/agent"
 pi_settings="$pi_agent_dir/settings.json"
-mkdir -p "$pi_agent_dir/themes"
+mkdir -p "$pi_agent_dir/extensions" "$pi_agent_dir/themes"
+link_path "$dotfiles_dir/dot/.pi/agent/extensions/openai-fast-mode.ts" "$pi_agent_dir/extensions/openai-fast-mode.ts"
 link_path "$dotfiles_dir/dot/.pi/agent/themes/seashells.json" "$pi_agent_dir/themes/seashells.json"
 
 # Pi owns the rest of settings.json, so preserve its model, provider, and
