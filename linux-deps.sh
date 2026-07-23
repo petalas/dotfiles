@@ -382,12 +382,43 @@ install_missing_deps() {
 	[[ $failed_count -eq 0 ]]
 }
 
+# Debian and Ubuntu package fd as `fd-find` to avoid a package-name collision,
+# but the executable is called `fdfind`. Provide the canonical `fd` command for
+# tools such as Telescope without replacing an existing user-managed file.
+ensure_fd_command() {
+	if command -v fd >/dev/null 2>&1; then
+		return 0
+	fi
+
+	local fdfind_path fd_path="$HOME/.local/bin/fd"
+	fdfind_path=$(command -v fdfind 2>/dev/null || true)
+	if [[ -z "$fdfind_path" ]]; then
+		return 0
+	fi
+
+	mkdir -p "$HOME/.local/bin"
+	if [[ -e "$fd_path" || -L "$fd_path" ]]; then
+		if [[ -L "$fd_path" && "$(readlink "$fd_path")" == "$fdfind_path" ]]; then
+			return 0
+		fi
+		print_warning "Cannot provide fd: $fd_path is already user-managed"
+		return 0
+	fi
+
+	if ln -s "$fdfind_path" "$fd_path"; then
+		print_success "Provided ${yellow}fd${reset} via ${yellow}$fdfind_path${reset}"
+	else
+		print_warning "Could not create $fd_path"
+	fi
+}
+
 if ! install_missing_deps "required setup dependencies" "${required_deps[@]}"; then
 	print_error "Required setup dependencies failed; skipping downstream installers"
 	exit 1
 fi
 
 install_missing_deps "remaining dependencies" "${deps[@]}" || true
+ensure_fd_command
 echo
 
 # Application installers have a small dependency graph. Keep it explicit so a
