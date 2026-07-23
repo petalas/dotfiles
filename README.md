@@ -64,6 +64,7 @@ Homebrew-specific behavior.
 
 - Setup needs passwordless sudo to avoid repeated prompts. `easy-install.sh` adds a `/etc/sudoers.d/<user>` entry on first run.
 - On macOS, `easy-install.sh` disables Homebrew confirmation prompts for the entire run, including Homebrew's own installer and package upgrades. A fresh machine can still require the initial administrator authentication and the Xcode Command Line Tools GUI.
+- On macOS, setup installs or upgrades Homebrew Bash and restarts itself under that interpreter before running general dependency scripts. Homebrew Bash is also prepended to `PATH` for subsequent `#!/usr/bin/env bash` scripts.
 - Optional package, font, and shell-customization failures are reported at the end without blocking independent setup. The installer still stops when sudo, Homebrew, a required bootstrap dependency, or dotfile linking is unavailable.
 - Once the repository is available, Debian and amd64 Ubuntu package sources are routed through their official nearby-mirror services before dependency setup; existing source files are backed up under `/etc/apt/.dotfiles-backups/`. The one-line bootstrap may need one initial package refresh to install Git, and non-amd64 Ubuntu keeps its `ports.ubuntu.com` source unchanged.
 - `easy-install.sh` configures `en_US.UTF-8` before installing the remaining dependencies; `./install locale` is only needed for a manual repair.

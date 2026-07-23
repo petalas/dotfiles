@@ -158,11 +158,9 @@ else
 fi
 run_optional "Bun" install_bun || true
 if run_optional "SDKMAN" install_sdkman; then
-	if type sdk >/dev/null 2>&1; then
-		run_optional "SDKMAN packages" install_sdkman_deps || true
-	else
-		skip_dependent "SDKMAN packages"
-	fi
+	# install_sdkman_deps keeps SDKMAN inside a Bash 4+ subprocess when this
+	# orchestration script is running under Apple's Bash 3.
+	run_optional "SDKMAN packages" install_sdkman_deps || true
 else
 	skip_dependent "SDKMAN packages"
 fi

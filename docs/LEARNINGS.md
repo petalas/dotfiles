@@ -42,6 +42,17 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Vite+ npm shims prompt on TTYs, and SDKMAN must stay inside modern Bash
+
+- Vite+ places its `npm` shim before nvm's npm in `PATH`. After `npm install -g`, the shim checks whether each package binary is reachable and prompts once per invocation before linking it into `~/.vite-plus/bin`.
+- The shim's non-interactive behavior is already safe: when stdin is not a TTY, it creates the links automatically. Global Node dependency installs therefore redirect stdin from `/dev/null` instead of setting `CI` for the entire machine setup.
+- npm 12 blocks unapproved lifecycle scripts. `@anthropic-ai/claude-code` needs its postinstall to install the native binary, so its global install explicitly allows scripts for that package only.
+- macOS still launches root scripts with Apple Bash 3.2 even after Homebrew installs Bash 5. SDKMAN's path helpers use Bash 4+ `${name^^}` expansion; sourcing them into the Bash 3 parent is a fatal expansion error that cannot be caught by an ordinary optional-stage wrapper.
+- After sudo is available, `easy-install.sh` bootstraps Homebrew, updates or installs Homebrew Bash, verifies it is Bash 4+, prepends its directory to `PATH`, and re-executes itself under that binary before general dependency setup. Both steps matter: re-exec changes the current interpreter, while the `PATH` change makes later `#!/usr/bin/env bash` child scripts use Homebrew Bash too.
+- `install_sdkman` may download SDKMAN with Homebrew Bash, but it never sources SDKMAN into an incompatible parent. SDKMAN package installation is delegated to a Bash 4+ subprocess instead, with `sdkman_auto_answer=true` and closed stdin so older SDKMAN configs cannot prompt.
+
+---
+
 ## Homebrew `reinstall` does not accept `--HEAD`
 
 - Symptom: `upd` fails in `installers/install_neovim.sh` with `Error: invalid option: --HEAD` when trying to convert an existing stable `neovim` install to nightly.

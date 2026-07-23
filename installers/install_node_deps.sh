@@ -13,13 +13,23 @@ install_node_deps() {
     declare -a node_deps=("@anthropic-ai/claude-code" "@openai/codex" "typescript" "typescript-language-server")
     for i in "${node_deps[@]}"; do
         echo "Installing ${yellow}$i${reset}"
-        if ! npm i -g "$i"; then
+        # Vite+'s npm shim prompts before exposing each global binary when
+        # stdin is a TTY. With stdin closed it follows its documented
+        # non-interactive path and creates the link automatically.
+        if [[ "$i" == "@anthropic-ai/claude-code" ]]; then
+            # npm 12 blocks lifecycle scripts unless each trusted package is
+            # explicitly allowed. Claude Code's postinstall installs its
+            # platform-native binary, so a scriptless install is unusable.
+            if ! npm install --global --allow-scripts="$i" "$i" </dev/null; then
+                failed=1
+            fi
+        elif ! npm install --global "$i" </dev/null; then
             failed=1
         fi
     done
 
     echo "Installing ${yellow}@earendil-works/pi-coding-agent${reset}"
-    if ! npm i -g --ignore-scripts @earendil-works/pi-coding-agent; then
+    if ! npm install --global --ignore-scripts @earendil-works/pi-coding-agent </dev/null; then
         failed=1
     fi
 

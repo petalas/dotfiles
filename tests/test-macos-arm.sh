@@ -14,6 +14,15 @@ if [[ "$arch_name" != "arm64" ]]; then
 	exit 1
 fi
 
-"$(dirname "${BASH_SOURCE[0]}")/test-easy-install-noninteractive.sh"
+if ! brew list --versions bash >/dev/null 2>&1; then
+	brew install bash
+fi
+
+system_bash_major=$(
+	/bin/bash --noprofile --norc -c 'printf "%s" "${BASH_VERSINFO[0]}"'
+)
+EASY_INSTALL_TEST_ENTRY_BASH=/bin/bash \
+	EASY_INSTALL_EXPECT_BOOTSTRAP_BASH_MAJOR="$system_bash_major" \
+	/bin/bash "$(dirname "${BASH_SOURCE[0]}")/test-easy-install-noninteractive.sh"
 
 echo "macOS arm64 smoke tests passed."

@@ -124,8 +124,62 @@ MSG
 	return 1
 }
 
+bootstrap_macos_bash() {
+	local brew_bash brew_bin brew_prefix
+
+	if [[ "${DOTFILES_MODERN_BASH:-}" == "1" ]]; then
+		if ((BASH_VERSINFO[0] < 4)); then
+			echo "${red}Modern Bash bootstrap marker is set, but Bash ${BASH_VERSION} is still incompatible.${reset}" >&2
+			return 1
+		fi
+		return 0
+	fi
+
+	printf '%seasy install -> bootstrapping current Homebrew Bash...%s\n\n' "$yellow" "$reset"
+	if ! ./setup-brew.sh; then
+		echo "${red}Homebrew setup failed; cannot bootstrap modern Bash.${reset}" >&2
+		return 1
+	fi
+
+	# Refresh formula metadata before selecting Bash so a fresh setup does not
+	# spend the rest of its run under an older installed Homebrew version.
+	if ! brew update; then
+		echo "${yellow}Warning: Homebrew metadata update failed; checking the installed Bash instead.${reset}" >&2
+	fi
+
+	if brew list --versions bash >/dev/null 2>&1; then
+		if ! brew upgrade bash; then
+			echo "${yellow}Warning: Bash upgrade failed; checking the installed Bash instead.${reset}" >&2
+		fi
+	elif ! brew install bash; then
+		echo "${red}Failed to install modern Bash.${reset}" >&2
+		return 1
+	fi
+
+	if ! brew_prefix=$(brew --prefix bash 2>/dev/null); then
+		echo "${red}Homebrew could not locate its Bash installation.${reset}" >&2
+		return 1
+	fi
+	brew_bash="$brew_prefix/bin/bash"
+	if [[ ! -x "$brew_bash" ]] ||
+		! "$brew_bash" --noprofile --norc -c '((BASH_VERSINFO[0] >= 4))'; then
+		echo "${red}Homebrew Bash is unavailable or older than Bash 4: $brew_bash${reset}" >&2
+		return 1
+	fi
+
+	brew_bin="${brew_bash%/*}"
+	export PATH="$brew_bin:$PATH"
+	export DOTFILES_MODERN_BASH=1
+	echo "Restarting easy-install with $("$brew_bash" --noprofile --norc -c 'printf "%s" "$BASH_VERSION"')..."
+	exec "$brew_bash" "$PWD/easy-install.sh" "$@"
+}
+
 echo "Checking sudo permissions..."
 ensure_sudo
+
+if [[ $OSTYPE == "darwin"* ]]; then
+	bootstrap_macos_bash "$@"
+fi
 
 if [[ $OSTYPE == "linux"* ]]; then
 	printf '%seasy install -> configuring package mirrors...%s\n\n' "$yellow" "$reset"

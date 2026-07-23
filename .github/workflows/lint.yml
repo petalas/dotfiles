@@ -52,8 +52,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run macOS arm64 smoke tests
-        run: ./tests/test-macos-arm.sh
+      - name: Test Apple Bash to Homebrew Bash bootstrap
+        run: /bin/bash ./tests/test-macos-arm.sh
 
   linux-integration:
     name: easy-install (${{ matrix.distro }})
