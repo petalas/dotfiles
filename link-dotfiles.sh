@@ -7,34 +7,8 @@ dotfiles_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$dotfiles_dir/lib/git-sync.sh"
 # shellcheck source=lib/yazi.sh disable=SC1091
 source "$dotfiles_dir/lib/yazi.sh"
-
-# Link source to target, skipping if already correctly linked.
-# Backs up existing files/dirs before replacing.
-link_path() {
-    local source="$1"
-    local target="$2"
-
-    if [ ! -e "$source" ]; then
-        echo "Cannot link missing source: $source" >&2
-        return 1
-    fi
-
-    if [ -L "$target" ] && [ "$(readlink "$target")" = "$source" ]; then
-        return 0
-    fi
-
-    if [ -e "$target.old" ] || [ -L "$target.old" ]; then
-        rm -rf "$target.old"
-    fi
-    if [ -e "$target" ] || [ -L "$target" ]; then
-        echo "Creating backup: $target.old"
-        cp -r "$target" "$target.old"
-        rm -rf "$target"
-    fi
-
-    echo "Linking $source -> $target"
-    ln -s "$source" "$target"
-}
+# shellcheck source=lib/link.sh disable=SC1091
+source "$dotfiles_dir/lib/link.sh"
 
 # ensure $HOME/.config exists
 mkdir -p "$HOME/.config"
@@ -42,8 +16,10 @@ mkdir -p "$HOME/.config"
 # activate repo's git hooks (.githooks/pre-commit runs shellcheck on *.sh)
 git -C "$dotfiles_dir" config core.hooksPath .githooks
 
-# zshrc
+# zsh + managed SeaShells colors
 link_path "$dotfiles_dir/dot/zshrc" "$HOME/.zshrc"
+link_path "$dotfiles_dir/dot/seashells.zsh" "$HOME/.seashells.zsh"
+link_path "$dotfiles_dir/dot/p10k-seashells.zsh" "$HOME/.p10k-seashells.zsh"
 
 # hushlogin (suppress terminal "Last login" banner)
 link_path "$dotfiles_dir/dot/hushlogin" "$HOME/.hushlogin"

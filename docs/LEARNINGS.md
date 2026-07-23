@@ -4,6 +4,13 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Zsh substitution replacements preserve unnecessary backslashes
+
+- In zsh `${value//pattern/replacement}`, a backslash needed to quote the pattern is not also needed before an ordinary `%` in the replacement.
+- Using `${value//\%244F/\%8F}` produced a literal `\%8F` in the Powerlevel10k frame. Use `${value//\%244F/%8F}` so the prompt receives `%8F` without a visible backslash.
+
+---
+
 ## Pi Codex fast-mode benchmarks need visible-token timing and socket cleanup
 
 - `gpt-5.6-sol` advertises Codex's `fast` speed tier as request `service_tier: "priority"`; this is the correct mapping, not a reversed toggle.

@@ -29,6 +29,22 @@ for command_name in git jq locale mosh mosh-server tmux zsh; do
 done
 
 assert_link "$HOME/.zshrc" "$repo_dir/dot/zshrc"
+assert_link "$HOME/.seashells.zsh" "$repo_dir/dot/seashells.zsh"
+assert_link "$HOME/.p10k-seashells.zsh" "$repo_dir/dot/p10k-seashells.zsh"
+
+shell_theme_check=$(zsh -fc 'source ~/.seashells.zsh; printf "%s|%s" "$LS_COLORS" "$EZA_COLORS"')
+[[ "$shell_theme_check" == *"di=01;94"*"|"*"hd=1;93"* ]] ||
+    fail "SeaShells LS_COLORS/EZA_COLORS were not loaded"
+p10k_theme_check=$(zsh -fc '
+    typeset -g POWERLEVEL9K_TEST_FOREGROUND=255
+    typeset -g POWERLEVEL9K_TEST_BACKGROUND=208
+    typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_PREFIX="%244F---"
+    source ~/.p10k-seashells.zsh
+    printf "%s|%s|%s" "$POWERLEVEL9K_TEST_FOREGROUND" "$POWERLEVEL9K_TEST_BACKGROUND" "$POWERLEVEL9K_MULTILINE_FIRST_PROMPT_PREFIX"
+')
+[[ "$p10k_theme_check" == "15|3|%8F---" ]] ||
+    fail "Powerlevel10k colors were not normalized: $p10k_theme_check"
+
 assert_link "$HOME/.hushlogin" "$repo_dir/dot/hushlogin"
 assert_link "$HOME/.gitconfig" "$repo_dir/dot/gitconfig"
 assert_link "$HOME/.tmux.conf" "$repo_dir/dot/tmux.conf"

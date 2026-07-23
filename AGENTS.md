@@ -35,6 +35,7 @@ Before modifying code, find the matching file pattern and **read the linked doc 
 | `installers/*.sh` | Existing installers for patterns (apt vs brew detection) |
 | `Brewfile`, `brew-deps.sh` | [LEARNINGS.md](docs/LEARNINGS.md) — Homebrew env, trust, and failure-boundary gotchas |
 | `dot/zshrc` | Current aliases/functions before adding duplicates |
+| `dot/*.zsh` | Existing shell theme files and [LEARNINGS.md](docs/LEARNINGS.md) |
 | `dot/.config/**` | App's official docs for config syntax |
 | `dot/.pi/**` | Pi's installed docs (`docs/extensions.md`, plus linked TUI docs) and [LEARNINGS.md](docs/LEARNINGS.md) — global extensions affect every project |
 | `dot/claude/**` | This is GLOBAL Claude config — changes affect all projects |
