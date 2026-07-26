@@ -2,6 +2,27 @@
 # Keep the petalas/nvim fork synchronized with nvim-lua/kickstart.nvim.
 # Safe to source from Bash or Zsh.
 
+_nvim_sync_prune_legacy_lazy_lock() {
+    local dir="$1"
+    local status
+
+    if [ ! -f "$dir/lazy-lock.json" ]; then
+        return 0
+    fi
+    if git -C "$dir" ls-files --error-unmatch lazy-lock.json >/dev/null 2>&1; then
+        return 0
+    fi
+    if ! git -C "$dir" ls-files --error-unmatch nvim-pack-lock.json >/dev/null 2>&1; then
+        return 0
+    fi
+
+    status=$(git -C "$dir" status --porcelain --untracked-files=all -- lazy-lock.json) || return 1
+    if [ "$status" = "?? lazy-lock.json" ]; then
+        echo "nvim sync: removing obsolete untracked lazy-lock.json"
+        rm -f "$dir/lazy-lock.json" || return 1
+    fi
+}
+
 nvim_sync_fork() {
     local dir="${1:-${XDG_CONFIG_HOME:-$HOME/.config}/nvim}"
     local upstream_url="https://github.com/nvim-lua/kickstart.nvim.git"
@@ -12,6 +33,7 @@ nvim_sync_fork() {
         echo "nvim sync: not a git repository: $dir" >&2
         return 1
     fi
+    _nvim_sync_prune_legacy_lazy_lock "$dir" || return 1
     if [ -n "$(git -C "$dir" status --porcelain)" ]; then
         echo "nvim sync: refusing to modify a dirty worktree: $dir" >&2
         git -C "$dir" status --short >&2
