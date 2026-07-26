@@ -307,6 +307,10 @@ function upd() {
   fi
 
   # Misc tools
+  if command -v pi >/dev/null 2>&1; then
+    _upd_run "pi update" pi update
+  fi
+
   if command -v tldr >/dev/null 2>&1; then
     _upd_run "tldr" tldr -u
   fi
