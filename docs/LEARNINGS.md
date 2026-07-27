@@ -65,6 +65,15 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Symptom: `upd` fails in `installers/install_neovim.sh` with `Error: invalid option: --HEAD` when trying to convert an existing stable `neovim` install to nightly.
 - Cause: `brew install neovim --HEAD` is valid, but `brew reinstall neovim --HEAD` is not accepted by Homebrew. A linked stable keg also blocks a direct HEAD install with Homebrew's own instruction to run `brew unlink neovim` first.
 - Fix: when stable Neovim is already installed on macOS, `install_neovim` unlinks it, runs `brew install neovim --HEAD`, then links the HEAD keg with `brew link --overwrite --HEAD neovim`. If the HEAD install fails, it attempts to relink the previous Homebrew install.
+- `brew outdated --fetch-HEAD neovim` returns status `1` when the HEAD package is outdated while printing `neovim`; do not put it behind `|| return 1`. Parse the output and treat status-only `1` as the normal outdated signal.
+
+---
+
+## Bash/Zsh shared libraries must avoid Zsh readonly parameter names
+
+- Symptom: sourcing `lib/nvim-sync.sh` from the zsh `upd` function failed with `_nvim_sync_prune_legacy_lazy_lock:14: read-only variable: status`.
+- Cause: `status` is a readonly special parameter in zsh, so a Bash-style `local status` declaration fails when the shared file is sourced by zsh.
+- Fix: avoid zsh special parameter names in files advertised as safe for Bash and Zsh; use specific names such as `lazy_lock_status` instead.
 
 ---
 

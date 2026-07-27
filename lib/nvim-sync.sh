@@ -4,7 +4,7 @@
 
 _nvim_sync_prune_legacy_lazy_lock() {
     local dir="$1"
-    local status
+    local lazy_lock_status
 
     if [ ! -f "$dir/lazy-lock.json" ]; then
         return 0
@@ -16,8 +16,8 @@ _nvim_sync_prune_legacy_lazy_lock() {
         return 0
     fi
 
-    status=$(git -C "$dir" status --porcelain --untracked-files=all -- lazy-lock.json) || return 1
-    if [ "$status" = "?? lazy-lock.json" ]; then
+    lazy_lock_status=$(git -C "$dir" status --porcelain --untracked-files=all -- lazy-lock.json) || return 1
+    if [ "$lazy_lock_status" = "?? lazy-lock.json" ]; then
         echo "nvim sync: removing obsolete untracked lazy-lock.json"
         rm -f "$dir/lazy-lock.json" || return 1
     fi

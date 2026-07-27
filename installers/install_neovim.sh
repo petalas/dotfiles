@@ -37,12 +37,19 @@ install_neovim() {
             fi
 
             if brew list --versions neovim 2>/dev/null | grep -q 'HEAD'; then
-                outdated=$(brew outdated --fetch-HEAD neovim) || return 1
-                if [[ -n "$outdated" ]]; then
+                # `brew outdated` returns 1 when a package is outdated, so do
+                # not treat a non-zero status with package output as a hard
+                # failure. Actual Homebrew errors are still reported when no
+                # outdated entry can be parsed.
+                outdated=$(brew outdated --fetch-HEAD neovim 2>&1)
+                if printf '%s\n' "$outdated" | awk '$1 == "neovim" { found = 1 } END { exit !found }'; then
                     echo "Upgrading ${yellow}nvim (HEAD)${reset} via Homebrew ..."
                     brew upgrade --fetch-HEAD neovim || return 1
-                else
+                elif [[ -z "$outdated" ]]; then
                     echo "${yellow}nvim (HEAD)${reset} is up to date."
+                else
+                    printf '%s\n' "$outdated" >&2
+                    return 1
                 fi
             elif brew list --versions neovim >/dev/null 2>&1; then
                 echo "Switching ${yellow}nvim${reset} from stable to HEAD via Homebrew ..."
