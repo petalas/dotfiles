@@ -114,6 +114,7 @@ record_installer() {
 	printf '%s\n' "$1" >>"$BREW_TEST_LOG"
 }
 
+install_ghostty() { record_installer ghostty; }
 install_neovim() { record_installer neovim; }
 install_node() {
 	record_installer node
@@ -195,7 +196,7 @@ if grep -Fq 'Do you want to proceed with the cleanup' "$fixture_dir/bundle_failu
 	exit 1
 fi
 grep -Fq 'Setup completed with 2 warning(s)' "$fixture_dir/bundle_failure-output"
-for installer in neovim node node_deps bun sdkman sdkman_deps rust rust_deps yazi; do
+for installer in ghostty neovim node node_deps bun sdkman sdkman_deps rust rust_deps yazi; do
 	assert_logged "$installer"
 done
 
@@ -221,7 +222,7 @@ assert_logged node
 assert_not_logged node_deps
 grep -Fq 'Skipping global Node packages because its prerequisite failed' \
 	"$fixture_dir/node_failure-output"
-for installer in bun sdkman sdkman_deps rust rust_deps yazi; do
+for installer in ghostty bun sdkman sdkman_deps rust rust_deps yazi; do
 	assert_logged "$installer"
 done
 

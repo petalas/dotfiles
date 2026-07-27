@@ -108,6 +108,14 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Ghostty's macOS default-terminal action does not replace every Terminal association
+
+- Ghostty 1.3's **Make Ghostty the Default Terminal** menu action uses `NSWorkspace.setDefaultApplication(..., toOpen: .unixExecutable)`. The setup script invokes the same public API through Swift so it remains non-interactive and does not require `duti`.
+- Existing LaunchServices mappings for `public.shell-script` and `com.apple.terminal.shell-script` can remain assigned to Terminal.app even after `public.unix-executable` changes. Set and verify all three content types so `.sh`, `.command`, and `.tool` files consistently open in Ghostty.
+- Ghostty declares support for `public.directory`, but both the modern NSWorkspace API and `LSSetDefaultRoleHandlerForContentType` return `paramErr` when asked to make it the directory handler. Do not fail unattended setup on that unsupported association; tools that open a terminal for a directory must use the platform's default-terminal mechanism or their own preference.
+
+---
+
 ## kitty `globinclude` rejects absolute / `$HOME` paths
 
 - Symptom: kitty startup aborts with `Non-relative patterns are unsupported in line: globinclude $HOME/.config/...`.

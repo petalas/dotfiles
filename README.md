@@ -80,6 +80,7 @@ Homebrew-specific behavior.
 - Optional package, font, and shell-customization failures are reported at the end without blocking independent setup. The installer still stops when sudo, Homebrew, a required bootstrap dependency, or dotfile linking is unavailable.
 - Once the repository is available, Debian and amd64 Ubuntu package sources are routed through their official nearby-mirror services before dependency setup; existing source files are backed up under `/etc/apt/.dotfiles-backups/`. The one-line bootstrap may need one initial package refresh to install Git, and non-amd64 Ubuntu keeps its `ports.ubuntu.com` source unchanged.
 - `easy-install.sh` configures `en_US.UTF-8` before installing the remaining dependencies; `./install locale` is only needed for a manual repair.
+- Ghostty is made the default terminal non-interactively: macOS LaunchServices associations cover executables and shell scripts, while Linux writes the `xdg-terminal-exec` preference under `XDG_CONFIG_HOME`.
 - CI runs `easy-install.sh` twice on clean Debian, Ubuntu, and Arch images using the Docker suite above.
 - Commits are gated by a shellcheck pre-commit hook (`.githooks/pre-commit`). Wired up automatically by `link-dotfiles.sh` via `core.hooksPath`.
 - See [`AGENTS.md`](AGENTS.md) for project structure and conventions, and [`docs/LEARNINGS.md`](docs/LEARNINGS.md) for repo-specific gotchas.

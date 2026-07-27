@@ -42,7 +42,8 @@ mkdir -p \
 	"$fixture_dir/home" \
 	"$fixture_dir/homebrew/bin" \
 	"$fixture_dir/incompatible-bash/bin" \
-	"$fixture_dir/installers"
+	"$fixture_dir/installers" \
+	"$fixture_dir/Ghostty.app"
 cp "$repo_dir/easy-install.sh" "$fixture_dir/easy-install.sh"
 ln -s "$test_modern_bash" "$fixture_dir/homebrew/bin/bash"
 cat >"$fixture_dir/incompatible-bash/bin/bash" <<'EOF'
@@ -53,6 +54,12 @@ EOF
 cat >"$fixture_dir/bin/sudo" <<'EOF'
 #!/usr/bin/env bash
 exit 0
+EOF
+
+cat >"$fixture_dir/bin/open" <<'EOF'
+#!/usr/bin/env bash
+[[ "$*" == "-na $GHOSTTY_APP_PATH" ]]
+printf 'ghostty-open\n' >>"$EASY_INSTALL_STEPS"
 EOF
 
 cat >"$fixture_dir/setup-brew.sh" <<'EOF'
@@ -140,6 +147,7 @@ run_easy_install() {
 	: >"$EASY_INSTALL_STEPS"
 	env \
 		EASY_INSTALL_TEST_SCENARIO="$scenario" \
+		GHOSTTY_APP_PATH="$fixture_dir/Ghostty.app" \
 		HOME="$fixture_dir/home" \
 		OSTYPE=darwin-test \
 		PATH="$fixture_dir/bin:/usr/bin:/bin" \
@@ -162,6 +170,7 @@ fonts
 zsh
 configure-zsh.sh
 link-dotfiles.sh
+ghostty-open
 EOF
 )
 actual_steps=$(cat "$EASY_INSTALL_STEPS")
@@ -192,6 +201,7 @@ fonts
 zsh
 configure-zsh.sh
 link-dotfiles.sh
+ghostty-open
 EOF
 )
 actual_steps=$(cat "$EASY_INSTALL_STEPS")

@@ -144,6 +144,10 @@ fi
 # shellcheck source=installers/source_installers.sh disable=SC1091
 source "$(dirname "$0")/installers/source_installers.sh"
 
+# Ghostty is declared in Brewfile, but the installer also makes it the default
+# terminal through LaunchServices. It is safe to rerun when already installed.
+run_optional "Ghostty default terminal" install_ghostty || true
+
 # Neovim is declared in Brewfile with HEAD, but brew bundle will not convert an
 # already-installed stable formula to HEAD. The installer handles that case.
 run_optional "Neovim" install_neovim || true

@@ -39,6 +39,9 @@ jobs:
       - name: Test Homebrew dependency resilience
         run: ./tests/test-brew-deps-resilience.sh
 
+      - name: Test Ghostty default-terminal setup
+        run: ./tests/test-ghostty-default.sh
+
       - name: Test language dependency resilience
         run: ./tests/test-language-deps-resilience.sh
 
