@@ -71,11 +71,7 @@ clone_or_ff https://github.com/petalas/nvim.git "$HOME/.config/nvim" custom
 
 # yazi
 link_path "$dotfiles_dir/dot/.config/yazi" "$HOME/.config/yazi"
-if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == "1" ]]; then
-    echo "Skipping Yazi package installation in the container profile"
-else
-    install_yazi_packages
-fi
+install_yazi_packages
 
 # bat
 link_path "$dotfiles_dir/dot/.config/bat" "$HOME/.config/bat"

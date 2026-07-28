@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")"
+cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 export NONINTERACTIVE=1 HOMEBREW_NO_ASK=1
 
 # Source this so a fresh Homebrew shellenv is available to this process.
@@ -25,8 +25,13 @@ run_optional() {
     fi
 }
 
+# Reconcile the full Brewfile first, then isolate only missing entries if one
+# broken package makes the batch fail.
+# shellcheck source=lib/homebrew.sh
+source lib/homebrew.sh
 run_optional "Homebrew update" brew update
-run_optional "Brewfile installation" brew bundle --file="$PWD/Brewfile"
+run_optional "Brewfile installation" \
+    homebrew_bundle_install_resilient "$PWD/Brewfile"
 
 # shellcheck source=installers/source_installers.sh
 source installers/source_installers.sh

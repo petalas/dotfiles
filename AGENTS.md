@@ -37,7 +37,7 @@ Before modifying code, find the matching file pattern and **read the linked doc 
 | `dot/zshrc` | Current aliases/functions before adding duplicates |
 | `dot/*.zsh` | Existing shell theme files and [LEARNINGS.md](docs/LEARNINGS.md) |
 | `lib/*.sh` | Callers and [LEARNINGS.md](docs/LEARNINGS.md); preserve advertised Bash/Zsh compatibility |
-| `tests/integration/**`, `.github/workflows/**` | README integration section and [LEARNINGS.md](docs/LEARNINGS.md) |
+| `.github/workflows/**` | README.md and [LEARNINGS.md](docs/LEARNINGS.md) |
 | `dot/.config/**` | App's official docs for config syntax |
 | `dot/.pi/**` | Pi's installed docs (`docs/extensions.md`, plus linked TUI docs) and [LEARNINGS.md](docs/LEARNINGS.md) — global extensions affect every project |
 | `dot/claude/**` | This is GLOBAL Claude config — changes affect all projects |

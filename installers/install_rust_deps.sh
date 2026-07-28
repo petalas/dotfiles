@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 
+_install_cargo_batch() {
+    cargo install --locked "$@"
+}
+
 install_rust_deps() {
     local entry binary package
+    local -a missing_packages=()
     local -a packages=(
         tree-sitter:tree-sitter-cli
         rg:ripgrep
@@ -16,13 +21,12 @@ install_rust_deps() {
     for entry in "${packages[@]}"; do
         binary=${entry%%:*}
         package=${entry#*:}
-        if command -v "$binary" >/dev/null 2>&1 ||
-            [[ -x "$HOME/.local/bin/$binary" ]]; then
-            continue
+        if ! command -v "$binary" >/dev/null 2>&1 &&
+            [[ ! -x "$HOME/.local/bin/$binary" ]]; then
+            missing_packages+=("$package")
         fi
-        echo "Installing/updating $package"
-        cargo install --locked "$package" || return 1
     done
+    run_resilient_batch 'Cargo packages' _install_cargo_batch "${missing_packages[@]}"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

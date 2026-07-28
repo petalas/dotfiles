@@ -4,8 +4,9 @@ set -euo pipefail
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 fixture=$(mktemp -d /tmp/dotfiles-brew-deps.XXXXXX)
 trap 'rm -rf "$fixture"' EXIT
-mkdir -p "$fixture/bin" "$fixture/installers" "$fixture/home"
+mkdir -p "$fixture/bin" "$fixture/installers" "$fixture/home" "$fixture/lib"
 cp "$repo_dir/brew-deps.sh" "$fixture/brew-deps.sh"
+cp "$repo_dir/lib/homebrew.sh" "$fixture/lib/homebrew.sh"
 : >"$fixture/Brewfile"
 : >"$fixture/setup-brew.sh"
 
@@ -46,7 +47,7 @@ run_test() {
 run_test success
 for expected in \
     'brew update' \
-    "brew bundle --file=$fixture/Brewfile" \
+    "brew bundle --no-upgrade --file=$fixture/Brewfile" \
     ghostty node-deps bun rust-deps yazi; do
     grep -Fxq "$expected" "$steps"
 done

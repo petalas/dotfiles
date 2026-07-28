@@ -133,12 +133,21 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## apt-fast must be configured before its package is installed
+
+- `apt-fast` is not assumed to exist in Debian/Ubuntu's configured repositories. Add its signed Launchpad PPA through a deb822 source and install `apt-fast` with `aria2` in one bootstrap transaction; fall back to Nala or `apt-get` if that setup fails.
+- Pipe `apt-fast/maxdownloads`, `apt-fast/dlflag`, and `apt-fast/aptmanager` into `debconf-set-selections` before the non-interactive install. Editing `/etc/apt-fast.conf` afterward does not answer the package's installation prompts.
+- Package managers get the full package list first. After bounded retries, `run_resilient_batch` splits only failed groups until it identifies individual failures, allowing unrelated packages to continue in batches.
+
+---
+
 ## Mirror selectors should rank mirrors, not replace source definitions
 
 - `netselect-apt` emits a legacy one-suite `sources.list`, even on Debian releases that use deb822 `.sources` files. Installing that output directly duplicates repositories and can discard updates, security suites, components, and third-party sources.
 - `lib/packages.sh` uses `netselect-apt` only to discover the fastest Debian archive URI, then rewrites that URI in the existing `.list` and `.sources` files. Security and third-party repositories remain untouched, and original files are backed up under `/etc/apt/.dotfiles-backups/`.
 - Mirror ranking is cached because rerating on every idempotent setup is slow and can create needless source drift. Use `DOTFILES_REFRESH_MIRRORS=1` to force a new Debian `netselect-apt` or Arch Reflector/rankmirrors run.
 - The package helper is shared with zsh. Keep it compatible with both Bash and Zsh, and avoid readonly zsh parameter names such as `status`.
+- Package-manager tests must use local fake executables. Clean-container installs measure the current mirror and network conditions, not deterministic package-management behavior.
 
 ---
 
@@ -156,19 +165,6 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Cause: `install` uses `set -euo pipefail` and sources `source_installers.sh`. `detect_os` both treated the optional `VERSION_CODENAME` field as mandatory and ended with an ArchARM normalization check joined by `&&`; either false status could trigger `set -e` before dispatch.
 - Fix: optional `/etc/os-release` fields tolerate absence, and detection helpers explicitly `return 0` after identifying a supported OS. Do not let an optional lookup or final conditional determine a sourced setup file's status.
 - Sourced installers also inherit `set -u` from callers such as `./install` and focused tests. Optional globals (notably terminal colors when an installer is sourced directly) must use default-safe expansion such as `${yellow:-}` rather than assuming the central loader ran.
-
----
-
-## Test the public installer without pretending Docker is a desktop host
-
-- A disposable locale-only container proved the immediate Mosh fix, but it did not protect the ordering or idempotency of `easy-install.sh`.
-- The checked-in suite under `tests/integration/` starts from clean Debian stable, Ubuntu, and Arch images and invokes `./easy-install.sh` twice. It rejects optional-stage warning summaries and compares managed-link, mutable-file, permission, and installed-package manifests between passes; merely exiting successfully twice is not sufficient evidence of idempotency.
-- Assertions launch `mosh-server` with the generated UTF-8 locale, repair and inspect the stale tmux server directly, validate sudoers and SSH modes, and check the identity, branch, and tracked cleanliness of external Git repositories. Powerlevel10k is intentionally a nested checkout under Oh My Zsh and therefore appears as untracked in its parent; ignore parent untracked entries while checking every managed child checkout separately. TPM may store a valid GitHub origin as `https://git::@github.com/...`, so normalize that no-op userinfo segment before comparing repository identity.
-- A first install legitimately preserves Oh My Zsh's generated `.zshrc` as `.zshrc.old`. Idempotence checks must record existing managed backups and prove they remain unchanged on pass two, not incorrectly require that no backup exists. Interrupted `.new.PID` links are always invalid.
-- The separate `bootstrap` Docker target uses a bare repository generated from the current build context. It proves Git installation, first clone, existing-clone sync, dirty-worktree refusal, and both setup passes without accidentally testing GitHub's `main` instead of the current change.
-- `DOTFILES_INTEGRATION_TEST=1` is set only by the Dockerfile. It keeps the real orchestration, package manager, locale setup, shell configuration, and linking stages while limiting Linux packages to portable core dependencies and skipping fonts, GUI apps, services, and language toolchains that have no useful container behavior.
-- Even container bootstrap can hit transient mirror, registry, DNS, clone, or fetch failures. Package bootstrap, Docker builds, and Git network operations use three bounded attempts with explicit diagnostics. CI pulls current base images; `INTEGRATION_PULL=0` is only a local escape hatch when the registry is unavailable and suitable images are already cached.
-- Do not use that profile for a normal machine install: its intentionally reduced dependency set is a test boundary, not a lightweight install mode.
 
 ---
 

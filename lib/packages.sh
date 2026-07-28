@@ -41,9 +41,174 @@ _linux_files_differ() {
     fi
 }
 
+_run_batch_with_retries() {
+    local callback="$1"
+    shift
+    local attempts="${DOTFILES_BATCH_RETRIES:-3}"
+    local delay_seconds="${DOTFILES_BATCH_RETRY_DELAY_SECONDS:-2}"
+    local attempt=1
+
+    while ((attempt <= attempts)); do
+        "$callback" "$@" && return 0
+        if ((attempt < attempts)); then
+            printf 'Package batch failed (attempt %d/%d); retrying: %s\n' \
+                "$attempt" "$attempts" "$*" >&2
+            sleep "$((delay_seconds * attempt))"
+        fi
+        ((attempt += 1))
+    done
+    return 1
+}
+
+_run_resilient_batch_group() {
+    local callback="$1"
+    shift
+    local item item_index=0 split_at=$((($# + 1) / 2))
+    local group_failed=0
+    local -a left=() right=()
+
+    if _run_batch_with_retries "$callback" "$@"; then
+        return 0
+    fi
+    if (($# == 1)); then
+        _dotfiles_failed_batch_items+=("$1")
+        return 1
+    fi
+
+    for item in "$@"; do
+        ((item_index += 1))
+        if ((item_index <= split_at)); then
+            left+=("$item")
+        else
+            right+=("$item")
+        fi
+    done
+    _run_resilient_batch_group "$callback" "${left[@]}" || group_failed=1
+    _run_resilient_batch_group "$callback" "${right[@]}" || group_failed=1
+    return "$group_failed"
+}
+
+run_resilient_batch() {
+    local label="$1"
+    local callback="$2"
+    shift 2
+    local batch_result=0
+    local IFS=', '
+
+    (($#)) || return 0
+    _dotfiles_failed_batch_items=()
+    _run_resilient_batch_group "$callback" "$@" || batch_result=1
+    if ((${#_dotfiles_failed_batch_items[@]})); then
+        printf 'Failed %s after retries: %s\n' \
+            "$label" "${_dotfiles_failed_batch_items[*]}" >&2
+    fi
+    return "$batch_result"
+}
+
+_linux_apt_get() {
+    _linux_as_root env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
+        apt-get "$@"
+}
+
+_linux_preseed_apt_fast() {
+    local connections="${DOTFILES_APT_PARALLEL_DOWNLOADS:-8}"
+
+    command -v debconf-set-selections >/dev/null 2>&1 || return 1
+    printf '%s\n' \
+        "debconf apt-fast/maxdownloads string $connections" \
+        'debconf apt-fast/dlflag boolean true' \
+        'debconf apt-fast/aptmanager string apt-get' |
+        _linux_as_root debconf-set-selections
+}
+
+_linux_install_apt_fast_prerequisites() {
+    local -a packages=()
+
+    command -v curl >/dev/null 2>&1 || packages+=(ca-certificates curl)
+    command -v gpg >/dev/null 2>&1 || packages+=(gnupg)
+    command -v debconf-set-selections >/dev/null 2>&1 || packages+=(debconf)
+    ((${#packages[@]} == 0)) && return 0
+
+    _linux_apt_get update && _linux_apt_get install -y "${packages[@]}"
+}
+
+_linux_write_apt_fast_source() {
+    local suite="$1"
+    local apt_root="${DOTFILES_APT_ROOT:-/etc/apt}"
+    local key_file="${DOTFILES_APT_FAST_KEYRING:-$apt_root/keyrings/apt-fast.gpg}"
+    local source_file="${DOTFILES_APT_FAST_SOURCE:-$apt_root/sources.list.d/apt-fast.sources}"
+    local work_file
+
+    work_file=$(mktemp "${TMPDIR:-/tmp}/dotfiles-apt-fast-source.XXXXXX")
+    cat >"$work_file" <<EOF
+Types: deb
+URIs: ${DOTFILES_APT_FAST_PPA_URI:-https://ppa.launchpadcontent.net/apt-fast/stable/ubuntu/}
+Suites: $suite
+Components: main
+Signed-By: $key_file
+EOF
+    _linux_install_root_file "$work_file" "$source_file"
+    rm -f "$work_file"
+}
+
+_linux_install_apt_fast_key() {
+    local apt_root="${DOTFILES_APT_ROOT:-/etc/apt}"
+    local key_file="${DOTFILES_APT_FAST_KEYRING:-$apt_root/keyrings/apt-fast.gpg}"
+    local work_file
+
+    work_file=$(mktemp "${TMPDIR:-/tmp}/dotfiles-apt-fast-key.XXXXXX")
+    if ! curl -fsSL \
+        'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xBC5934FD3DEBD4DAEA544F791E2824A7F22B44BD' |
+        gpg --dearmor >"$work_file" || [[ ! -s "$work_file" ]]; then
+        rm -f "$work_file"
+        return 1
+    fi
+    _linux_install_root_file "$work_file" "$key_file"
+    rm -f "$work_file"
+}
+
+_linux_install_apt_fast() {
+    local distribution current_suite suite tried_suites="" repository_ready=0
+    local apt_root="${DOTFILES_APT_ROOT:-/etc/apt}"
+    local source_file="${DOTFILES_APT_FAST_SOURCE:-$apt_root/sources.list.d/apt-fast.sources}"
+    local -a suites=()
+
+    _linux_install_apt_fast_prerequisites || return 1
+    _linux_install_apt_fast_key || return 1
+
+    distribution=$(linux_distribution)
+    if [[ -n "${DOTFILES_APT_FAST_SUITE:-}" ]]; then
+        suites=("$DOTFILES_APT_FAST_SUITE")
+    elif [[ "$distribution" == ubuntu ]]; then
+        current_suite=$(_linux_debian_release)
+        suites=("$current_suite" jammy focal)
+    else
+        suites=(jammy focal)
+    fi
+
+    for suite in "${suites[@]}"; do
+        [[ -n "$suite" && " $tried_suites " != *" $suite "* ]] || continue
+        tried_suites="$tried_suites $suite"
+        _linux_write_apt_fast_source "$suite" || continue
+        if _linux_apt_get update; then
+            repository_ready=1
+            break
+        fi
+    done
+    if ((repository_ready == 0)); then
+        _linux_as_root rm -f "$source_file"
+        _linux_apt_get update || true
+        return 1
+    fi
+
+    _linux_preseed_apt_fast || return 1
+    _linux_apt_get install -y apt-fast aria2 || return 1
+    command -v apt-fast >/dev/null 2>&1
+}
+
 _linux_configure_apt_fast() {
     local config_file="${DOTFILES_APT_FAST_CONFIG:-/etc/apt-fast.conf}"
-    local connections="${DOTFILES_APT_PARALLEL_DOWNLOADS:-16}"
+    local connections="${DOTFILES_APT_PARALLEL_DOWNLOADS:-8}"
     local work_file
 
     [[ -f "$config_file" ]] || return 0
@@ -75,23 +240,17 @@ _linux_bootstrap_apt_frontend() {
     local frontend=""
 
     if command -v apt-fast >/dev/null 2>&1; then
+        _linux_preseed_apt_fast || return 1
+        frontend=apt-fast
+    elif _linux_install_apt_fast; then
         frontend=apt-fast
     elif command -v nala >/dev/null 2>&1; then
         frontend=nala
     else
-        # A fast frontend cannot install itself. Use apt-get only for this
-        # bootstrap, preferring packages already published by the distro.
-        _linux_as_root env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
-            apt-get update
-        if apt-cache show apt-fast >/dev/null 2>&1; then
-            _linux_as_root env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
-                apt-get install -y apt-fast aria2 || true
-        fi
-        if command -v apt-fast >/dev/null 2>&1; then
-            frontend=apt-fast
-        elif apt-cache show nala >/dev/null 2>&1; then
-            _linux_as_root env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
-                apt-get install -y nala || true
+        echo "Warning: apt-fast setup failed; trying Nala from the distro repository." >&2
+        _linux_apt_get update || true
+        if apt-cache show nala >/dev/null 2>&1; then
+            _linux_apt_get install -y nala || true
             command -v nala >/dev/null 2>&1 && frontend=nala
         fi
     fi
@@ -106,7 +265,7 @@ _linux_bootstrap_apt_frontend() {
 
 _linux_configure_pacman() {
     local config_file="${DOTFILES_PACMAN_CONF:-/etc/pacman.conf}"
-    local downloads="${DOTFILES_PACMAN_PARALLEL_DOWNLOADS:-16}"
+    local downloads="${DOTFILES_PACMAN_PARALLEL_DOWNLOADS:-8}"
     local work_file
 
     case "$downloads" in
@@ -191,11 +350,7 @@ _linux_apt_run() {
 }
 
 _linux_pacman_run() {
-    if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == 1 ]]; then
-        _linux_as_root pacman --disable-sandbox "$@"
-    else
-        _linux_as_root pacman "$@"
-    fi
+    _linux_as_root pacman "$@"
 }
 
 linux_packages_refresh() {
@@ -208,15 +363,17 @@ linux_packages_refresh() {
     esac
 }
 
-linux_packages_install() {
-    local distribution
-    (($#)) || return 0
-    distribution=$(linux_distribution)
-    linux_packages_prepare || return 1
-    case "$distribution" in
+_linux_packages_install_once() {
+    case "$(linux_distribution)" in
         debian|ubuntu) _linux_apt_run install -y "$@" ;;
         arch) _linux_pacman_run -Syu --noconfirm --needed "$@" ;;
     esac
+}
+
+linux_packages_install() {
+    (($#)) || return 0
+    linux_packages_prepare || return 1
+    run_resilient_batch 'distro packages' _linux_packages_install_once "$@"
 }
 
 linux_packages_upgrade() {
@@ -481,10 +638,6 @@ linux_packages_optimize_mirrors() {
     distribution=$(linux_distribution)
     linux_packages_prepare || return 1
 
-    if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == 1 ]]; then
-        echo "Skipping network-dependent mirror ranking in the integration container."
-        return 0
-    fi
     case "$distribution" in
         debian) _linux_optimize_debian_mirror ;;
         ubuntu) return 0 ;;

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2154
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
@@ -42,11 +43,6 @@ case "$os_id" in
             shellcheck sshpass tealdeer tree-sitter-cli xclip xdg-utils xh
         )
         language=(cargo default-jdk gradle kotlin nodejs npm rustc)
-        if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == 1 ]]; then
-            required=(ca-certificates curl diffutils git grep jq locales mosh tar tmux unzip wget zsh)
-            optional=()
-            language=()
-        fi
 
         linux_packages_refresh
         linux_packages_install "${required[@]}"
@@ -71,10 +67,6 @@ case "$os_id" in
             rust shellcheck sshpass tealdeer tree-sitter-cli watchexec wasm-bindgen
             xclip xdg-utils xh yazi zerotier-one
         )
-        if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == 1 ]]; then
-            required=(ca-certificates curl diffutils git grep jq mosh tar tmux unzip wget zsh)
-            optional=()
-        fi
 
         linux_packages_install "${required[@]}"
         ((${#optional[@]} == 0)) ||
@@ -90,11 +82,6 @@ esac
 # Debian renames these executables to avoid package-name collisions.
 ensure_command_alias fd fdfind
 ensure_command_alias bat batcat
-
-if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == 1 ]]; then
-    echo "Skipping desktop applications and language toolchains in the container."
-    exit 0
-fi
 
 if [[ "$os_id" == ubuntu || "$os_id" == debian ]]; then
     for app in bitwarden chrome code discord docker ghostty lazygit neovim zerotier; do

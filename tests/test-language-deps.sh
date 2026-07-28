@@ -8,6 +8,7 @@ mkdir -p "$fixture/bin"
 log="$fixture/commands"
 export LANGUAGE_DEPS_LOG="$log"
 export PATH="$fixture/bin:/usr/bin:/bin"
+export DOTFILES_BATCH_RETRIES=1 DOTFILES_BATCH_RETRY_DELAY_SECONDS=0
 
 cat >"$fixture/bin/npm" <<'EOF'
 #!/usr/bin/env bash
@@ -24,6 +25,8 @@ printf 'cargo %s\n' "$*" >>"$LANGUAGE_DEPS_LOG"
 EOF
 chmod +x "$fixture/bin"/*
 
+# shellcheck source=../lib/packages.sh
+source "$repo_dir/lib/packages.sh"
 # shellcheck source=../installers/install_node_deps.sh
 source "$repo_dir/installers/install_node_deps.sh"
 # shellcheck source=../installers/install_rust_deps.sh
@@ -39,14 +42,22 @@ if FAIL_NPM=1 install_node_deps; then
     echo "Expected npm failure to propagate" >&2
     exit 1
 fi
+# The separately configured Pi package must still run after another npm package fails.
+grep -Fq '@earendil-works/pi-coding-agent' "$log"
+
+: >"$log"
+install_rust_deps
+grep -Fxq \
+    'cargo install --locked tree-sitter-cli ripgrep wasm-bindgen-cli cargo-edit tealdeer bat watchexec-cli' \
+    "$log"
 
 : >"$log"
 if FAIL_CARGO=1 install_rust_deps; then
     echo "Expected Cargo failure to propagate" >&2
     exit 1
 fi
-# The simple fail-fast loop should stop at the failed package.
+# The failed crate is isolated, while unrelated crates continue in batches.
 grep -Fq 'cargo install --locked ripgrep' "$log"
-! grep -Fq 'watchexec-cli' "$log"
+grep -Fq 'watchexec-cli' "$log"
 
 echo "Language dependency tests passed."

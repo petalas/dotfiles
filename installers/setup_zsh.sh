@@ -21,10 +21,6 @@ setup_zsh() {
     fi
 
     zsh_path=$(command -v zsh)
-    if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == 1 ]]; then
-        echo "Zsh is installed; skipping the login-shell change in the container."
-        return 0
-    fi
     if [[ "${SHELL:-}" == "$zsh_path" ]]; then
         echo "Zsh is already the login shell."
         return 0

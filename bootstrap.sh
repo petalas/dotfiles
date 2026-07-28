@@ -18,10 +18,10 @@ configure_bootstrap_pacman() {
     local config=/etc/pacman.conf
     if grep -Eq '^[[:space:]]*#?[[:space:]]*ParallelDownloads[[:space:]]*=' "$config"; then
         sudo -n sed -i -E \
-            's/^[[:space:]]*#?[[:space:]]*ParallelDownloads[[:space:]]*=.*/ParallelDownloads = 16/' \
+            's/^[[:space:]]*#?[[:space:]]*ParallelDownloads[[:space:]]*=.*/ParallelDownloads = 8/' \
             "$config"
     else
-        sudo -n sed -i '/^\[options\]$/a ParallelDownloads = 16' "$config"
+        sudo -n sed -i '/^\[options\]$/a ParallelDownloads = 8' "$config"
     fi
 }
 

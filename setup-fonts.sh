@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == 1 ]]; then
-    echo "Skipping fonts in the container."
-    exit 0
-fi
-
 if command -v fc-list >/dev/null 2>&1 &&
     grep -Fiq 'Hack Nerd Font' <<<"$(fc-list)"; then
     echo "Hack Nerd Font is already installed."
