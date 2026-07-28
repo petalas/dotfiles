@@ -50,15 +50,18 @@ brew "lazydocker"
 brew "lazygit"
 brew "luarocks"
 brew "mas"
-# HEAD tracks Neovim nightly for kickstart/nvim-treesitter APIs.
-brew "neovim", args: ["HEAD"]
+brew "neovim"
 brew "shellcheck"
 
 # --- Languages ---
 brew "elixir"
-brew "nvm"
+brew "gradle"
+brew "kotlin"
+brew "node"
+brew "openjdk"
 brew "python@3.14"
 brew "python-setuptools"
+brew "rust"
 brew "uv"
 
 # --- Media tooling ---

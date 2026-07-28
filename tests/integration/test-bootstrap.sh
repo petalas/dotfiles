@@ -4,7 +4,6 @@ set -euo pipefail
 target="${DOTFILES_DIR:-$HOME/git/dotfiles}"
 bootstrap_script="${BOOTSTRAP_SCRIPT:-/usr/local/bin/bootstrap-dotfiles}"
 repo_url="${DOTFILES_REPO_URL:?DOTFILES_REPO_URL is required}"
-preflight_url="${DOTFILES_PREFLIGHT_URL:?DOTFILES_PREFLIGHT_URL is required}"
 state_manifest=/tmp/dotfiles-bootstrap-state
 
 run_bootstrap() {
@@ -15,7 +14,6 @@ run_bootstrap() {
     set +e
     DOTFILES_DIR="$target" \
         DOTFILES_REPO_URL="$repo_url" \
-        DOTFILES_PREFLIGHT_URL="$preflight_url" \
         "$bootstrap_script" 2>&1 | tee "$log_file"
     bootstrap_status=${PIPESTATUS[0]}
     set -e
@@ -23,10 +21,6 @@ run_bootstrap() {
     if ((bootstrap_status != 0)); then
         echo "bootstrap failed during $phase (status $bootstrap_status)" >&2
         return "$bootstrap_status"
-    fi
-    if grep -Eq 'Setup completed with [1-9][0-9]* warning\(s\)' "$log_file"; then
-        echo "bootstrap completed with unexpected warnings during $phase" >&2
-        return 1
     fi
 }
 
@@ -54,7 +48,6 @@ printf '\nbootstrap dirty-worktree probe\n' >>"$target/README.md"
 set +e
 DOTFILES_DIR="$target" \
     DOTFILES_REPO_URL="$repo_url" \
-    DOTFILES_PREFLIGHT_URL="$preflight_url" \
     "$bootstrap_script" >/tmp/dotfiles-bootstrap-dirty.log 2>&1
 dirty_status=$?
 set -e

@@ -45,30 +45,16 @@ assert_no_arg() {
 	fi
 }
 
-assert_no_mirror_args() {
-	if grep -Eq '^APT_(PRIMARY|SECURITY)_MIRROR=' "$DOCKER_ARGS_FILE"; then
-		echo "Expected Docker arguments not to contain mirror overrides" >&2
-		exit 1
-	fi
-}
-
 export PATH="$fixture_dir/bin:$PATH"
 export DOCKER_ARGS_FILE="$fixture_dir/docker-args"
-unset APT_PRIMARY_MIRROR APT_SECURITY_MIRROR DOCKER_PLATFORM
+unset DOCKER_PLATFORM
 
 "$repo_dir/tests/integration/run.sh" ubuntu >/dev/null
-assert_no_mirror_args
 assert_arg '--pull'
 assert_arg '--target'
 assert_arg 'integration'
 assert_arg 'BASE_IMAGE=ubuntu:24.04'
 assert_arg 'DISTRO=ubuntu'
-
-APT_PRIMARY_MIRROR=http://primary.example.com/ubuntu \
-	APT_SECURITY_MIRROR=http://security.example.com/ubuntu \
-	"$repo_dir/tests/integration/run.sh" ubuntu >/dev/null
-assert_arg 'APT_PRIMARY_MIRROR=http://primary.example.com/ubuntu'
-assert_arg 'APT_SECURITY_MIRROR=http://security.example.com/ubuntu'
 
 INTEGRATION_PULL=0 "$repo_dir/tests/integration/run.sh" ubuntu >/dev/null
 assert_no_arg '--pull'

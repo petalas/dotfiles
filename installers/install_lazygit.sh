@@ -1,31 +1,37 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154  # colors and $os_id provided by source_installers.sh
-
+# shellcheck disable=SC2154
 
 install_lazygit() {
-    if command -v lazygit >/dev/null 2>&1; then
-        return 0
+    local version arch work_dir
+    command -v lazygit >/dev/null 2>&1 && return 0
+
+    if [[ "$os_id" == arch ]] || linux_package_available lazygit; then
+        linux_packages_install lazygit
+        return
     fi
+    [[ "$os_id" == ubuntu || "$os_id" == debian ]] || return 1
 
-
-    if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
-        echo "Installing ${yellow}lazygit${reset}..."
-        LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
-        curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
-        tar xf lazygit.tar.gz lazygit
-        sudo install lazygit /usr/local/bin
-        rm -f lazygit.tar.gz lazygit
-        echo "Finished installing ${yellow}lazygit${reset}."
-    elif [[ "$os_id" == "arch" ]]; then
-        echo "Installing ${yellow}lazygit${reset}..."
-        paru -S --noconfirm --needed lazygit
-    else
-        echo "Unsupported OS: $os_id"
+    # Ubuntu releases without a lazygit package use the upstream native binary.
+    version=$(curl -fsSL https://api.github.com/repos/jesseduffield/lazygit/releases/latest |
+        jq -r '.tag_name | ltrimstr("v")')
+    case "$(uname -m)" in
+        x86_64|amd64) arch=x86_64 ;;
+        arm64|aarch64) arch=arm64 ;;
+        *) return 1 ;;
+    esac
+    work_dir=$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-lazygit.XXXXXX")
+    if ! curl -fL --retry 3 \
+        "https://github.com/jesseduffield/lazygit/releases/download/v$version/lazygit_${version}_Linux_$arch.tar.gz" \
+        -o "$work_dir/lazygit.tar.gz" ||
+        ! tar -xzf "$work_dir/lazygit.tar.gz" -C "$work_dir"; then
+        rm -rf "$work_dir"
         return 1
     fi
+    sudo -n install -m 0755 "$work_dir/lazygit" /usr/local/bin/lazygit
+    rm -rf "$work_dir"
 }
 
-# Call the function if this script is executed directly
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    install_lazygit
-fi 
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    echo "Run this installer through: ./install lazygit" >&2
+    exit 2
+fi

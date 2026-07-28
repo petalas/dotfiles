@@ -1,94 +1,15 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154  # colors and $os_id provided by source_installers.sh
+# shellcheck disable=SC2154
 
-# Install / upgrade Neovim to the latest nightly/HEAD. Safe to run repeatedly.
-# We track nightly (not stable)
-# because kickstart's treesitter config now uses APIs (vim.list.unique,
-# require('nvim-treesitter').install(...)) only available on nvim 0.12+.
-#
-# macOS:        Homebrew HEAD
-# Ubuntu/Debian: official tarball from neovim/neovim releases -> /opt/nvim
-# Arch:         AUR neovim-nightly-bin via paru
 install_neovim() {
-    local tag="nightly"
-    local tarball url dirname outdated linked_neovim
-
     case "$os_id" in
-        ubuntu|debian)
-            tarball="nvim-linux-x86_64.tar.gz"
-            dirname="nvim-linux-x86_64"
-            url="https://github.com/neovim/neovim/releases/download/${tag}/${tarball}"
-            echo "Installing ${yellow}nvim (${tag})${reset} ..."
-            curl -fsSL "$url" -o "/tmp/${tarball}" || { echo "${red}nvim: download failed${reset}"; return 1; }
-            sudo rm -rf /opt/nvim
-            sudo tar -C /opt -xzf "/tmp/${tarball}"
-            sudo mv "/opt/${dirname}" /opt/nvim
-            rm -f "/tmp/${tarball}"
-            ;;
-        macos)
-            if ! command -v brew >/dev/null 2>&1; then
-                echo "${red}nvim: Homebrew is required on macOS${reset}"
-                return 1
-            fi
-
-            if [[ -d /opt/nvim ]]; then
-                echo "Removing old ${yellow}/opt/nvim${reset} tarball install..."
-                sudo rm -rf /opt/nvim
-            fi
-
-            if brew list --versions neovim 2>/dev/null | grep -q 'HEAD'; then
-                # `brew outdated` returns 1 when a package is outdated, so do
-                # not treat a non-zero status with package output as a hard
-                # failure. Actual Homebrew errors are still reported when no
-                # outdated entry can be parsed.
-                outdated=$(brew outdated --fetch-HEAD neovim 2>&1)
-                if printf '%s\n' "$outdated" | awk '$1 == "neovim" { found = 1 } END { exit !found }'; then
-                    echo "Upgrading ${yellow}nvim (HEAD)${reset} via Homebrew ..."
-                    brew upgrade --fetch-HEAD neovim || return 1
-                elif [[ -z "$outdated" ]]; then
-                    echo "${yellow}nvim (HEAD)${reset} is up to date."
-                else
-                    printf '%s\n' "$outdated" >&2
-                    return 1
-                fi
-            elif brew list --versions neovim >/dev/null 2>&1; then
-                echo "Switching ${yellow}nvim${reset} from stable to HEAD via Homebrew ..."
-                brew unlink neovim || return 1
-                if ! brew install neovim --HEAD; then
-                    echo "${red}nvim: HEAD install failed; relinking previous Homebrew install${reset}"
-                    brew link neovim >/dev/null 2>&1 || true
-                    return 1
-                fi
-            else
-                echo "Installing ${yellow}nvim (HEAD)${reset} via Homebrew ..."
-                brew install neovim --HEAD
-            fi
-
-            linked_neovim=$(readlink "$(brew --prefix)/opt/neovim" 2>/dev/null || true)
-            if [[ "$linked_neovim" != *"/Cellar/neovim/HEAD-"* ]]; then
-                brew link --overwrite --HEAD neovim || return 1
-            fi
-            ;;
-        arch)
-            echo "Installing ${yellow}nvim (${tag})${reset} via AUR ..."
-            paru -S --noconfirm --needed neovim-nightly-bin
-            ;;
-        *)
-            echo "${red}nvim: unsupported OS: ${os_id}${reset}"
-            return 1
-            ;;
+        macos) brew install neovim ;;
+        ubuntu|debian|arch) linux_packages_install neovim ;;
+        *) return 1 ;;
     esac
 }
 
-# Standalone invocation: bootstrap os_id if not already set by the harness.
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    if [[ -z "${os_id:-}" ]]; then
-        if [[ "$OSTYPE" == darwin* ]]; then
-            os_id="macos"
-        elif [[ -f /etc/os-release ]]; then
-            os_id=$(grep -w ID /etc/os-release 2>/dev/null | cut -d'=' -f2 | tr -d '"')
-            [[ "$os_id" == "archarm" ]] && os_id="arch"
-        fi
-    fi
-    install_neovim
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    echo "Run this installer through: ./install neovim" >&2
+    exit 2
 fi

@@ -44,7 +44,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Symptom: `brew bundle` aborts with `Refusing to load formula ... from untrusted tap`, and `set -e` prevents every later installer from running.
 - Cause: Homebrew 6 treats non-official taps as executable, untrusted code by default. A short formula name can resolve to an already-tapped third-party repository, but Homebrew will not evaluate it without explicit trust.
 - Fix: declare formula-scoped trust in the Brewfile, e.g. `brew "wix-incubator/brew/applesimutils", trusted: true`. Do not disable tap trust globally or trust a whole tap when only one formula is needed.
-- Failure boundary: `brew-deps.sh` treats Homebrew itself and `jq` as hard prerequisites because the required dotfile-linking stage consumes them. Brewfile apps and language-package batches are best-effort: collect failures, skip only their dependants, continue unrelated work, and print a warning summary. If Homebrew's batch fetch fails, snapshot the installed taps, formulae, and casks once, then retry only missing evaluated entries individually. Replaying installed entries is both slow and noisy because `brew install` emits an `already installed and up-to-date` warning for each one. Guard expected failures explicitly rather than removing `set -e` wholesale.
+- `brew-deps.sh` runs one ordinary `brew bundle`; Homebrew itself is required, while individual non-Homebrew language tools remain best effort.
 - Do not run `brew bundle cleanup` from unattended setup. Without `--force`, Homebrew 6 hard-codes a confirmation prompt when it finds drift; with `--force`, it actually uninstalls software. Keep cleanup as an explicit manual operation.
 
 ---
@@ -54,27 +54,15 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Symptom: `brew bundle` fetched several upgrades, then one cask checksum mismatch made the whole command fail and prevented `upd` from reaching `brew upgrade`. In July 2026, T3 Code 0.0.29's GitHub release asset had been replaced after the Homebrew cask recorded its SHA-256, so the downloaded file no longer matched Homebrew's expected checksum.
 - Never bypass a checksum mismatch or patch the cask automatically. It can indicate either an unsafe download or an upstream release that was mutated; Homebrew or the vendor must publish corrected metadata.
 - `brew bundle` upgrades declared entries by default. Use `--no-upgrade` to make it a reconciliation step, with a fallback that retries only missing entries individually if the batch fails.
-- Snapshot outdated formulae and casks, then upgrade each separately. A broken artifact is still reported and makes the Homebrew upgrade stage fail, but later packages and independent `upd`/setup stages continue. The Bash setup script and zsh `upd` function share this behavior through `lib/homebrew.sh` so their failure boundaries do not drift.
+- The interactive `upd` shell function uses `lib/homebrew.sh` to isolate upgrades so one broken package does not hide later updates.
 
 ---
 
-## Vite+ npm shims prompt on TTYs, and SDKMAN must stay inside modern Bash
+## Vite+ npm shims prompt on TTYs
 
-- Vite+ places its `npm` shim before nvm's npm in `PATH`. After `npm install -g`, the shim checks whether each package binary is reachable and prompts once per invocation before linking it into `~/.vite-plus/bin`.
-- The shim's non-interactive behavior is already safe: when stdin is not a TTY, it creates the links automatically. Global Node dependency installs therefore redirect stdin from `/dev/null` instead of setting `CI` for the entire machine setup.
-- npm 12 blocks unapproved lifecycle scripts. `@anthropic-ai/claude-code` needs its postinstall to install the native binary, so its global install explicitly allows scripts for that package only.
-- macOS still launches root scripts with Apple Bash 3.2 even after Homebrew installs Bash 5. SDKMAN's path helpers use Bash 4+ `${name^^}` expansion; sourcing them into the Bash 3 parent is a fatal expansion error that cannot be caught by an ordinary optional-stage wrapper.
-- After sudo is available, `easy-install.sh` bootstraps Homebrew, updates or installs Homebrew Bash, verifies it is Bash 4+, prepends its directory to `PATH`, and re-executes itself under that binary before general dependency setup. Both steps matter: re-exec changes the current interpreter, while the `PATH` change makes later `#!/usr/bin/env bash` child scripts use Homebrew Bash too.
-- `install_sdkman` may download SDKMAN with Homebrew Bash, but it never sources SDKMAN into an incompatible parent. SDKMAN package installation is delegated to a Bash 4+ subprocess instead, with `sdkman_auto_answer=true` and closed stdin so older SDKMAN configs cannot prompt.
-
----
-
-## Homebrew `reinstall` does not accept `--HEAD`
-
-- Symptom: `upd` fails in `installers/install_neovim.sh` with `Error: invalid option: --HEAD` when trying to convert an existing stable `neovim` install to nightly.
-- Cause: `brew install neovim --HEAD` is valid, but `brew reinstall neovim --HEAD` is not accepted by Homebrew. A linked stable keg also blocks a direct HEAD install with Homebrew's own instruction to run `brew unlink neovim` first.
-- Fix: when stable Neovim is already installed on macOS, `install_neovim` unlinks it, runs `brew install neovim --HEAD`, then links the HEAD keg with `brew link --overwrite --HEAD neovim`. If the HEAD install fails, it attempts to relink the previous Homebrew install.
-- `brew outdated --fetch-HEAD neovim` returns status `1` when the HEAD package is outdated while printing `neovim`; do not put it behind `|| return 1`. Parse the output and treat status-only `1` as the normal outdated signal.
+- Vite+ places its `npm` shim before npm in `PATH`. After `npm install -g`, the shim checks whether each package binary is reachable and prompts once per invocation before linking it into `~/.vite-plus/bin`.
+- The shim's non-interactive behavior is safe when stdin is closed, so global Node installs redirect stdin from `/dev/null`.
+- npm 12 blocks unapproved lifecycle scripts. `@anthropic-ai/claude-code` needs its postinstall, so its global install explicitly allows scripts for that package only.
 
 ---
 
@@ -117,14 +105,6 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
-## Ghostty's macOS default-terminal action does not replace every Terminal association
-
-- Ghostty 1.3's **Make Ghostty the Default Terminal** menu action uses `NSWorkspace.setDefaultApplication(..., toOpen: .unixExecutable)`. The setup script invokes the same public API through Swift so it remains non-interactive and does not require `duti`.
-- Existing LaunchServices mappings for `public.shell-script` and `com.apple.terminal.shell-script` can remain assigned to Terminal.app even after `public.unix-executable` changes. Set and verify all three content types so `.sh`, `.command`, and `.tool` files consistently open in Ghostty.
-- Ghostty declares support for `public.directory`, but both the modern NSWorkspace API and `LSSetDefaultRoleHandlerForContentType` return `paramErr` when asked to make it the directory handler. Do not fail unattended setup on that unsupported association; tools that open a terminal for a directory must use the platform's default-terminal mechanism or their own preference.
-
----
-
 ## kitty `globinclude` rejects absolute / `$HOME` paths
 
 - Symptom: kitty startup aborts with `Non-relative patterns are unsupported in line: globinclude $HOME/.config/...`.
@@ -153,6 +133,15 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Mirror selectors should rank mirrors, not replace source definitions
+
+- `netselect-apt` emits a legacy one-suite `sources.list`, even on Debian releases that use deb822 `.sources` files. Installing that output directly duplicates repositories and can discard updates, security suites, components, and third-party sources.
+- `lib/packages.sh` uses `netselect-apt` only to discover the fastest Debian archive URI, then rewrites that URI in the existing `.list` and `.sources` files. Security and third-party repositories remain untouched, and original files are backed up under `/etc/apt/.dotfiles-backups/`.
+- Mirror ranking is cached because rerating on every idempotent setup is slow and can create needless source drift. Use `DOTFILES_REFRESH_MIRRORS=1` to force a new Debian `netselect-apt` or Arch Reflector/rankmirrors run.
+- The package helper is shared with zsh. Keep it compatible with both Bash and Zsh, and avoid readonly zsh parameter names such as `status`.
+
+---
+
 ## Mosh needs the client locale before `.zshrc` runs remotely
 
 - Symptom: `mosh-server` reports that a client-supplied UTF-8 locale is unavailable, falls back to US-ASCII, and exits even though Mosh is installed on both machines.
@@ -177,10 +166,8 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Assertions launch `mosh-server` with the generated UTF-8 locale, repair and inspect the stale tmux server directly, validate sudoers and SSH modes, and check the identity, branch, and tracked cleanliness of external Git repositories. Powerlevel10k is intentionally a nested checkout under Oh My Zsh and therefore appears as untracked in its parent; ignore parent untracked entries while checking every managed child checkout separately. TPM may store a valid GitHub origin as `https://git::@github.com/...`, so normalize that no-op userinfo segment before comparing repository identity.
 - A first install legitimately preserves Oh My Zsh's generated `.zshrc` as `.zshrc.old`. Idempotence checks must record existing managed backups and prove they remain unchanged on pass two, not incorrectly require that no backup exists. Interrupted `.new.PID` links are always invalid.
 - The separate `bootstrap` Docker target uses a bare repository generated from the current build context. It proves Git installation, first clone, existing-clone sync, dirty-worktree refusal, and both setup passes without accidentally testing GitHub's `main` instead of the current change.
-- `DOTFILES_INTEGRATION_TEST=1` is set only by the Dockerfile. It keeps the real orchestration, package manager, locale setup, shell configuration, and linking stages while limiting Linux packages to portable core dependencies and skipping fonts, GUI apps, services, SDKs, and AUR packages that have no useful container behavior.
+- `DOTFILES_INTEGRATION_TEST=1` is set only by the Dockerfile. It keeps the real orchestration, package manager, locale setup, shell configuration, and linking stages while limiting Linux packages to portable core dependencies and skipping fonts, GUI apps, services, and language toolchains that have no useful container behavior.
 - Even container bootstrap can hit transient mirror, registry, DNS, clone, or fetch failures. Package bootstrap, Docker builds, and Git network operations use three bounded attempts with explicit diagnostics. CI pulls current base images; `INTEGRATION_PULL=0` is only a local escape hatch when the registry is unavailable and suitable images are already cached.
-- Configure APT mirrors before the integration container's first bootstrap refresh: Debian uses its official `deb.debian.org` CDN, and amd64 Ubuntu normally uses Canonical's requester-local `mirrors.ubuntu.com/mirrors.txt` service with APT-managed fallback. GitHub-hosted Ubuntu runners are in Azure, so the workflow supplies `azure.archive.ubuntu.com` explicitly instead of putting provider detection or a noisy network benchmark in the reusable integration runner. Local amd64 builds use the official mirror list; non-amd64 builds keep their image defaults. Primary and security overrides are separate so normal machine installs retain `security.ubuntu.com` and do not wait for downstream mirrors to synchronize.
-- Although the mirror setup executes on Linux hosts, its fixture test also runs under macOS. Rewrite source files through a temporary file instead of relying on incompatible GNU/BSD `sed -i` syntax.
 - Do not use that profile for a normal machine install: its intentionally reduced dependency set is a test boundary, not a lightweight install mode.
 
 ---

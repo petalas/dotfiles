@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 
 install_bun() {
-    if ! command -v bun >/dev/null 2>&1; then
+    command -v bun >/dev/null 2>&1 && return 0
+    if [[ "${os_id:-}" == arch ]]; then
+        linux_packages_install bun
+    else
         echo "Installing bun..."
-        curl -fsSL https://bun.sh/install | bash || return 1
+        curl -fsSL https://bun.sh/install | bash
     fi
 }
 

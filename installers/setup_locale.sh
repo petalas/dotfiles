@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2154  # $os_id provided by source_installers.sh
 
+if ! declare -F linux_packages_install >/dev/null 2>&1; then
+	_locale_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+	# shellcheck source=../lib/packages.sh
+	source "$_locale_root/lib/packages.sh"
+	unset _locale_root
+fi
+
 setup_locale() {
 	local locale_name="en_US.UTF-8"
 	local locale_gen_file="/etc/locale.gen"
@@ -22,8 +29,8 @@ setup_locale() {
 	if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]] &&
 		{ [[ ! -f "$locale_gen_file" ]] || ! command -v locale-gen >/dev/null 2>&1; }; then
 		echo "Installing locale support..."
-		sudo env LC_ALL=C LANG=C apt-get update
-		sudo env LC_ALL=C LANG=C DEBIAN_FRONTEND=noninteractive apt-get install -y locales
+		LC_ALL=C LANG=C linux_packages_refresh
+		LC_ALL=C LANG=C linux_packages_install locales
 	fi
 
 	if [[ ! -f "$locale_gen_file" ]]; then

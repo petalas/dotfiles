@@ -7,6 +7,15 @@ source "$_yazi_installer_root/lib/yazi.sh"
 unset _yazi_installer_root
 
 install_yazi() {
+	if [[ "${os_id:-}" == arch ]]; then
+		linux_packages_install yazi || return 1
+		if ! yazi_is_compatible; then
+			print_yazi_compatibility_error
+			return 1
+		fi
+		return 0
+	fi
+
 	if ! command -v cargo >/dev/null 2>&1; then
 		echo "${red:-}Yazi requires Cargo; run the Rust installer first.${reset:-}" >&2
 		return 1

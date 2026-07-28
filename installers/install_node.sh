@@ -1,36 +1,16 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154  # $os_id set by detect_os in source_installers.sh
+# shellcheck disable=SC2154
 
 install_node() {
-    if [[ "$os_id" == "macos" ]]; then
-        # On macOS, nvm is installed via Homebrew — source it into the current session
-        export NVM_DIR="$HOME/.nvm"
-        [ -s "$(brew --prefix nvm)/nvm.sh" ] && source "$(brew --prefix nvm)/nvm.sh"
-    elif ! type nvm &>/dev/null; then
-        if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
-            # Fetch latest nvm tag dynamically. grep instead of jq so we
-            # don't depend on jq being installed on a fresh box.
-            nvm_version=$(curl -s https://api.github.com/repos/nvm-sh/nvm/releases/latest \
-                | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4)
-            nvm_version="${nvm_version:-v0.40.3}"
-            echo "Installing nvm ${nvm_version}..."
-            curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/${nvm_version}/install.sh" | bash || return 1
-            source ~/.nvm/nvm.sh
-        elif [[ "$os_id" == "arch" ]]; then
-            paru -S --noconfirm nvm
-        fi
-    fi
-
-    if ! type node &>/dev/null; then
-        echo "Installing node..."
-        version=$(nvm ls-remote | grep Latest | tail -1 | awk '{print $1}')
-        nvm install $version
-        nvm alias default stable
-        echo "Testing node installation, node -v --> $(node -v)"
-    fi
+    command -v node >/dev/null 2>&1 && return 0
+    case "$os_id" in
+        macos) brew install node ;;
+        ubuntu|debian|arch) linux_packages_install nodejs npm ;;
+        *) return 1 ;;
+    esac
 }
 
-# Call the function if this script is executed directly
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    install_node
-fi 
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    echo "Run this installer through: ./install node" >&2
+    exit 2
+fi

@@ -8,8 +8,6 @@ run_distro() {
     local distro="$1"
     local image distro_id target=integration
     local platform="${DOCKER_PLATFORM:-}"
-    local apt_primary_mirror="${APT_PRIMARY_MIRROR:-}"
-    local apt_security_mirror="${APT_SECURITY_MIRROR:-}"
 
     case "$distro" in
         debian)
@@ -49,13 +47,6 @@ run_distro() {
     else
         platform="the Docker host's native architecture"
     fi
-    if [[ -n "$apt_primary_mirror" ]]; then
-        build_command+=(--build-arg "APT_PRIMARY_MIRROR=$apt_primary_mirror")
-    fi
-    if [[ -n "$apt_security_mirror" ]]; then
-        build_command+=(--build-arg "APT_SECURITY_MIRROR=$apt_security_mirror")
-    fi
-
     build_command+=(
         --build-arg "BASE_IMAGE=$image"
         --build-arg "DISTRO=$distro_id"

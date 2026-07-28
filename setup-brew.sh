@@ -1,35 +1,25 @@
 #!/usr/bin/env bash
+set -e
 
-if [[ ! $OSTYPE == "darwin"* ]]; then
-	echo "Not MacOS, exiting."
-	exit 1
+if command -v brew >/dev/null 2>&1; then
+    echo "Homebrew is already installed."
+else
+    echo "Installing Homebrew..."
+    NONINTERACTIVE=1 /bin/bash -c \
+        "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 fi
 
-if [[ $(uname -p) == 'arm' ]]; then # detect Apple Silicon
-	echo "Checking rosetta installation..."
-	if [[ "$(pkgutil --files com.apple.pkg.RosettaUpdateAuto)" == "" ]]; then
-		echo "Not detected, installing rosetta..."
-		sudo softwareupdate --install-rosetta --agree-to-license
-	else
-		echo "rosetta is already installed."
-	fi
+if [[ -x /opt/homebrew/bin/brew ]]; then
+    brew_bin=/opt/homebrew/bin/brew
+elif [[ -x /usr/local/bin/brew ]]; then
+    brew_bin=/usr/local/bin/brew
+else
+    echo "Homebrew installation did not produce a brew executable." >&2
+    return 1 2>/dev/null || exit 1
 fi
 
-printf "\n\nChecking Hombrew installation...\n"
-if ! which brew &>/dev/null; then
-	echo "Homebrew not found, installing..."
-	/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-	# Determine correct profile file based on shell
-	if [[ "$SHELL" == */zsh ]]; then
-		profile_file="$HOME/.zprofile"
-	else
-		profile_file="$HOME/.bash_profile"
-	fi
-
-	# Add Homebrew to PATH
-	echo 'export PATH="/opt/homebrew/bin:$PATH"' >>"$profile_file"
-
-	# Add Homebrew to PATH for the current session
-	eval "$(/opt/homebrew/bin/brew shellenv)"
-fi
+eval "$("$brew_bin" shellenv)"
+profile="$HOME/.zprofile"
+shellenv_line="eval \"\$($brew_bin shellenv)\""
+touch "$profile"
+grep -Fqx "$shellenv_line" "$profile" || printf '%s\n' "$shellenv_line" >>"$profile"

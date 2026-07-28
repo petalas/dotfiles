@@ -60,8 +60,7 @@ pipeline twice:
 INTEGRATION_PULL=0 ./tests/integration/run.sh ubuntu  # reuse local images
 ```
 
-Each image runs `./easy-install.sh`, rejects unexpected warning summaries,
-validates the configured UTF-8 locale with a real Mosh server launch, checks
+Each image runs `./easy-install.sh`, validates the configured UTF-8 locale with a real Mosh server launch, checks
 tmux, zsh, Git checkouts, permissions, sudoers, and dotfile links, then compares
 managed-file and installed-package manifests after a second run. The bootstrap
 target additionally installs Git, clones an injectable local fixture, syncs an
@@ -70,25 +69,24 @@ runs; a weekly compatibility matrix covers Debian oldstable and arm64 Debian
 and Ubuntu.
 
 The container profile skips desktop fonts, GUI applications, system services,
-language SDKs, and AUR packages because they cannot be exercised meaningfully
+and language toolchains because they cannot be exercised meaningfully
 inside Docker. Fast host-independent tests separately cover the Yazi
 installer's legacy-version migration, component matching, and locked plugin
 restoration, and validate the managed config against the latest stable Yazi
 release. Normal host installs continue to install the complete set.
 
-macOS cannot be represented by a Docker image; its scripts remain covered by
-the shared ShellCheck gate and should be smoke-tested on a Mac when changing
-Homebrew-specific behavior.
+macOS cannot be represented by Docker; CI covers shell syntax and the
+non-interactive orchestration on an Apple Silicon runner.
 
 ## Notes
 
-- Setup needs passwordless sudo to avoid repeated prompts. `easy-install.sh` adds a `/etc/sudoers.d/<user>` entry on first run.
-- On macOS, `easy-install.sh` disables Homebrew confirmation prompts for the entire run, including Homebrew's own installer and package upgrades. A fresh machine can still require the initial administrator authentication and the Xcode Command Line Tools GUI.
-- On macOS, setup installs or upgrades Homebrew Bash and restarts itself under that interpreter before running general dependency scripts. Homebrew Bash is also prepended to `PATH` for subsequent `#!/usr/bin/env bash` scripts.
-- Optional package, font, and shell-customization failures are reported at the end without blocking independent setup. The installer still stops when sudo, Homebrew, a required bootstrap dependency, or dotfile linking is unavailable.
-- Once the repository is available, Debian and amd64 Ubuntu package sources are routed through their official nearby-mirror services before dependency setup; existing source files are backed up under `/etc/apt/.dotfiles-backups/`. The one-line bootstrap may need one initial package refresh to install Git, and non-amd64 Ubuntu keeps its `ports.ubuntu.com` source unchanged.
+- Setup is non-interactive and requires `sudo -n` to work before it starts. Provision administrator access and macOS Command Line Tools outside the script.
+- Linux software comes from distro repositories whenever available. Debian/Ubuntu use a repository-installed parallel APT frontend (`apt-fast` when available, otherwise Nala); `apt-get` is only the bootstrap/fallback. Arch uses pacman with 16 concurrent downloads. Official vendor APT repositories, `.deb` files, or native release binaries are fallbacks for applications absent from distro repositories. Flatpak is not used.
+- Debian selects and caches its fastest archive mirror with `netselect-apt`; Arch ranks current HTTPS mirrors with Reflector (or `rankmirrors` on Arch ARM). Original source/mirror files are retained as `.dotfiles` backups. Set `DOTFILES_REFRESH_MIRRORS=1` for one setup run to rerank them.
+- Dependencies otherwise come from current Homebrew, npm, Cargo, GitHub releases, and official installer endpoints. There is no repository-maintained version lockfile.
+- Required package and dotfile-linking failures stop setup. Individual applications and language add-ons are best effort. Fonts, login-shell changes, and Zsh plugins continue independently and produce a nonzero final status if they fail.
 - `easy-install.sh` configures `en_US.UTF-8` before installing the remaining dependencies; `./install locale` is only needed for a manual repair.
-- Ghostty is made the default terminal non-interactively: macOS LaunchServices associations cover executables and shell scripts, while Linux writes the `xdg-terminal-exec` preference under `XDG_CONFIG_HOME`.
+- Linux writes Ghostty's `xdg-terminal-exec` preference under `XDG_CONFIG_HOME`; macOS leaves the default-terminal choice to the user.
 - CI runs `easy-install.sh` twice on clean Debian, Ubuntu, and Arch images using the Docker suite above.
 - Commits are gated by a shellcheck pre-commit hook (`.githooks/pre-commit`). Wired up automatically by `link-dotfiles.sh` via `core.hooksPath`.
 - See [`AGENTS.md`](AGENTS.md) for project structure and conventions, and [`docs/LEARNINGS.md`](docs/LEARNINGS.md) for repo-specific gotchas.

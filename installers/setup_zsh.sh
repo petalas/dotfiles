@@ -1,50 +1,40 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154  # colors and $os_id provided by source_installers.sh
-
+# shellcheck disable=SC2154
 
 setup_zsh() {
-    if [[ $OSTYPE == "msys"* ]]; then
-        echo "${red}Cannot install ZSH on windows, please install it manually and run this script again.${reset}"
-        return 1
-    fi
-
-    if [[ $SHELL == *"zsh" ]]; then
-        echo "${green}Already using ZSH.${reset}"
-        return 0
-    fi
-
-    if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == "1" ]] && command -v zsh >/dev/null 2>&1; then
-        echo "ZSH is installed; skipping the login-shell change in the container integration profile."
-        return 0
-    fi
+    local zsh_path user
+    user=$(whoami)
 
     if ! command -v zsh >/dev/null 2>&1; then
-        echo "Installing ${yellow}ZSH${reset} ..."
-        
-
-        if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" ]]; then
-            sudo apt update && sudo apt upgrade -y && sudo apt install zsh -y
-        elif [[ "$os_id" == "arch" ]]; then
-            paru -S --noconfirm --needed zsh
-        elif [[ $OSTYPE == "darwin"* ]]; then
-            brew install zsh
-        else
-            echo "${red}Unsupported OS: $os_id${reset}"
-            return 1
-        fi
+        case "${os_id:-}" in
+            ubuntu|debian|arch)
+                linux_packages_install zsh
+                ;;
+            macos)
+                brew install zsh
+                ;;
+            *)
+                echo "Unsupported OS for Zsh setup: ${os_id:-unknown}" >&2
+                return 1
+                ;;
+        esac
     fi
 
-    echo "Making ${yellow}ZSH${reset} the default shell."
-    if [[ $OSTYPE == "darwin"* ]]; then
-        # easy-install configures passwordless sudo before reaching this point;
-        # change the login shell without triggering chsh's password prompt.
-        sudo chsh -s "$(command -v zsh)" "$(whoami)"
-    else
-        chsh -s "$(command -v zsh)"
+    zsh_path=$(command -v zsh)
+    if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == 1 ]]; then
+        echo "Zsh is installed; skipping the login-shell change in the container."
+        return 0
     fi
+    if [[ "${SHELL:-}" == "$zsh_path" ]]; then
+        echo "Zsh is already the login shell."
+        return 0
+    fi
+
+    echo "Changing $user's login shell to $zsh_path."
+    sudo -n chsh -s "$zsh_path" "$user"
 }
 
-# Call the function if this script is executed directly
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    setup_zsh
-fi 
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    echo "Run this setup through: ./install zsh" >&2
+    exit 2
+fi

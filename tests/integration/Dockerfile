@@ -14,19 +14,14 @@ RUN rm -rf /source/.git \
 FROM ${BASE_IMAGE} AS test-base
 
 ARG DISTRO
-ARG APT_PRIMARY_MIRROR
-ARG APT_SECURITY_MIRROR
 
-COPY setup-apt-mirrors.sh /usr/local/bin/setup-dotfiles-apt-mirrors
 COPY tests/integration/bootstrap-container.sh /usr/local/bin/bootstrap-dotfiles-container
 COPY bootstrap.sh /usr/local/bin/bootstrap-dotfiles
 COPY tests/integration/test-bootstrap.sh /usr/local/bin/test-dotfiles-bootstrap
 RUN chmod +x \
-        /usr/local/bin/setup-dotfiles-apt-mirrors \
         /usr/local/bin/bootstrap-dotfiles-container \
         /usr/local/bin/bootstrap-dotfiles \
         /usr/local/bin/test-dotfiles-bootstrap \
-    && /usr/local/bin/setup-dotfiles-apt-mirrors \
     && DISTRO="$DISTRO" /usr/local/bin/bootstrap-dotfiles-container
 
 ENV HOME=/home/dotfiles \
@@ -40,7 +35,6 @@ USER dotfiles
 WORKDIR /home/dotfiles
 RUN DOTFILES_DIR=/home/dotfiles/bootstrap-repo \
     DOTFILES_REPO_URL=file:///home/dotfiles/dotfiles.git \
-    DOTFILES_PREFLIGHT_URL=file:///home/dotfiles/dotfiles.git/HEAD \
     /usr/local/bin/test-dotfiles-bootstrap
 
 FROM test-base AS integration
