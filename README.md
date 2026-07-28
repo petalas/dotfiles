@@ -49,19 +49,27 @@ SKIP_GAMING=1 SKIP_CAD=1 SKIP_MOBILE=1 ./easy-install.sh
 
 ## Test clean Linux installs
 
-The Docker integration suite starts with minimal Debian, Ubuntu, and Arch
-images, creates a normal passwordless-sudo user, and runs the same public
-entry point twice:
+The Docker integration suite starts with minimal Debian stable, Ubuntu, and
+Arch images, creates a normal passwordless-sudo user, and runs the public setup
+pipeline twice:
 
 ```sh
-./tests/integration/run.sh          # all supported Linux distributions
-./tests/integration/run.sh debian   # one distribution
+./tests/integration/run.sh             # all supported Linux distributions
+./tests/integration/run.sh debian      # one distribution
+./tests/integration/run.sh bootstrap   # fresh-machine bootstrap path
+INTEGRATION_PULL=0 ./tests/integration/run.sh ubuntu  # reuse local images
 ```
 
-Each image runs `./easy-install.sh`, validates the configured UTF-8 locale,
-Mosh, tmux mouse mode and plugins, zsh startup, cloned configuration repos,
-and dotfile symlinks, then reruns the pipeline to check idempotency. The
-container profile skips desktop fonts, GUI applications, system services,
+Each image runs `./easy-install.sh`, rejects unexpected warning summaries,
+validates the configured UTF-8 locale with a real Mosh server launch, checks
+tmux, zsh, Git checkouts, permissions, sudoers, and dotfile links, then compares
+managed-file and installed-package manifests after a second run. The bootstrap
+target additionally installs Git, clones an injectable local fixture, syncs an
+existing clone, and rejects a dirty worktree. CI pulls fresh images for normal
+runs; a weekly compatibility matrix covers Debian oldstable and arm64 Debian
+and Ubuntu.
+
+The container profile skips desktop fonts, GUI applications, system services,
 language SDKs, and AUR packages because they cannot be exercised meaningfully
 inside Docker. Fast host-independent tests separately cover the Yazi
 installer's legacy-version migration, component matching, and locked plugin

@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "17 5 * * 1"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -11,6 +13,7 @@ concurrency:
 
 jobs:
   shellcheck:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,6 +36,9 @@ jobs:
       - name: Test dotfile link state transitions
         run: ./tests/test-link-path.sh
 
+      - name: Test Git synchronization retries
+        run: ./tests/test-git-sync.sh
+
       - name: Test macOS non-interactive install policy
         run: ./tests/test-easy-install-noninteractive.sh
 
@@ -53,6 +59,7 @@ jobs:
 
   macos-arm:
     name: macOS arm64 smoke
+    if: github.event_name != 'schedule'
     # GitHub's macos-14 hosted image is Apple Silicon arm64.
     runs-on: macos-14
     steps:
@@ -66,6 +73,7 @@ jobs:
 
   linux-integration:
     name: easy-install (${{ matrix.distro }})
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -77,6 +85,46 @@ jobs:
 
       - name: Run easy-install twice from a clean image
         env:
+          APT_PRIMARY_MIRROR: ${{ matrix.distro == 'ubuntu' && 'http://azure.archive.ubuntu.com/ubuntu' || '' }}
+          APT_SECURITY_MIRROR: ${{ matrix.distro == 'ubuntu' && 'http://azure.archive.ubuntu.com/ubuntu' || '' }}
+        run: ./tests/integration/run.sh "${{ matrix.distro }}"
+
+  linux-bootstrap:
+    name: one-line bootstrap (Debian stable)
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test Git installation, clone, sync, and dirty-worktree refusal
+        run: ./tests/integration/run.sh bootstrap
+
+  linux-compatibility:
+    name: compatibility (${{ matrix.distro }}, ${{ matrix.platform }})
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: debian-bookworm
+            platform: linux/amd64
+          - distro: debian
+            platform: linux/arm64
+          - distro: ubuntu
+            platform: linux/arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable emulated architectures
+        if: matrix.platform == 'linux/arm64'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Test compatibility image
+        env:
+          DOCKER_PLATFORM: ${{ matrix.platform }}
           APT_PRIMARY_MIRROR: ${{ matrix.distro == 'ubuntu' && 'http://azure.archive.ubuntu.com/ubuntu' || '' }}
           APT_SECURITY_MIRROR: ${{ matrix.distro == 'ubuntu' && 'http://azure.archive.ubuntu.com/ubuntu' || '' }}
         run: ./tests/integration/run.sh "${{ matrix.distro }}"

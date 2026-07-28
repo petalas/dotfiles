@@ -11,8 +11,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p "$fixture_dir/bin" "$fixture_dir/installers" "$fixture_dir/home"
+mkdir -p "$fixture_dir/bin" "$fixture_dir/installers" "$fixture_dir/lib" "$fixture_dir/home"
 cp "$repo_dir/brew-deps.sh" "$fixture_dir/brew-deps.sh"
+cp "$repo_dir/lib/homebrew.sh" "$fixture_dir/lib/homebrew.sh"
 touch "$fixture_dir/Brewfile"
 
 cat >"$fixture_dir/setup-brew.sh" <<'EOF'
@@ -51,13 +52,29 @@ if [[ "$1" == "install" && "$BREW_TEST_SCENARIO" == "required_failure" && "$2" =
 	exit 1
 fi
 
+if [[ "$1" == "outdated" && "$BREW_TEST_SCENARIO" == "upgrade_failure" ]]; then
+	case "${2:-}" in
+		--formula) printf '%s\n' bottom ;;
+		--cask) printf '%s\n' t3-code zed ;;
+	esac
+	exit 0
+fi
+
+if [[ "$1" == "upgrade" && "$BREW_TEST_SCENARIO" == "upgrade_failure" && "${2:-}" == "--cask" && "${3:-}" == "t3-code" ]]; then
+	cat >&2 <<'ERROR'
+Error: Cask reports different checksum: expected-checksum
+       SHA-256 checksum of downloaded file: actual-checksum
+ERROR
+	exit 1
+fi
+
 if [[ "$1" == "bundle" && "${2:-}" == "cleanup" ]]; then
 	echo 'Run `brew bundle cleanup --force` to make these changes.'
 	echo '==> Do you want to proceed with the cleanup? [y/n]'
 	exit 1
 fi
 
-if [[ "$1" == "bundle" && "${2:-}" == --file=* && "$BREW_TEST_SCENARIO" == "bundle_failure" ]]; then
+if [[ "$1" == "bundle" && "${2:-}" == "--no-upgrade" && "$BREW_TEST_SCENARIO" == "bundle_failure" ]]; then
 	cat >&2 <<'ERROR'
 Error: Refusing to load formula wix-incubator/brew/applesimutils from untrusted tap wix-incubator/brew.
 Run `brew trust --formula wix-incubator/brew/applesimutils` or `brew trust wix-incubator/brew` to trust it.
@@ -195,7 +212,26 @@ if grep -Fq 'Do you want to proceed with the cleanup' "$fixture_dir/bundle_failu
 	echo "brew-deps emitted an interactive cleanup prompt" >&2
 	exit 1
 fi
-grep -Fq 'Setup completed with 2 warning(s)' "$fixture_dir/bundle_failure-output"
+grep -Fq 'Setup completed with 1 warning(s)' "$fixture_dir/bundle_failure-output"
+for installer in ghostty neovim node node_deps bun sdkman sdkman_deps rust rust_deps yazi; do
+	assert_logged "$installer"
+done
+
+# A checksum failure in one outdated cask must not block other upgrades,
+# Brewfile reconciliation, or unrelated installers.
+run_scenario upgrade_failure || {
+	cat "$fixture_dir/upgrade_failure-output" >&2
+	exit 1
+}
+assert_logged 'brew outdated --formula --quiet'
+assert_logged 'brew outdated --cask --quiet'
+assert_logged 'brew upgrade --formula bottom'
+assert_logged 'brew upgrade --cask t3-code'
+assert_logged 'brew upgrade --cask zed'
+assert_logged "brew bundle --no-upgrade --file=./Brewfile"
+grep -Fq 'Cask reports different checksum' "$fixture_dir/upgrade_failure-output"
+grep -Fq 'Warning: Homebrew cask t3-code failed; continuing with other Homebrew entries.' \
+	"$fixture_dir/upgrade_failure-output"
 for installer in ghostty neovim node node_deps bun sdkman sdkman_deps rust rust_deps yazi; do
 	assert_logged "$installer"
 done

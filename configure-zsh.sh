@@ -8,7 +8,16 @@ if [ -d "$HOME/.oh-my-zsh" ]; then
 	echo "Oh My Zsh is already installed, skipping."
 else
 	echo "Installing Oh My Zsh..."
-	sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+	_install_oh_my_zsh() {
+		local installer
+		# This branch started without an installation, so an incomplete checkout
+		# from a previous attempt is ours to remove before retrying.
+		rm -rf "$HOME/.oh-my-zsh"
+		installer=$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh) || return 1
+		sh -c "$installer" "" --unattended
+	}
+	_git_retry "installing Oh My Zsh" _install_oh_my_zsh
+	unset -f _install_oh_my_zsh
 fi
 
 # Theme + plugins: clone if missing, otherwise fast-forward (see lib/git-sync.sh).

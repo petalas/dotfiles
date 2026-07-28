@@ -21,10 +21,46 @@ assert_link() {
         fail "$target points to $(readlink "$target"), expected $expected"
 }
 
+assert_mode() {
+    local path="$1"
+    local expected="$2"
+    local actual
+    actual=$(stat -c '%a' "$path")
+    [[ "$actual" == "$expected" ]] || fail "$path mode is $actual, expected $expected"
+}
+
+assert_git_checkout() {
+    local path="$1"
+    local expected_origin="$2"
+    local expected_branch="${3:-}"
+    local allow_untracked="${4:-false}"
+    local actual_origin actual_branch checkout_status
+
+    [[ -d "$path/.git" ]] || fail "Git checkout is missing: $path"
+    actual_origin=$(git -C "$path" remote get-url origin)
+    # TPM's clone helper may store GitHub HTTPS URLs with a no-op `git::@`
+    # userinfo segment; normalize it before comparing repository identity.
+    actual_origin=${actual_origin/https:\/\/git::@github.com\//https:\/\/github.com\/}
+    [[ "${actual_origin%.git}" == "${expected_origin%.git}" ]] ||
+        fail "$path origin is $actual_origin, expected $expected_origin"
+    if [[ "$allow_untracked" == true ]]; then
+        checkout_status=$(git -C "$path" status --porcelain --untracked-files=no)
+    else
+        checkout_status=$(git -C "$path" status --porcelain)
+    fi
+    [[ -z "$checkout_status" ]] ||
+        fail "Git checkout is dirty: $path: $checkout_status"
+    if [[ -n "$expected_branch" ]]; then
+        actual_branch=$(git -C "$path" branch --show-current)
+        [[ "$actual_branch" == "$expected_branch" ]] ||
+            fail "$path branch is $actual_branch, expected $expected_branch"
+    fi
+}
+
 LC_ALL=en_US.UTF-8 locale charmap | grep -qx UTF-8 ||
     fail "en_US.UTF-8 is not generated"
 
-for command_name in git jq locale mosh mosh-server tmux zsh; do
+for command_name in diff git jq locale mosh mosh-server tmux zsh; do
     assert_command "$command_name"
 done
 
@@ -56,19 +92,34 @@ assert_link "$HOME/.pi/agent/themes/seashells.json" "$repo_dir/dot/.pi/agent/the
 assert_link "$HOME/.config/yazi" "$repo_dir/dot/.config/yazi"
 assert_link "$HOME/.config/bat" "$repo_dir/dot/.config/bat"
 assert_link "$HOME/.ssh/config.shared" "$repo_dir/dot/.ssh/config.shared"
+assert_mode "$HOME/.ssh" 700
+assert_mode "$HOME/.ssh/config" 600
 assert_link "$HOME/.claude/CLAUDE.md" "$repo_dir/dot/claude/CLAUDE.md"
 if [[ -e "$repo_dir/dot/claude/settings.json" ]]; then
     assert_link "$HOME/.claude/settings.json" "$repo_dir/dot/claude/settings.json"
 fi
+for command_file in "$repo_dir"/dot/claude/commands/*.md; do
+    assert_link "$HOME/.claude/commands/$(basename "$command_file")" "$command_file"
+done
 
 grep -Fqx 'Include ~/.ssh/config.shared' "$HOME/.ssh/config" ||
     fail "SSH config does not include the shared config"
 
-[[ -d "$HOME/.oh-my-zsh/.git" ]] || fail "Oh My Zsh was not installed"
-[[ -d "$HOME/.config/nvim/.git" ]] || fail "Neovim config was not cloned"
-[[ -d "$HOME/.tmux/plugins/tpm/.git" ]] || fail "TPM was not installed"
-[[ -d "$HOME/.tmux/plugins/tmux-better-mouse-mode/.git" ]] ||
-    fail "tmux-better-mouse-mode was not installed"
+# Powerlevel10k is an intentional nested checkout under the Oh My Zsh tree,
+# so require its tracked files to be clean while checking that child separately.
+assert_git_checkout "$HOME/.oh-my-zsh" https://github.com/ohmyzsh/ohmyzsh.git master true
+assert_git_checkout "$HOME/.oh-my-zsh/themes/powerlevel10k" https://github.com/romkatv/powerlevel10k.git master
+assert_git_checkout "$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions" https://github.com/zsh-users/zsh-autosuggestions master
+assert_git_checkout "$HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting" https://github.com/zsh-users/zsh-syntax-highlighting.git master
+assert_git_checkout "$HOME/.oh-my-zsh/custom/plugins/fast-syntax-highlighting" https://github.com/zdharma-continuum/fast-syntax-highlighting.git master
+assert_git_checkout "$HOME/.oh-my-zsh/custom/plugins/autoupdate" https://github.com/TamCore/autoupdate-oh-my-zsh-plugins master
+assert_git_checkout "$HOME/.config/nvim" https://github.com/petalas/nvim.git custom
+assert_git_checkout "$HOME/.tmux/plugins/tpm" https://github.com/tmux-plugins/tpm.git master
+assert_git_checkout "$HOME/.tmux/plugins/tmux-better-mouse-mode" https://github.com/NHDaly/tmux-better-mouse-mode master
+
+[[ "$(git -C "$repo_dir" config --local core.hooksPath)" == ".githooks" ]] ||
+    fail "repository hooks path is not configured"
+sudo visudo -cf /etc/sudoers.d/dotfiles >/dev/null || fail "sudoers entry is invalid"
 
 zsh_locale=$(env -u LANG -u LC_ALL -u LC_CTYPE zsh -ic 'printf "%s|%s|%s" "$LANG" "${LC_ALL-unset}" "${LC_CTYPE-unset}"')
 [[ "$zsh_locale" == *"en_US.UTF-8|unset|unset" ]] ||
@@ -80,11 +131,29 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [[ "${EXPECT_STALE_TMUX_RELOAD:-0}" == 1 ]]; then
+    tmux_plugin_env=$(tmux show-environment -g TMUX_PLUGIN_MANAGER_PATH 2>/dev/null || true)
+    [[ "$tmux_plugin_env" == TMUX_PLUGIN_MANAGER_PATH=* ]] ||
+        fail "the stale tmux server did not reload TMUX_PLUGIN_MANAGER_PATH"
+fi
+
 tmux -L "$tmux_socket" -f "$HOME/.tmux.conf" new-session -d
 [[ "$(tmux -L "$tmux_socket" show-options -gqv mouse)" == "on" ]] ||
     fail "tmux mouse mode is not enabled"
 
-mosh-server --version 2>&1 | grep -qi mosh || fail "mosh-server cannot start"
+mosh-server --version 2>&1 | grep -qi mosh || fail "mosh-server version check failed"
+set +e
+mosh_output=$(env LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 timeout 3 \
+    mosh-server new -c 256 2>&1)
+mosh_status=$?
+set -e
+[[ "$mosh_status" == 0 || "$mosh_status" == 124 ]] ||
+    fail "mosh-server launch failed ($mosh_status): $mosh_output"
+[[ "$mosh_output" == *"MOSH CONNECT"* ]] ||
+    fail "mosh-server did not bind a UTF-8 session: $mosh_output"
+if grep -qiE 'locale.*(missing|invalid|unavailable)|requires.*UTF-8' <<<"$mosh_output"; then
+    fail "mosh-server rejected the configured locale: $mosh_output"
+fi
 
 if find -L "$HOME" -type l -print -quit | grep -q .; then
     fail "the install left a broken symlink under $HOME"

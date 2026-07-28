@@ -9,12 +9,28 @@
 set -e
 
 TARGET="${DOTFILES_DIR:-$HOME/git/dotfiles}"
-REPO_URL="https://github.com/petalas/dotfiles.git"
+REPO_URL="${DOTFILES_REPO_URL:-https://github.com/petalas/dotfiles.git}"
+PREFLIGHT_URL="${DOTFILES_PREFLIGHT_URL:-https://github.com}"
+
+retry_command() {
+	local attempt
+	for attempt in 1 2 3; do
+		if "$@"; then
+			return 0
+		fi
+		if ((attempt < 3)); then
+			echo "Command failed (attempt $attempt/3); retrying: $*" >&2
+			sleep $((attempt * 2))
+		fi
+	done
+	echo "Command failed after 3 attempts: $*" >&2
+	return 1
+}
 
 preflight() {
 	# Network — we're about to clone and download a lot.
-	if ! curl -fsS --max-time 5 --head https://github.com >/dev/null 2>&1; then
-		echo "ERROR: cannot reach github.com — check network" >&2
+	if ! retry_command curl -fsS --max-time 5 --head "$PREFLIGHT_URL" >/dev/null 2>&1; then
+		echo "ERROR: cannot reach $PREFLIGHT_URL — check network" >&2
 		exit 1
 	fi
 
@@ -61,13 +77,13 @@ ensure_git() {
 			done
 			;;
 		linux*)
-			if command -v apt >/dev/null 2>&1; then
-				sudo apt update
-				sudo apt install -y git
+			if command -v apt-get >/dev/null 2>&1; then
+				retry_command sudo env DEBIAN_FRONTEND=noninteractive apt-get update
+				retry_command sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y git
 			elif command -v pacman >/dev/null 2>&1; then
-				sudo pacman -Sy --noconfirm git
+				retry_command sudo pacman -Sy --noconfirm git
 			elif command -v dnf >/dev/null 2>&1; then
-				sudo dnf install -y git
+				retry_command sudo dnf install -y git
 			else
 				echo "no known package manager — install git manually and re-run" >&2
 				exit 1
@@ -92,7 +108,7 @@ if [[ -d "$TARGET/.git" ]]; then
 	fi
 
 	echo "Already cloned at $TARGET — syncing to origin/main"
-	git -C "$TARGET" fetch origin --quiet
+	retry_command git -C "$TARGET" fetch origin --quiet
 	git -C "$TARGET" checkout main >/dev/null 2>&1 || true
 
 	# Try fast-forward; on divergence (typically a force-push of rewritten
@@ -104,7 +120,7 @@ if [[ -d "$TARGET/.git" ]]; then
 	fi
 else
 	echo "Cloning $REPO_URL -> $TARGET"
-	git clone "$REPO_URL" "$TARGET"
+	retry_command git clone "$REPO_URL" "$TARGET"
 fi
 
 cd "$TARGET"

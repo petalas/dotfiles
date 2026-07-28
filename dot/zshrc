@@ -256,9 +256,17 @@ function upd() {
 
   if [[ $OSTYPE == darwin* ]]; then
     if command -v brew >/dev/null 2>&1; then
-      _upd_run "brew update" brew update &&
-        _upd_run "brew bundle" brew bundle --file="${DOTFILES_DIR:-$HOME/git/dotfiles}/Brewfile" &&
-        _upd_run "brew upgrade" brew upgrade
+      local brew_helpers="${DOTFILES_DIR:-$HOME/git/dotfiles}/lib/homebrew.sh"
+      if [[ -f "$brew_helpers" ]]; then
+        source "$brew_helpers"
+        _upd_run "brew update" brew update
+        _upd_run "brew bundle" homebrew_bundle_install_resilient \
+          "${DOTFILES_DIR:-$HOME/git/dotfiles}/Brewfile"
+        _upd_run "brew upgrades" homebrew_upgrade_individually
+      else
+        failures+=("Homebrew helpers missing")
+        printf '\033[1;31mmissing: %s\033[0m\n' "$brew_helpers"
+      fi
     fi
   fi
 

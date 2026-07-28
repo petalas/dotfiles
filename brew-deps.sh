@@ -11,6 +11,9 @@ yellow=$(tput setaf 3 2>/dev/null || true)
 reset=$(tput sgr0 2>/dev/null || true)
 declare -a warnings=()
 
+# shellcheck source=lib/homebrew.sh disable=SC1091
+source "$(dirname "$0")/lib/homebrew.sh"
+
 warn_failure() {
 	local label="$1"
 	warnings+=("$label")
@@ -33,60 +36,6 @@ skip_dependent() {
 	printf '%sSkipping %s because its prerequisite failed.%s\n' "$yellow" "$label" "$reset" >&2
 }
 
-contains_line() {
-	local expected="$1"
-	local values="$2"
-	local value
-	while IFS= read -r value; do
-		[[ "$value" == "$expected" ]] && return 0
-	done <<<"$values"
-	return 1
-}
-
-install_brewfile_individually() {
-	local brewfile="$1"
-	local kind entries entry installed
-	local installed_taps installed_formulae installed_casks
-
-	if ! installed_taps=$(brew tap); then
-		warn_failure "listing installed Homebrew taps"
-		installed_taps=""
-	fi
-	if ! installed_formulae=$(brew list --formula --full-name); then
-		warn_failure "listing installed Homebrew formulae"
-		installed_formulae=""
-	fi
-	if ! installed_casks=$(brew list --cask --full-name); then
-		warn_failure "listing installed Homebrew casks"
-		installed_casks=""
-	fi
-
-	printf '%sRetrying Brewfile entries individually so one failure does not block the rest.%s\n' \
-		"$yellow" "$reset" >&2
-	for kind in tap formula cask; do
-		case "$kind" in
-			tap) installed="$installed_taps" ;;
-			formula) installed="$installed_formulae" ;;
-			cask) installed="$installed_casks" ;;
-		esac
-		if ! entries=$(brew bundle list "--$kind" --file="$brewfile"); then
-			warn_failure "listing Brewfile $kind entries"
-			continue
-		fi
-		while IFS= read -r entry; do
-			[[ -n "$entry" ]] || continue
-			if contains_line "$entry" "$installed"; then
-				continue
-			fi
-			case "$kind" in
-				tap) run_optional "Brewfile tap $entry" brew tap "$entry" || true ;;
-				formula) run_optional "Brewfile formula $entry" brew install "$entry" || true ;;
-				cask) run_optional "Brewfile cask $entry" brew install --cask "$entry" || true ;;
-			esac
-		done <<<"$entries"
-	done
-}
-
 # Check if Homebrew is installed
 if ! ./setup-brew.sh; then
 	echo "${red}Homebrew setup failed; cannot install macOS dependencies.${reset}" >&2
@@ -106,7 +55,6 @@ fi
 
 printf "\nUpdating Homebrew...\n"
 run_optional "Homebrew metadata update" brew update || true
-run_optional "Homebrew package upgrade" brew upgrade || true
 
 # jq is consumed by the required dotfile-linking stage. Node's nvm and
 # SDKMAN's modern Bash only gate their own optional branches, which handle
@@ -136,9 +84,8 @@ done
 # Per-machine subsetting: SKIP_CAD=1 SKIP_GAMING=1 SKIP_MOBILE=1 ./brew-deps.sh
 # Drift check: brew bundle cleanup --file=Brewfile
 brewfile="$(dirname "$0")/Brewfile"
-if ! run_optional "Brewfile dependencies" brew bundle --file="$brewfile"; then
-	install_brewfile_individually "$brewfile"
-fi
+run_optional "Brewfile dependencies" homebrew_bundle_install_resilient "$brewfile" || true
+run_optional "Homebrew package upgrades" homebrew_upgrade_individually || true
 
 # source installers for non-Brewfile deps and macOS Neovim HEAD conversion
 # shellcheck source=installers/source_installers.sh disable=SC1091

@@ -18,11 +18,11 @@ case "${DISTRO:-}" in
     debian|ubuntu)
         export DEBIAN_FRONTEND=noninteractive
         retry apt-get update
-        retry apt-get install -y --no-install-recommends sudo
+        retry apt-get install -y --no-install-recommends ca-certificates curl sudo
         rm -rf /var/lib/apt/lists/*
         ;;
     arch)
-        retry pacman --disable-sandbox -Sy --noconfirm --needed sudo
+        retry pacman --disable-sandbox -Sy --noconfirm --needed curl sudo
         ;;
     *)
         echo "Unsupported integration-test distribution: ${DISTRO:-unset}" >&2

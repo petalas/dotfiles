@@ -39,7 +39,7 @@ if command -v tmux &>/dev/null; then
     # installer was launched from a server that predates the linked config,
     # load the config before asking TPM to install anything.
     tmux start-server \; source-file "$HOME/.tmux.conf"
-    "$HOME/.tmux/plugins/tpm/bin/install_plugins"
+    _git_retry "installing tmux plugins" "$HOME/.tmux/plugins/tpm/bin/install_plugins"
 fi
 
 # ghostty (kitty config remains in dot/.config/kitty/ for easy rollback)

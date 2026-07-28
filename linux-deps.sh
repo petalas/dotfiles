@@ -141,6 +141,7 @@ if [[ "${DOTFILES_INTEGRATION_TEST:-0}" == "1" ]]; then
 	required_deps=(
 		"ca-certificates"
 		"curl"
+		"diffutils"
 		"git"
 		"grep"
 		"jq"

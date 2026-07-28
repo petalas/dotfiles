@@ -35,7 +35,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - `brew bundle` evaluates the Brewfile as Ruby, so `unless ENV["..."]` conditionals *do* work — but only for env vars Homebrew lets through.
 - Homebrew sanitises the environment before running the Brewfile. Arbitrary vars like `SKIP_GAMING` are stripped; only `HOMEBREW_*` (plus a small allow-list) survive.
 - Symptom: a gate like `unless ENV["SKIP_GAMING"]` never fires, regardless of whether you set `SKIP_GAMING=1`. Confusing because `if false` in the same Brewfile *does* work — ruling out "Ruby isn't evaluated."
-- Fix: either use `HOMEBREW_SKIP_GAMING` directly in the Brewfile, or translate in the wrapper script before invoking `brew bundle`. `brew-deps.sh` does the translation so the user-facing API stays as plain `SKIP_*`. The `upd` shell function invokes `brew bundle` directly, so persistent per-machine skips used by both paths must use the `HOMEBREW_SKIP_*` names.
+- Fix: either use `HOMEBREW_SKIP_GAMING` directly in the Brewfile, or translate in the wrapper script before invoking `brew bundle`. `brew-deps.sh` does the translation so the user-facing API stays as plain `SKIP_*`. The `upd` shell function does not run that translation, so persistent per-machine skips used by both paths must use the `HOMEBREW_SKIP_*` names.
 
 ---
 
@@ -46,6 +46,15 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Fix: declare formula-scoped trust in the Brewfile, e.g. `brew "wix-incubator/brew/applesimutils", trusted: true`. Do not disable tap trust globally or trust a whole tap when only one formula is needed.
 - Failure boundary: `brew-deps.sh` treats Homebrew itself and `jq` as hard prerequisites because the required dotfile-linking stage consumes them. Brewfile apps and language-package batches are best-effort: collect failures, skip only their dependants, continue unrelated work, and print a warning summary. If Homebrew's batch fetch fails, snapshot the installed taps, formulae, and casks once, then retry only missing evaluated entries individually. Replaying installed entries is both slow and noisy because `brew install` emits an `already installed and up-to-date` warning for each one. Guard expected failures explicitly rather than removing `set -e` wholesale.
 - Do not run `brew bundle cleanup` from unattended setup. Without `--force`, Homebrew 6 hard-codes a confirmation prompt when it finds drift; with `--force`, it actually uninstalls software. Keep cleanup as an explicit manual operation.
+
+---
+
+## Homebrew upgrades must isolate broken packages
+
+- Symptom: `brew bundle` fetched several upgrades, then one cask checksum mismatch made the whole command fail and prevented `upd` from reaching `brew upgrade`. In July 2026, T3 Code 0.0.29's GitHub release asset had been replaced after the Homebrew cask recorded its SHA-256, so the downloaded file no longer matched Homebrew's expected checksum.
+- Never bypass a checksum mismatch or patch the cask automatically. It can indicate either an unsafe download or an upstream release that was mutated; Homebrew or the vendor must publish corrected metadata.
+- `brew bundle` upgrades declared entries by default. Use `--no-upgrade` to make it a reconciliation step, with a fallback that retries only missing entries individually if the batch fails.
+- Snapshot outdated formulae and casks, then upgrade each separately. A broken artifact is still reported and makes the Homebrew upgrade stage fail, but later packages and independent `upd`/setup stages continue. The Bash setup script and zsh `upd` function share this behavior through `lib/homebrew.sh` so their failure boundaries do not drift.
 
 ---
 
@@ -164,9 +173,12 @@ Gotchas and insights discovered while maintaining these dotfiles.
 ## Test the public installer without pretending Docker is a desktop host
 
 - A disposable locale-only container proved the immediate Mosh fix, but it did not protect the ordering or idempotency of `easy-install.sh`.
-- The checked-in suite under `tests/integration/` starts from clean Debian, Ubuntu, and Arch images and invokes `./easy-install.sh` twice. Assertions cover the generated locale, Mosh, tmux mouse mode and plugin installation, zsh startup, external config clones, and the managed symlinks.
+- The checked-in suite under `tests/integration/` starts from clean Debian stable, Ubuntu, and Arch images and invokes `./easy-install.sh` twice. It rejects optional-stage warning summaries and compares managed-link, mutable-file, permission, and installed-package manifests between passes; merely exiting successfully twice is not sufficient evidence of idempotency.
+- Assertions launch `mosh-server` with the generated UTF-8 locale, repair and inspect the stale tmux server directly, validate sudoers and SSH modes, and check the identity, branch, and tracked cleanliness of external Git repositories. Powerlevel10k is intentionally a nested checkout under Oh My Zsh and therefore appears as untracked in its parent; ignore parent untracked entries while checking every managed child checkout separately. TPM may store a valid GitHub origin as `https://git::@github.com/...`, so normalize that no-op userinfo segment before comparing repository identity.
+- A first install legitimately preserves Oh My Zsh's generated `.zshrc` as `.zshrc.old`. Idempotence checks must record existing managed backups and prove they remain unchanged on pass two, not incorrectly require that no backup exists. Interrupted `.new.PID` links are always invalid.
+- The separate `bootstrap` Docker target uses a bare repository generated from the current build context. It proves Git installation, first clone, existing-clone sync, dirty-worktree refusal, and both setup passes without accidentally testing GitHub's `main` instead of the current change.
 - `DOTFILES_INTEGRATION_TEST=1` is set only by the Dockerfile. It keeps the real orchestration, package manager, locale setup, shell configuration, and linking stages while limiting Linux packages to portable core dependencies and skipping fonts, GUI apps, services, SDKs, and AUR packages that have no useful container behavior.
-- Even the container's one-package bootstrap can hit transient mirror or DNS failures before repository retry logic exists, so `bootstrap-container.sh` gives APT and pacman three bounded attempts.
+- Even container bootstrap can hit transient mirror, registry, DNS, clone, or fetch failures. Package bootstrap, Docker builds, and Git network operations use three bounded attempts with explicit diagnostics. CI pulls current base images; `INTEGRATION_PULL=0` is only a local escape hatch when the registry is unavailable and suitable images are already cached.
 - Configure APT mirrors before the integration container's first bootstrap refresh: Debian uses its official `deb.debian.org` CDN, and amd64 Ubuntu normally uses Canonical's requester-local `mirrors.ubuntu.com/mirrors.txt` service with APT-managed fallback. GitHub-hosted Ubuntu runners are in Azure, so the workflow supplies `azure.archive.ubuntu.com` explicitly instead of putting provider detection or a noisy network benchmark in the reusable integration runner. Local amd64 builds use the official mirror list; non-amd64 builds keep their image defaults. Primary and security overrides are separate so normal machine installs retain `security.ubuntu.com` and do not wait for downstream mirrors to synchronize.
 - Although the mirror setup executes on Linux hosts, its fixture test also runs under macOS. Rewrite source files through a temporary file instead of relying on incompatible GNU/BSD `sed -i` syntax.
 - Do not use that profile for a normal machine install: its intentionally reduced dependency set is a test boundary, not a lightweight install mode.

@@ -12,6 +12,25 @@
 #
 # Works when sourced from either bash or zsh.
 
+_git_retry() {
+    local label="$1"
+    shift
+    local attempt
+
+    for attempt in 1 2 3; do
+        if "$@"; then
+            return 0
+        fi
+        if (( attempt < 3 )); then
+            echo "$label failed (attempt $attempt/3); retrying..." >&2
+            sleep $((attempt * 2))
+        fi
+    done
+
+    echo "$label failed after 3 attempts." >&2
+    return 1
+}
+
 # Fast-forward an existing clone to its tracked upstream.
 git_ff() {
     local dir="$1"
@@ -19,7 +38,7 @@ git_ff() {
         echo "skip: uncommitted changes in $dir"
         return 0
     fi
-    git -C "$dir" fetch --quiet origin || return 1
+    _git_retry "fetching $dir" git -C "$dir" fetch --quiet origin || return 1
     local branch
     branch=$(git -C "$dir" rev-parse --abbrev-ref HEAD)
     git -C "$dir" merge --ff-only --quiet "origin/$branch" 2>/dev/null \
@@ -33,9 +52,9 @@ clone_or_ff() {
     local url="$1" dest="$2" branch="${3:-}"
     if [ ! -d "$dest/.git" ]; then
         if [ -n "$branch" ]; then
-            git clone "$url" "$dest" -b "$branch"
+            _git_retry "cloning $url" git clone "$url" "$dest" -b "$branch"
         else
-            git clone "$url" "$dest"
+            _git_retry "cloning $url" git clone "$url" "$dest"
         fi
         return
     fi
