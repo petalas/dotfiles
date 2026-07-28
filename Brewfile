@@ -128,7 +128,7 @@ unless ENV["HOMEBREW_SKIP_MOBILE"]
   brew "bundletool"
   brew "cocoapods"
   brew "fastlane"
-  brew "mobile-dev-inc/tap/maestro"
+  brew "mobile-dev-inc/tap/maestro", trusted: true
   cask "android-commandlinetools"
   cask "android-platform-tools"
   cask "android-studio"
