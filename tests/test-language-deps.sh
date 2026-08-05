@@ -34,7 +34,7 @@ source "$repo_dir/installers/install_rust_deps.sh"
 
 : >"$log"
 install_node_deps <<<"interactive input"
-grep -Fq '@anthropic-ai/claude-code @openai/codex typescript typescript-language-server' "$log"
+grep -Fq '@openai/codex typescript typescript-language-server' "$log"
 grep -Fq '@earendil-works/pi-coding-agent' "$log"
 ! grep -Fq 'stdin:' "$log"
 

@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 
 _install_main_npm_batch() {
-    npm install --global \
-        --allow-scripts=@anthropic-ai/claude-code \
-        "$@" </dev/null
+    npm install --global "$@" </dev/null
 }
 
 _install_scriptless_npm_batch() {
@@ -13,7 +11,6 @@ _install_scriptless_npm_batch() {
 install_node_deps() {
     local install_failed=0
     local -a main_packages=(
-        @anthropic-ai/claude-code
         @openai/codex
         typescript
         typescript-language-server

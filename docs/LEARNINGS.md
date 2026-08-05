@@ -62,7 +62,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 - Vite+ places its `npm` shim before npm in `PATH`. After `npm install -g`, the shim checks whether each package binary is reachable and prompts once per invocation before linking it into `~/.vite-plus/bin`.
 - The shim's non-interactive behavior is safe when stdin is closed, so global Node installs redirect stdin from `/dev/null`.
-- npm 12 blocks unapproved lifecycle scripts. `@anthropic-ai/claude-code` needs its postinstall, so its global install explicitly allows scripts for that package only.
+- npm 12 blocks unapproved lifecycle scripts, so a global package that needs its postinstall must be allowlisted with `--allow-scripts=<package>`. No current package needs it: Claude Code was the only one, and it now comes from the `claude-code` Homebrew cask on macOS and `install_claude_code` on Linux.
 
 ---
 

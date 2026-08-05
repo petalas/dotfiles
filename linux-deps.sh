@@ -93,9 +93,10 @@ else
     run_optional docker install_docker || true
 fi
 
-# No distro package currently exists for Herdr. Bun and Lazydocker installers
-# are no-ops when their native Arch packages are already present.
-for app in bun herdr lazydocker; do
+# No distro package currently exists for Herdr or Claude Code. Bun and
+# Lazydocker installers are no-ops when their native Arch packages are already
+# present.
+for app in bun claude_code herdr lazydocker; do
     run_optional "$app" "install_$app" || true
 done
 

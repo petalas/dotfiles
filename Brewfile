@@ -117,6 +117,7 @@ cask "docker-desktop"
 
 # --- AI ---
 brew "herdr"
+cask "claude-code"
 cask "lm-studio"
 
 # --- Mobile dev (fastlane, maestro, Java runtime) ---
