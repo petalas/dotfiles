@@ -65,7 +65,7 @@ case "$os_id" in
             lazydocker lazygit libnotify libxml2 mediainfo neovim nmap nodejs npm
             openssh p7zip pass perf poppler procs python python-virtualenv ripgrep
             rust shellcheck sshpass tealdeer tree-sitter-cli watchexec wasm-bindgen
-            xclip xdg-utils xh yazi zerotier-one
+            xclip xdg-utils xh yazi
         )
 
         linux_packages_install "${required[@]}"
@@ -84,7 +84,7 @@ ensure_command_alias fd fdfind
 ensure_command_alias bat batcat
 
 if [[ "$os_id" == ubuntu || "$os_id" == debian ]]; then
-    for app in bitwarden chrome code discord docker ghostty lazygit neovim zerotier; do
+    for app in bitwarden chrome code discord docker ghostty lazygit neovim; do
         run_optional "$app" "install_$app" || true
     done
 else
@@ -107,12 +107,6 @@ if command -v cargo >/dev/null 2>&1; then
     if [[ "$os_id" != arch ]]; then
         run_optional yazi install_yazi || true
     fi
-fi
-
-if [[ "$os_id" == arch ]] && command -v systemctl >/dev/null 2>&1 &&
-    [[ -d /run/systemd/system ]] && command -v zerotier-cli >/dev/null 2>&1; then
-    sudo -n systemctl enable --now zerotier-one ||
-        echo "Warning: ZeroTier service startup failed." >&2
 fi
 
 # Package-manager dependencies are required; individual applications are best effort.
