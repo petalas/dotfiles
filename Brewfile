@@ -93,6 +93,7 @@ cask "stats"
 
 # --- Productivity / password / VPN / sync ---
 cask "bitwarden"
+cask "obsidian"
 cask "private-internet-access"
 cask "syncthing-app"
 brew "tailscale"

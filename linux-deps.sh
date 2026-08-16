@@ -63,7 +63,7 @@ case "$os_id" in
             discord docker docker-buildx docker-compose dust eza fd ffmpeg fzf
             ghostty github-cli gradle htop imagemagick iperf3 jdk-openjdk kotlin
             lazydocker lazygit libnotify libxml2 mediainfo neovim nmap nodejs npm
-            openssh p7zip pass perf poppler procs python python-virtualenv ripgrep
+            obsidian openssh p7zip pass perf poppler procs python python-virtualenv ripgrep
             rust shellcheck sshpass tealdeer tree-sitter-cli watchexec wasm-bindgen
             xclip xdg-utils xh yazi
         )
@@ -84,7 +84,7 @@ ensure_command_alias fd fdfind
 ensure_command_alias bat batcat
 
 if [[ "$os_id" == ubuntu || "$os_id" == debian ]]; then
-    for app in bitwarden chrome code discord docker ghostty lazygit neovim; do
+    for app in bitwarden chrome code discord docker ghostty lazygit neovim obsidian; do
         run_optional "$app" "install_$app" || true
     done
 else
