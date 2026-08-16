@@ -23,6 +23,48 @@ _nvim_sync_prune_legacy_lazy_lock() {
     fi
 }
 
+_nvim_sync_ensure_github_auth() {
+    local dir="$1"
+    local origin_url
+
+    origin_url=$(git -C "$dir" remote get-url origin) || return 1
+    case "$origin_url" in
+        https://github.com/*|http://github.com/*) ;;
+        *) return 0 ;;
+    esac
+
+    if ! command -v gh >/dev/null 2>&1; then
+        echo "nvim sync: GitHub CLI (gh) is required for the GitHub fork" >&2
+        return 1
+    fi
+
+    if ! gh auth status --hostname github.com >/dev/null 2>&1; then
+        if [ "${DOTFILES_NONINTERACTIVE:-0}" = "1" ] || [ ! -t 0 ]; then
+            echo "nvim sync: authenticate first with 'gh auth login --hostname github.com --git-protocol https --web'" >&2
+            return 1
+        fi
+        echo "GitHub CLI is not authenticated; starting browser login..."
+        gh auth login --hostname github.com --git-protocol https --web || return 1
+        gh auth status --hostname github.com >/dev/null 2>&1 || {
+            echo "nvim sync: GitHub CLI authentication did not complete" >&2
+            return 1
+        }
+    fi
+}
+
+_nvim_sync_git_network() {
+    local dir="$1"
+    shift
+
+    # Scope the credential helper to this command. ~/.gitconfig is a managed
+    # dotfile, so `gh auth setup-git` would dirty this repository and bake the
+    # current machine's gh path into shared configuration.
+    env GIT_TERMINAL_PROMPT=0 git \
+        -c credential.https://github.com.helper= \
+        -c 'credential.https://github.com.helper=!gh auth git-credential' \
+        -C "$dir" "$@"
+}
+
 nvim_sync_fork() {
     local dir="${1:-${XDG_CONFIG_HOME:-$HOME/.config}/nvim}"
     local upstream_url="https://github.com/nvim-lua/kickstart.nvim.git"
@@ -48,9 +90,11 @@ nvim_sync_fork() {
         git -C "$dir" remote add upstream "$upstream_url" || return 1
     fi
 
+    _nvim_sync_ensure_github_auth "$dir" || return 1
+
     echo "Fetching nvim fork and Kickstart upstream..."
-    git -C "$dir" fetch --quiet origin || return 1
-    git -C "$dir" fetch --quiet upstream || return 1
+    _nvim_sync_git_network "$dir" fetch --quiet origin || return 1
+    _nvim_sync_git_network "$dir" fetch --quiet upstream || return 1
 
     counts=$(git -C "$dir" rev-list --left-right --count "$branch...origin/$branch") || return 1
     ahead=$(printf '%s' "$counts" | awk '{ print $1 }')
@@ -69,7 +113,7 @@ nvim_sync_fork() {
             }
         fi
         echo "Pushing previously committed nvim changes..."
-        git -C "$dir" push origin "$branch" || return 1
+        _nvim_sync_git_network "$dir" push origin "$branch" || return 1
     fi
 
     if git -C "$dir" show-ref --verify --quiet refs/remotes/origin/master &&
@@ -79,8 +123,8 @@ nvim_sync_fork() {
     fi
 
     echo "Updating the fork's master mirror..."
-    git -C "$dir" push --quiet origin refs/remotes/upstream/master:refs/heads/master || return 1
-    git -C "$dir" fetch --quiet origin master || return 1
+    _nvim_sync_git_network "$dir" push --quiet origin refs/remotes/upstream/master:refs/heads/master || return 1
+    _nvim_sync_git_network "$dir" fetch --quiet origin master || return 1
 
     if git -C "$dir" merge-base --is-ancestor upstream/master "$branch"; then
         echo "nvim config already contains the latest Kickstart upstream."
@@ -112,7 +156,7 @@ nvim_sync_fork() {
     fi
 
     git -C "$dir" commit -m "Merge upstream kickstart.nvim master" || return 1
-    git -C "$dir" push origin "$branch" || return 1
+    _nvim_sync_git_network "$dir" push origin "$branch" || return 1
     echo "nvim fork and custom config are up to date."
 }
 
@@ -151,6 +195,7 @@ nvim_update_plugins() {
 
     git -C "$dir" add -- nvim-pack-lock.json || return 1
     git -C "$dir" commit -m "chore(nvim): update plugin lockfile" || return 1
-    git -C "$dir" push origin custom || return 1
+    _nvim_sync_ensure_github_auth "$dir" || return 1
+    _nvim_sync_git_network "$dir" push origin custom || return 1
     echo "Updated and published the nvim plugin lockfile."
 }

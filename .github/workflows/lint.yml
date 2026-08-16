@@ -30,6 +30,12 @@ jobs:
       - name: Test Git synchronization retries
         run: ./tests/test-git-sync.sh
 
+      - name: Test Neovim fork synchronization
+        run: ./tests/test-nvim-sync.sh
+
+      - name: Test Neovim GitHub authentication
+        run: ./tests/test-nvim-github-auth.sh
+
       - name: Test macOS non-interactive install policy
         run: ./tests/test-easy-install-noninteractive.sh
 
