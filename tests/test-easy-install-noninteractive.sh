@@ -20,7 +20,9 @@ if IFS= read -r _; then
     exit 1
 fi
 printf 'dependencies\n' >>"$TEST_STEPS"
-[[ "${TEST_SCENARIO:-}" != dependency_failure ]]
+[[ "${TEST_SCENARIO:-}" != dependency_failure ]] || exit 1
+printf '#!/usr/bin/env bash\n' >"$TEST_BIN/jq"
+chmod +x "$TEST_BIN/jq"
 EOF
 cat >"$fixture_dir/link-dotfiles.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -52,6 +54,7 @@ run_install() {
     local scenario="$1"
     : >"$steps"
     env TEST_SCENARIO="$scenario" TEST_STEPS="$steps" \
+        TEST_BIN="$fixture_dir/bin" \
         HOME="$fixture_dir/home" OSTYPE=darwin-test \
         PATH="$fixture_dir/bin:/usr/bin:/bin" \
         "${EASY_INSTALL_TEST_ENTRY_BASH:-$BASH}" "$fixture_dir/easy-install.sh" \
@@ -59,6 +62,7 @@ run_install() {
 }
 
 run_install success
+[[ -x "$fixture_dir/bin/jq" ]]
 [[ "$(cat "$steps")" == $'dependencies\nplugins\nlinks\ntools\nfonts\nzsh' ]]
 
 if run_install font_failure; then
