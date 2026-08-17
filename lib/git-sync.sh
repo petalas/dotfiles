@@ -11,24 +11,50 @@ _git_retry() {
     return 1
 }
 
+_git_origin_matches() {
+    local checkout="$1"
+    local expected_url="$2"
+    local actual_url
+
+    actual_url=$(git -C "$checkout" remote get-url origin) || return 1
+    if [[ "${actual_url%.git}" != "${expected_url%.git}" ]]; then
+        printf 'Unexpected origin for %s\nExpected: %s\nActual:   %s\n' \
+            "$checkout" "$expected_url" "$actual_url" >&2
+        return 1
+    fi
+}
+
 git_ff() {
     local dest="$1"
     local expected_url="${2:-}"
     local expected_branch="${3:-}"
-    local actual_url current_branch
+    local nested_path="${4:-}"
+    local nested_url="${5:-}"
+    local current_branch nested_status status
 
-    if [[ -n "$(git -C "$dest" status --porcelain)" ]]; then
+    status=$(git -C "$dest" status --porcelain) || return 1
+    if [[ -n "$nested_path" && "$status" == "?? $nested_path/" ]]; then
+        # A deliberately nested checkout is untracked by its parent. Accept it
+        # only when it is itself clean and has the exact expected origin.
+        if [[ -z "$nested_url" || ! -d "$dest/$nested_path/.git" ]]; then
+            echo "Invalid managed nested checkout: $dest/$nested_path" >&2
+            return 1
+        fi
+        nested_status=$(git -C "$dest/$nested_path" status --porcelain) || return 1
+        if [[ -n "$nested_status" ]] ||
+            ! _git_origin_matches "$dest/$nested_path" "$nested_url"; then
+            echo "Invalid managed nested checkout: $dest/$nested_path" >&2
+            return 1
+        fi
+        status=""
+    fi
+    if [[ -n "$status" ]]; then
         echo "Cannot update modified checkout: $dest" >&2
         git -C "$dest" status --short >&2
         return 1
     fi
     if [[ -n "$expected_url" ]]; then
-        actual_url=$(git -C "$dest" remote get-url origin) || return 1
-        if [[ "${actual_url%.git}" != "${expected_url%.git}" ]]; then
-            printf 'Unexpected origin for %s\nExpected: %s\nActual:   %s\n' \
-                "$dest" "$expected_url" "$actual_url" >&2
-            return 1
-        fi
+        _git_origin_matches "$dest" "$expected_url" || return 1
     fi
     if [[ -n "$expected_branch" ]]; then
         current_branch=$(git -C "$dest" branch --show-current) || return 1
@@ -41,10 +67,12 @@ git_ff() {
     _git_retry "Updating $dest" git -C "$dest" pull --ff-only --quiet
 }
 
-clone_or_ff() {
-    local url="$1" dest="$2" branch="${3:-}"
+_clone_or_ff() {
+    local url="$1" dest="$2" branch="$3"
+    local nested_path="$4" nested_url="$5"
+
     if [[ -d "$dest/.git" ]]; then
-        git_ff "$dest" "$url" "$branch"
+        git_ff "$dest" "$url" "$branch" "$nested_path" "$nested_url"
     elif [[ -e "$dest" ]]; then
         echo "Cannot clone over existing path: $dest" >&2
         return 1
@@ -53,4 +81,16 @@ clone_or_ff() {
     else
         _git_retry "Cloning $url" git clone "$url" "$dest"
     fi
+}
+
+clone_or_ff() {
+    _clone_or_ff "$1" "$2" "${3:-}" "" ""
+}
+
+clone_or_ff_with_nested() {
+    if (($# != 5)); then
+        echo "clone_or_ff_with_nested requires URL, destination, branch, nested path, and nested URL" >&2
+        return 2
+    fi
+    _clone_or_ff "$1" "$2" "$3" "$4" "$5"
 }

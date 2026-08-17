@@ -54,18 +54,38 @@ git clone --quiet "$remote" "$seed"
 git -C "$seed" config user.name Test
 git -C "$seed" config user.email test@example.com
 printf 'managed\n' >"$seed/file"
-git -C "$seed" add file
+mkdir "$seed/vendor"
+printf 'tracked parent\n' >"$seed/vendor/.keep"
+git -C "$seed" add file vendor/.keep
 git -C "$seed" commit --quiet -m initial
 git -C "$seed" push --quiet origin main
 clone_or_ff "$remote" "$checkout" main
+
+nested_remote="$fixture_dir/nested.git"
+git init --bare --initial-branch=main "$nested_remote" >/dev/null
+git clone --quiet "$nested_remote" "$checkout/vendor/tool"
+clone_or_ff_with_nested "$remote" "$checkout" main vendor/tool "$nested_remote"
+printf 'nested change\n' >"$checkout/vendor/tool/local"
+if clone_or_ff_with_nested "$remote" "$checkout" main vendor/tool "$nested_remote"; then
+    echo "clone_or_ff accepted a dirty managed nested checkout" >&2
+    exit 1
+fi
+rm "$checkout/vendor/tool/local"
+git -C "$checkout/vendor/tool" remote set-url origin "$fixture_dir/wrong-nested.git"
+if clone_or_ff_with_nested "$remote" "$checkout" main vendor/tool "$nested_remote"; then
+    echo "clone_or_ff accepted the wrong managed nested origin" >&2
+    exit 1
+fi
+git -C "$checkout/vendor/tool" remote set-url origin "$nested_remote"
+
 printf 'untracked\n' >"$checkout/local"
-if clone_or_ff "$remote" "$checkout" main; then
+if clone_or_ff_with_nested "$remote" "$checkout" main vendor/tool "$nested_remote"; then
     echo "clone_or_ff accepted a dirty checkout" >&2
     exit 1
 fi
 rm "$checkout/local"
 git -C "$checkout" remote set-url origin "$fixture_dir/wrong.git"
-if clone_or_ff "$remote" "$checkout" main; then
+if clone_or_ff_with_nested "$remote" "$checkout" main vendor/tool "$nested_remote"; then
     echo "clone_or_ff accepted an unexpected origin" >&2
     exit 1
 fi

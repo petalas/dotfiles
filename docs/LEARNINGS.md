@@ -122,6 +122,14 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Managed nested Git checkouts need explicit parent allowances
+
+- `~/.oh-my-zsh/themes/powerlevel10k` is a separate Git checkout inside the Oh My Zsh checkout. Oh My Zsh does not ignore that path, so its parent reports the valid nested repository as `?? themes/powerlevel10k/`.
+- A blanket clean-worktree check therefore rejects a correctly configured machine. Do not weaken the check for arbitrary untracked files: `configure-zsh.sh` explicitly names the one allowed nested path and expected origin, and `lib/git-sync.sh` verifies that nested checkout is clean before updating the parent.
+- Keep the tracked parent directory in test fixtures; otherwise Git collapses the status to `?? themes/` and the fixture does not reproduce the real state.
+
+---
+
 ## The nvim config is a separate repo (cloned, not symlinked) — keep it pulled
 
 - `~/.config/nvim` is **not** part of this dotfiles repo and is **not** symlinked. `setup-tools.sh` clones it from `petalas/nvim` (a kickstart.nvim fork); `link-dotfiles.sh` is deliberately local-only. Edit and commit nvim config **in that repo**, not under `dot/` — adding it to `dot/.config/nvim/` would duplicate a repo that manages itself.
