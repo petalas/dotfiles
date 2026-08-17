@@ -21,15 +21,10 @@ install_rust_deps() {
     for entry in "${packages[@]}"; do
         binary=${entry%%:*}
         package=${entry#*:}
-        if ! command -v "$binary" >/dev/null 2>&1 &&
-            [[ ! -x "$HOME/.local/bin/$binary" ]]; then
+        if [[ "${DOTFILES_INSTALL_ALL_LANGUAGE_DEPS:-0}" == 1 ]] ||
+            ! command -v "$binary" >/dev/null 2>&1; then
             missing_packages+=("$package")
         fi
     done
     run_resilient_batch 'Cargo packages' _install_cargo_batch "${missing_packages[@]}"
 }
-
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-    echo "Run this installer through: ./install rust_deps" >&2
-    exit 2
-fi

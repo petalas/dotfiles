@@ -32,6 +32,7 @@ Before modifying code, find the matching file pattern and **read the linked doc 
 | File pattern you are editing | Read first |
 |------------------------------|-----------|
 | `*.sh` (root) | README.md for sudoers note; check script dependencies |
+| `update-dotfiles` | README.md update contract and [LEARNINGS.md](docs/LEARNINGS.md); preserve Zsh compatibility |
 | `installers/*.sh` | Existing installers for patterns (apt vs brew detection) |
 | `Brewfile`, `brew-deps.sh` | [LEARNINGS.md](docs/LEARNINGS.md) — Homebrew env, trust, and failure-boundary gotchas |
 | `dot/zshrc` | Current aliases/functions before adding duplicates |

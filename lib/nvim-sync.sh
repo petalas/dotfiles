@@ -105,13 +105,17 @@ nvim_sync_fork() {
         return 1
     elif [ "$behind" -gt 0 ]; then
         git -C "$dir" merge --ff-only --quiet "origin/$branch" || return 1
-    elif [ "$ahead" -gt 0 ]; then
-        if command -v nvim >/dev/null 2>&1 && [ "${NVIM_SYNC_SKIP_SMOKE:-0}" != "1" ]; then
-            nvim --headless '+lua assert(vim.g.colors_name)' +qa || {
-                echo "nvim sync: local commits failed the startup smoke test" >&2
-                return 1
-            }
-        fi
+    fi
+
+    # Test the resolved branch regardless of whether changes came from this
+    # machine or were fast-forwarded from another one.
+    if command -v nvim >/dev/null 2>&1 && [ "${NVIM_SYNC_SKIP_SMOKE:-0}" != "1" ]; then
+        nvim --headless '+lua assert(vim.g.colors_name)' +qa || {
+            echo "nvim sync: resolved config failed the startup smoke test" >&2
+            return 1
+        }
+    fi
+    if [ "$ahead" -gt 0 ]; then
         echo "Pushing previously committed nvim changes..."
         _nvim_sync_git_network "$dir" push origin "$branch" || return 1
     fi
@@ -155,14 +159,18 @@ nvim_sync_fork() {
         return 1
     fi
 
-    git -C "$dir" commit -m "Merge upstream kickstart.nvim master" || return 1
+    if ! git -C "$dir" commit -m "Merge upstream kickstart.nvim master"; then
+        git -C "$dir" merge --abort >/dev/null 2>&1 || true
+        echo "nvim sync: could not create the upstream merge commit" >&2
+        return 1
+    fi
     _nvim_sync_git_network "$dir" push origin "$branch" || return 1
     echo "nvim fork and custom config are up to date."
 }
 
 nvim_update_plugins() {
     local dir="${1:-${XDG_CONFIG_HOME:-$HOME/.config}/nvim}"
-    local changed
+    local changed config_home
 
     if [ ! -d "$dir/.git" ]; then
         echo "nvim plugins: not a git repository: $dir" >&2
@@ -172,12 +180,17 @@ nvim_update_plugins() {
         echo "nvim plugins: refusing to update with a dirty config worktree" >&2
         return 1
     fi
+    if [ "$(git -C "$dir" branch --show-current)" != custom ]; then
+        echo "nvim plugins: expected branch 'custom' in $dir" >&2
+        return 1
+    fi
     if ! command -v nvim >/dev/null 2>&1; then
         echo "nvim plugins: nvim is not installed" >&2
         return 1
     fi
 
-    nvim --headless \
+    config_home=${dir%/nvim}
+    XDG_CONFIG_HOME="$config_home" nvim --headless \
         '+lua vim.pack.update(nil, { force = true })' \
         '+lua require("nvim-treesitter").update():wait(300000)' \
         +qa || return 1
@@ -188,13 +201,18 @@ nvim_update_plugins() {
         return 0
     fi
     if [ "$(printf '%s\n' "$changed" | awk '{ print $2 }' | sort -u)" != "nvim-pack-lock.json" ]; then
-        echo "nvim plugins: update changed files other than nvim-pack-lock.json" >&2
+        echo "nvim plugins: update changed files other than nvim-pack-lock.json; restoring the clean checkout" >&2
         printf '%s\n' "$changed" >&2
+        git -C "$dir" reset --hard HEAD >/dev/null || return 1
+        git -C "$dir" clean -fd >/dev/null || return 1
         return 1
     fi
 
     git -C "$dir" add -- nvim-pack-lock.json || return 1
-    git -C "$dir" commit -m "chore(nvim): update plugin lockfile" || return 1
+    if ! git -C "$dir" commit -m "chore(nvim): update plugin lockfile"; then
+        git -C "$dir" reset --hard HEAD >/dev/null 2>&1 || true
+        return 1
+    fi
     _nvim_sync_ensure_github_auth "$dir" || return 1
     _nvim_sync_git_network "$dir" push origin custom || return 1
     echo "Updated and published the nvim plugin lockfile."

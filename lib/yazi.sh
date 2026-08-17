@@ -4,14 +4,21 @@
 # Yazi requires `ya` and `yazi` to have exactly matching versions, and this
 # repository's configuration requires the modern `ya pkg` package manager.
 
+_yazi_version() {
+	awk '
+		NR == 1 && NF >= 2 { print $2; exit }
+		$1 == "Version:" { print $2; exit }
+	'
+}
+
 yazi_cli_version() {
 	command -v ya >/dev/null 2>&1 || return 1
-	ya --version 2>/dev/null | awk 'NR == 1 { print $2 }'
+	ya --version 2>/dev/null | _yazi_version
 }
 
 yazi_fm_version() {
 	command -v yazi >/dev/null 2>&1 || return 1
-	yazi --version 2>/dev/null | awk 'NR == 1 { print $2 }'
+	yazi --version 2>/dev/null | _yazi_version
 }
 
 yazi_is_compatible() {

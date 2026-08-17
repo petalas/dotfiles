@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154
 
 setup_zsh() {
-    local zsh_path user
-    user=$(whoami)
+    local current_shell os zsh_path user
+    os=$(dotfiles_os) || return 1
+    user="${SUDO_USER:-$(id -un)}"
 
     if ! command -v zsh >/dev/null 2>&1; then
-        case "${os_id:-}" in
+        case "$os" in
             ubuntu|debian|arch)
                 linux_packages_install zsh
                 ;;
@@ -14,23 +14,28 @@ setup_zsh() {
                 brew install zsh
                 ;;
             *)
-                echo "Unsupported OS for Zsh setup: ${os_id:-unknown}" >&2
+                echo "Unsupported OS for Zsh setup: $os" >&2
                 return 1
                 ;;
         esac
     fi
 
     zsh_path=$(command -v zsh)
-    if [[ "${SHELL:-}" == "$zsh_path" ]]; then
+    if ! grep -Fqx "$zsh_path" /etc/shells; then
+        echo "Zsh is not listed in /etc/shells: $zsh_path" >&2
+        return 1
+    fi
+
+    if [[ "$os" == macos ]]; then
+        current_shell=$(dscl . -read "/Users/$user" UserShell 2>/dev/null | awk '{ print $2 }')
+    else
+        current_shell=$(getent passwd "$user" | cut -d: -f7)
+    fi
+    if [[ "$current_shell" == "$zsh_path" ]]; then
         echo "Zsh is already the login shell."
         return 0
     fi
 
     echo "Changing $user's login shell to $zsh_path."
-    sudo -n chsh -s "$zsh_path" "$user"
+    run_as_root chsh -s "$zsh_path" "$user"
 }
-
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-    echo "Run this setup through: ./install zsh" >&2
-    exit 2
-fi

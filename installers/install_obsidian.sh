@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154
 
 install_obsidian() {
-    local version
+    local os version
 
+    os=$(dotfiles_os) || return 1
     if command -v obsidian >/dev/null 2>&1 ||
-        { [[ "$os_id" == macos ]] && brew list --cask obsidian >/dev/null 2>&1; }; then
+        { [[ "$os" == macos ]] && brew list --cask obsidian >/dev/null 2>&1; }; then
         return 0
     fi
 
-    case "$os_id" in
+    case "$os" in
         macos)
             brew install --cask obsidian
             ;;
@@ -18,9 +18,8 @@ install_obsidian() {
                 echo "Obsidian only publishes a Debian package for amd64; use its arm64 AppImage on this machine." >&2
                 return 1
             }
-            version=$(curl -fsSL https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest |
-                jq -r '.tag_name | ltrimstr("v")')
-            [[ -n "$version" && "$version" != null ]] || return 1
+            version=$(github_latest_tag obsidianmd/obsidian-releases)
+            version=${version#v}
             linux_install_deb_url \
                 "https://github.com/obsidianmd/obsidian-releases/releases/download/v$version/obsidian_${version}_amd64.deb" \
                 obsidian
@@ -31,8 +30,3 @@ install_obsidian() {
         *) return 1 ;;
     esac
 }
-
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-    echo "Run this installer through: ./install obsidian" >&2
-    exit 2
-fi

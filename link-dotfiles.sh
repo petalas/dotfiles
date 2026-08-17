@@ -1,109 +1,90 @@
 #!/usr/bin/env bash
+# Link tracked configuration into $HOME. This script performs no downloads or
+# package/plugin installation; it is safe to use after an ordinary git pull.
 set -euo pipefail
 
 dotfiles_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# shellcheck source=lib/git-sync.sh disable=SC1091
-source "$dotfiles_dir/lib/git-sync.sh"
-# shellcheck source=lib/yazi.sh disable=SC1091
-source "$dotfiles_dir/lib/yazi.sh"
 # shellcheck source=lib/link.sh disable=SC1091
 source "$dotfiles_dir/lib/link.sh"
 
-# ensure $HOME/.config exists
 mkdir -p "$HOME/.config"
-
-# activate repo's git hooks (.githooks/pre-commit runs shellcheck on *.sh)
 git -C "$dotfiles_dir" config core.hooksPath .githooks
 
-# zsh + managed SeaShells colors
+# Shell and prompt.
 link_path "$dotfiles_dir/dot/zshrc" "$HOME/.zshrc"
 link_path "$dotfiles_dir/dot/seashells.zsh" "$HOME/.seashells.zsh"
 link_path "$dotfiles_dir/dot/p10k-seashells.zsh" "$HOME/.p10k-seashells.zsh"
-
-# hushlogin (suppress terminal "Last login" banner)
 link_path "$dotfiles_dir/dot/hushlogin" "$HOME/.hushlogin"
 
-# gitconfig
+# Git.
 link_path "$dotfiles_dir/dot/gitconfig" "$HOME/.gitconfig"
-
-# work gitconfig
 mkdir -p "$HOME/git/work"
 link_path "$dotfiles_dir/dot/work/gitconfig" "$HOME/git/work/.gitconfig"
 
-# tmux + plugins
+# Terminal tools.
 link_path "$dotfiles_dir/dot/tmux.conf" "$HOME/.tmux.conf"
-clone_or_ff https://github.com/tmux-plugins/tpm.git "$HOME/.tmux/plugins/tpm"
-if command -v tmux &>/dev/null; then
-    # TPM's CLI queries the running tmux server for its plugin path. If this
-    # installer was launched from a server that predates the linked config,
-    # load the config before asking TPM to install anything.
-    tmux start-server \; source-file "$HOME/.tmux.conf"
-    _git_retry "installing tmux plugins" "$HOME/.tmux/plugins/tpm/bin/install_plugins"
-fi
-
-# ghostty (kitty config remains in dot/.config/kitty/ for easy rollback)
 mkdir -p "$HOME/.config/ghostty"
-link_path "$dotfiles_dir/dot/.config/ghostty/config.ghostty" "$HOME/.config/ghostty/config.ghostty"
+link_path "$dotfiles_dir/dot/.config/ghostty/config.ghostty" \
+    "$HOME/.config/ghostty/config.ghostty"
+link_path "$dotfiles_dir/dot/.config/yazi" "$HOME/.config/yazi"
+link_path "$dotfiles_dir/dot/.config/bat" "$HOME/.config/bat"
 
-# pi
+# Pi extensions/theme plus the one managed setting. Pi owns all other settings.
 pi_agent_dir="$HOME/.pi/agent"
 pi_settings="$pi_agent_dir/settings.json"
 mkdir -p "$pi_agent_dir/extensions" "$pi_agent_dir/themes"
-link_path "$dotfiles_dir/dot/.pi/agent/extensions/openai-fast-mode.ts" "$pi_agent_dir/extensions/openai-fast-mode.ts"
-link_path "$dotfiles_dir/dot/.pi/agent/themes/seashells.json" "$pi_agent_dir/themes/seashells.json"
-
-# Pi owns the rest of settings.json, so preserve its model, provider, and
-# changelog state while selecting the managed theme.
-pi_settings_tmp=$(mktemp)
-if [ -f "$pi_settings" ]; then
-    jq '.theme = "seashells"' "$pi_settings" > "$pi_settings_tmp"
+link_path "$dotfiles_dir/dot/.pi/agent/extensions/openai-fast-mode.ts" \
+    "$pi_agent_dir/extensions/openai-fast-mode.ts"
+link_path "$dotfiles_dir/dot/.pi/agent/themes/seashells.json" \
+    "$pi_agent_dir/themes/seashells.json"
+pi_settings_tmp=$(mktemp "$pi_agent_dir/settings.json.XXXXXX")
+trap 'rm -f "$pi_settings_tmp"' EXIT
+if [[ -f "$pi_settings" ]]; then
+    jq '.theme = "seashells"' "$pi_settings" >"$pi_settings_tmp"
 else
-    jq -n '{theme: "seashells"}' > "$pi_settings_tmp"
+    jq -n '{theme: "seashells"}' >"$pi_settings_tmp"
 fi
-cat "$pi_settings_tmp" > "$pi_settings"
-rm -f "$pi_settings_tmp"
+chmod 600 "$pi_settings_tmp"
+mv "$pi_settings_tmp" "$pi_settings"
+trap - EXIT
 
-# nvim — separate repo (petalas/nvim @ custom), cloned (NOT symlinked) into
-# ~/.config/nvim. `upd` mirrors Kickstart upstream into the fork and updates
-# the vim.pack plugin lockfile. See docs/LEARNINGS.md.
-clone_or_ff https://github.com/petalas/nvim.git "$HOME/.config/nvim" custom
-
-# yazi
-link_path "$dotfiles_dir/dot/.config/yazi" "$HOME/.config/yazi"
-install_yazi_packages
-
-# bat
-link_path "$dotfiles_dir/dot/.config/bat" "$HOME/.config/bat"
-if command -v bat &>/dev/null; then
-    bat cache --build
-fi
-
-# ssh
+# SSH. Keep the machine-owned config and add one exact active Include line.
 mkdir -p "$HOME/.ssh"
 chmod 700 "$HOME/.ssh"
 link_path "$dotfiles_dir/dot/.ssh/config.shared" "$HOME/.ssh/config.shared"
-
-# ensure ~/.ssh/config includes the shared config
-if [ ! -e "$HOME/.ssh/config" ]; then
-    echo "Include ~/.ssh/config.shared" > "$HOME/.ssh/config"
-    chmod 600 "$HOME/.ssh/config"
-    echo "Created $HOME/.ssh/config with Include directive"
-elif ! grep -q "config.shared" "$HOME/.ssh/config"; then
-    sed -i'' -e '1s/^/Include ~\/.ssh\/config.shared\n\n/' "$HOME/.ssh/config"
-    echo "Added Include directive to $HOME/.ssh/config"
+ssh_config="$HOME/.ssh/config"
+if [[ ! -e "$ssh_config" ]]; then
+    printf 'Include ~/.ssh/config.shared\n' >"$ssh_config"
+    echo "Created $ssh_config with Include directive"
+elif ! awk '
+    /^[[:space:]]*#/ { next }
+    tolower($1) == "include" {
+        for (i = 2; i <= NF; i++) {
+            if ($i == "~/.ssh/config.shared") found = 1
+        }
+    }
+    END { exit !found }
+' "$ssh_config"; then
+    ssh_config_tmp=$(mktemp "$HOME/.ssh/config.XXXXXX")
+    trap 'rm -f "$ssh_config_tmp"' EXIT
+    {
+        printf 'Include ~/.ssh/config.shared\n\n'
+        cat "$ssh_config"
+    } >"$ssh_config_tmp"
+    chmod 600 "$ssh_config_tmp"
+    mv "$ssh_config_tmp" "$ssh_config"
+    trap - EXIT
+    echo "Added Include directive to $ssh_config"
 fi
+chmod 600 "$ssh_config"
 
-# claude code
+# Claude Code global instructions and commands.
 mkdir -p "$HOME/.claude/commands"
-
 link_path "$dotfiles_dir/dot/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
-if [ -e "$dotfiles_dir/dot/claude/settings.json" ]; then
+if [[ -e "$dotfiles_dir/dot/claude/settings.json" ]]; then
     link_path "$dotfiles_dir/dot/claude/settings.json" "$HOME/.claude/settings.json"
 fi
-
-# commands/ (symlink each .md file)
-for cmd in "$dotfiles_dir"/dot/claude/commands/*.md; do
-    cmdname=$(basename "$cmd")
-    link_path "$cmd" "$HOME/.claude/commands/$cmdname"
-done
+while IFS= read -r -d '' command_file; do
+    command_name=$(basename "$command_file")
+    link_path "$command_file" "$HOME/.claude/commands/$command_name"
+done < <(find "$dotfiles_dir/dot/claude/commands" -maxdepth 1 -type f -name '*.md' -print0)

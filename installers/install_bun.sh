@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
 
 install_bun() {
+    local os
     command -v bun >/dev/null 2>&1 && return 0
-    if [[ "${os_id:-}" == arch ]]; then
+    os=$(dotfiles_os) || return 1
+    if [[ "$os" == arch ]]; then
         linux_packages_install bun
     else
         echo "Installing bun..."
-        curl -fsSL https://bun.sh/install | bash
+        run_downloaded_script bash https://bun.sh/install
     fi
 }
-
-# Call the function if this script is executed directly
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    install_bun
-fi 

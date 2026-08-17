@@ -27,13 +27,14 @@ if [[ "${1:-}" == "--version" ]]; then
 	case "$state" in
 		legacy) echo "Ya 25.4.8 (test)" ;;
 		mismatch|modern) echo "Ya 26.5.9 (test)" ;;
+		multiline) printf 'Ya\n    Version: 26.8.15 (test)\n' ;;
 		*) exit 1 ;;
 	esac
 	exit 0
 fi
 
 if [[ "${1:-}" == "pkg" && "${2:-}" == "--help" ]]; then
-	[[ "$state" == "modern" || "$state" == "mismatch" ]]
+	[[ "$state" == "modern" || "$state" == "mismatch" || "$state" == "multiline" ]]
 	exit
 fi
 
@@ -54,6 +55,7 @@ if [[ "${1:-}" == "--version" ]]; then
 	case "$state" in
 		legacy|mismatch) echo "Yazi 25.4.8 (test)" ;;
 		modern) echo "Yazi 26.5.9 (test)" ;;
+		multiline) printf 'Yazi\n    Version: 26.8.15 (test)\n' ;;
 		*) exit 1 ;;
 	esac
 	exit 0
@@ -83,8 +85,9 @@ EOF
 chmod +x "$fixture_dir/bin/ya" "$fixture_dir/bin/yazi" "$fixture_dir/bin/cargo"
 export PATH="$fixture_dir/bin:$PATH"
 
-# shellcheck source=installers/install_yazi.sh disable=SC1091
-source "$repo_dir/installers/install_yazi.sh"
+export DOTFILES_OS_OVERRIDE=debian
+# shellcheck source=../installers/source_installers.sh disable=SC1091
+source "$repo_dir/installers/source_installers.sh"
 
 assert_log_line() {
 	local expected="$1"
@@ -123,6 +126,12 @@ run_install_case mismatch repair
 assert_log_line 'cargo:install --locked yazi-build'
 assert_log_line 'cargo:install --force --locked yazi-build'
 yazi_is_compatible
+
+# Current Yazi releases print a multiline version block.
+printf 'multiline\n' >"$YAZI_TEST_STATE"
+yazi_is_compatible
+[[ "$(yazi_cli_version)" == 26.8.15 ]]
+[[ "$(yazi_fm_version)" == 26.8.15 ]]
 
 # A current installation still checks for a newer release, but does not force
 # recompilation when Cargo reports no update and the compatibility checks pass.

@@ -49,8 +49,11 @@ if ! debug_output=$(PATH="$release_dir:$PATH" \
 	exit 1
 fi
 
-cli_version=$("$ya_bin" --version | awk 'NR == 1 { print $2 }')
-fm_version=$("$yazi_bin" --version | awk 'NR == 1 { print $2 }')
+version_from_output() {
+	awk 'NR == 1 && NF >= 2 { print $2; exit } $1 == "Version:" { print $2; exit }'
+}
+cli_version=$("$ya_bin" --version | version_from_output)
+fm_version=$("$yazi_bin" --version | version_from_output)
 [[ -n "$cli_version" && "$cli_version" == "$fm_version" ]] || {
 	echo "Official $version archive contains mismatched ya/yazi versions" >&2
 	exit 1

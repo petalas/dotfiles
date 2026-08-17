@@ -45,13 +45,24 @@ chmod +x "$fixture/apt-fast-bin"/*
 (
     export PATH="$fixture/apt-fast-bin:$fixture/bin:/usr/bin:/bin"
     export DOTFILES_PACKAGE_NO_SUDO=1
-    os_id=debian
+    export DOTFILES_OS_OVERRIDE=debian
     # shellcheck source=../lib/packages.sh
     source "$repo_dir/lib/packages.sh"
     linux_packages_install alpha beta
 )
 grep -Fxq 'apt-fast install -y alpha beta' "$log"
 ! grep -Fq 'nala ' "$log"
+
+if (
+    export PATH="$fixture/apt-fast-bin:$fixture/bin:/usr/bin:/bin"
+    export DOTFILES_PACKAGE_NO_SUDO=1 DOTFILES_BATCH_RETRIES=0
+    export DOTFILES_OS_OVERRIDE=debian
+    source "$repo_dir/lib/packages.sh"
+    linux_packages_install invalid-retry
+); then
+    echo "Expected an invalid retry count to fail" >&2
+    exit 1
+fi
 
 # Retry a transient batch without discarding its parallelism.
 : >"$log"
@@ -61,7 +72,7 @@ rm -f "$fixture/fail-once"
     export DOTFILES_PACKAGE_NO_SUDO=1 DOTFILES_BATCH_RETRIES=2
     export DOTFILES_BATCH_RETRY_DELAY_SECONDS=0 DOTFILES_FAIL_ONCE=1
     export DOTFILES_FAIL_ONCE_MARKER="$fixture/fail-once"
-    os_id=debian
+    export DOTFILES_OS_OVERRIDE=debian
     source "$repo_dir/lib/packages.sh"
     linux_packages_install alpha beta
 )
@@ -74,7 +85,7 @@ if (
     export PATH="$fixture/apt-fast-bin:$fixture/bin:/usr/bin:/bin"
     export DOTFILES_PACKAGE_NO_SUDO=1 DOTFILES_BATCH_RETRIES=1
     export DOTFILES_BATCH_RETRY_DELAY_SECONDS=0
-    os_id=debian
+    export DOTFILES_OS_OVERRIDE=debian
     source "$repo_dir/lib/packages.sh"
     linux_packages_install alpha broken gamma delta
 ); then
@@ -82,15 +93,15 @@ if (
     exit 1
 fi
 grep -Fxq 'apt-fast install -y alpha broken gamma delta' "$log"
-grep -Fxq 'apt-fast install -y gamma delta' "$log"
+grep -Fxq 'apt-fast install -y gamma' "$log"
 grep -Fxq 'apt-fast install -y broken' "$log"
 
 # The same helper is sourced by the zsh `upd` function.
 if command -v zsh >/dev/null 2>&1; then
     : >"$log"
     PATH="$fixture/apt-fast-bin:$fixture/bin:/usr/bin:/bin" \
-        DOTFILES_PACKAGE_NO_SUDO=1 \
-        zsh -c 'os_id=debian; source "$1"; linux_packages_install zeta' \
+        DOTFILES_PACKAGE_NO_SUDO=1 DOTFILES_OS_OVERRIDE=debian \
+        zsh -c 'source "$1"; linux_packages_install zeta' \
         zsh "$repo_dir/lib/packages.sh"
     grep -Fxq 'apt-fast install -y zeta' "$log"
 fi
@@ -116,11 +127,23 @@ fi
 EOF
 cat >"$fixture/apt-bootstrap-bin/curl" <<'EOF'
 #!/usr/bin/env bash
-printf 'signed apt-fast key\n'
+destination=""
+while (($#)); do
+    if [[ "$1" == -o ]]; then destination="$2"; shift 2; else shift; fi
+done
+if [[ -n "$destination" ]]; then
+    printf 'signed apt-fast key\n' >"$destination"
+else
+    printf 'signed apt-fast key\n'
+fi
 EOF
 cat >"$fixture/apt-bootstrap-bin/gpg" <<'EOF'
 #!/usr/bin/env bash
-cat
+if [[ "${1:-}" == --show-keys ]]; then
+    printf 'fpr:::::::::BC5934FD3DEBD4DAEA544F791E2824A7F22B44BD:\n'
+else
+    cat
+fi
 EOF
 cat >"$fixture/apt-bootstrap-bin/debconf-set-selections" <<'EOF'
 #!/usr/bin/env bash
@@ -137,11 +160,12 @@ chmod +x "$fixture/apt-bootstrap-bin"/*
 (
     export PATH="$fixture/apt-bootstrap-bin:$fixture/bin:/usr/bin:/bin"
     export DOTFILES_PACKAGE_NO_SUDO=1 DOTFILES_BATCH_RETRIES=1
+    export DOTFILES_SKIP_APT_FAST_DETECTION=1
     export DOTFILES_APT_ROOT="$fixture/apt-bootstrap"
     export DOTFILES_APT_FAST_CONFIG="$fixture/apt-bootstrap/apt-fast.conf"
     export DOTFILES_APT_FAST_TEMPLATE="$fixture/apt-fast-template"
-    os_id=ubuntu
-    os_version_codename=noble
+    export DOTFILES_OS_OVERRIDE=ubuntu
+    export DOTFILES_OS_CODENAME_OVERRIDE=noble
     source "$repo_dir/lib/packages.sh"
     linux_packages_install gamma
 )
@@ -176,8 +200,9 @@ chmod +x "$fixture/nala-fallback-bin"/*
 (
     export PATH="$fixture/nala-fallback-bin:$fixture/bin:/usr/bin:/bin"
     export DOTFILES_PACKAGE_NO_SUDO=1 DOTFILES_BATCH_RETRIES=1
+    export DOTFILES_SKIP_APT_FAST_DETECTION=1
     export DOTFILES_APT_ROOT="$fixture/nala-apt"
-    os_id=debian
+    export DOTFILES_OS_OVERRIDE=debian
     source "$repo_dir/lib/packages.sh"
     linux_packages_install fallback
 )
@@ -204,12 +229,12 @@ EOF
     export PATH="$fixture/pacman-bin:$fixture/bin:/usr/bin:/bin"
     export DOTFILES_PACKAGE_NO_SUDO=1
     export DOTFILES_PACMAN_CONF="$fixture/pacman/pacman.conf"
-    os_id=arch
+    export DOTFILES_OS_OVERRIDE=arch
     source "$repo_dir/lib/packages.sh"
     linux_packages_install delta
 )
 grep -Fxq 'ParallelDownloads = 8' "$fixture/pacman/pacman.conf"
-grep -Fxq 'pacman -Syu --noconfirm --needed delta' "$log"
+grep -Fxq 'pacman -S --noconfirm --needed delta' "$log"
 
 : >"$log"
 if (
@@ -217,16 +242,16 @@ if (
     export DOTFILES_PACKAGE_NO_SUDO=1 DOTFILES_BATCH_RETRIES=1
     export DOTFILES_BATCH_RETRY_DELAY_SECONDS=0
     export DOTFILES_PACMAN_CONF="$fixture/pacman/pacman.conf"
-    os_id=arch
+    export DOTFILES_OS_OVERRIDE=arch
     source "$repo_dir/lib/packages.sh"
     linux_packages_install one broken two three
 ); then
     echo "Expected a broken pacman package to propagate failure" >&2
     exit 1
 fi
-grep -Fxq 'pacman -Syu --noconfirm --needed one broken two three' "$log"
-grep -Fxq 'pacman -Syu --noconfirm --needed two three' "$log"
-grep -Fxq 'pacman -Syu --noconfirm --needed broken' "$log"
+grep -Fxq 'pacman -S --noconfirm --needed one broken two three' "$log"
+grep -Fxq 'pacman -S --noconfirm --needed two' "$log"
+grep -Fxq 'pacman -S --noconfirm --needed broken' "$log"
 
 # netselect-apt chooses the Debian archive mirror while security and third-party
 # repositories stay untouched. A state marker prevents rerating every run.
@@ -270,8 +295,8 @@ EOF
     export PATH="$fixture/debian-bin:$fixture/bin:/usr/bin:/bin"
     export DOTFILES_PACKAGE_NO_SUDO=1
     export DOTFILES_APT_ROOT="$fixture/apt"
-    os_id=debian
-    os_version_codename=trixie
+    export DOTFILES_OS_OVERRIDE=debian
+    export DOTFILES_OS_CODENAME_OVERRIDE=trixie
     source "$repo_dir/lib/packages.sh"
     linux_packages_optimize_mirrors
     linux_packages_optimize_mirrors
@@ -308,8 +333,8 @@ printf 'Server = https://old.example/$repo/os/$arch\n' >"$fixture/pacman.d/mirro
     export DOTFILES_PACMAN_CONF="$fixture/pacman/reflector.conf"
     export DOTFILES_PACMAN_MIRRORLIST="$fixture/pacman.d/mirrorlist"
     export DOTFILES_PACMAN_MIRROR_STATE="$fixture/pacman.d/.dotfiles-reflector"
-    os_id=arch
-    os_id_raw=arch
+    export DOTFILES_OS_OVERRIDE=arch
+    export DOTFILES_OS_RAW_OVERRIDE=arch
     source "$repo_dir/lib/packages.sh"
     linux_packages_optimize_mirrors
     linux_packages_optimize_mirrors

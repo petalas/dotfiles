@@ -14,10 +14,6 @@ if [[ "$arch_name" != "arm64" ]]; then
 	exit 1
 fi
 
-if ! brew list --versions bash >/dev/null 2>&1; then
-	brew install bash
-fi
-
 system_bash_major=$(
 	/bin/bash --noprofile --norc -c 'printf "%s" "${BASH_VERSINFO[0]}"'
 )

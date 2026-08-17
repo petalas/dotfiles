@@ -24,13 +24,23 @@ fi
 # Keep PATH-like arrays free of duplicates. Any subsequent `export PATH=...`
 # that prepends/appends an already-present entry is silently deduped.
 typeset -U path PATH fpath FPATH
+path=(
+    "$HOME/bin"
+    "$HOME/.local/bin"
+    "$HOME/.cargo/bin"
+    $path
+)
+if [[ $OSTYPE == darwin* ]]; then
+    [[ -d /opt/homebrew/sbin ]] && path=(/opt/homebrew/sbin $path)
+    [[ -d "$HOME/Library/pnpm" ]] && path=("$HOME/Library/pnpm" $path)
+fi
 
 if command -v nvim >/dev/null 2>&1; then
-    export EDITOR="$(which nvim)"
-    export SUDO_EDITOR="$(which nvim)"
+    export EDITOR="$(command -v nvim)"
+    export SUDO_EDITOR="$EDITOR"
 elif command -v vim >/dev/null 2>&1; then
-    export EDITOR="$(which vim)"
-    export SUDO_EDITOR="$(which vim)"
+    export EDITOR="$(command -v vim)"
+    export SUDO_EDITOR="$EDITOR"
 else
     export EDITOR=vi
     export SUDO_EDITOR=vi
@@ -46,25 +56,21 @@ plugins=(
     git
     sudo
     web-search
-    archlinux
     zsh-autosuggestions
-    zsh-syntax-highlighting
     fast-syntax-highlighting
     copyfile
     copybuffer
     dirhistory
 )
 
-if command -v brew >/dev/null 2>&1; then
+if [[ $OSTYPE == darwin* ]] && command -v brew >/dev/null 2>&1; then
     plugins+=(brew)
+elif [[ -r /etc/arch-release ]]; then
+    plugins+=(archlinux)
 fi
 
 if command -v node >/dev/null 2>&1; then
     plugins+=(node)
-fi
-
-if command -v nvm >/dev/null 2>&1; then
-    plugins+=(nvm)
 fi
 
 if command -v docker >/dev/null 2>&1; then
@@ -79,8 +85,12 @@ typeset -g _DOTFILES_ZSH_DIR=${${(%):-%x}:A:h}
 # Set command-line colors before Oh My Zsh reads LS_COLORS for completion.
 [[ ! -r "$_DOTFILES_ZSH_DIR/seashells.zsh" ]] || source "$_DOTFILES_ZSH_DIR/seashells.zsh"
 
-# Set-up oh-my-zsh
-source $ZSH/oh-my-zsh.sh
+# Set up Oh My Zsh only after its installer has completed successfully.
+if [[ -r "$ZSH/oh-my-zsh.sh" ]]; then
+    source "$ZSH/oh-my-zsh.sh"
+else
+    print -u2 "Oh My Zsh is not installed; run dotfiles/configure-zsh.sh."
+fi
 
 # -----------------------------------------------------
 # Set-up FZF key bindings (CTRL R for fuzzy history finder)
@@ -108,17 +118,27 @@ if command -v eza >/dev/null 2>&1; then
     alias lt2='eza -a --tree --level=2 --icons=always'
 fi
 alias yt-dlp-best="yt-dlp --external-downloader=aria2c --external-downloader-args '--min-split-size=1M --max-connection-per-server=16 --max-concurrent-downloads=16 --split=16' -f '(bestvideo+bestaudio/best)' --merge-output-format 'mkv'"
-alias drma='docker rm -f $(docker ps -a -q)'
+alias fastfetch-now='fastfetch'
+alias lazygit-now='lazygit'
+alias highlight='rg --passthrough'
+alias claude-unsafe='claude --dangerously-skip-permissions'
+alias codex-unsafe='codex --dangerously-bypass-approvals-and-sandbox'
 
-alias ff='fastfetch'
+docker-remove-all() {
+  local -a containers
+  containers=(${(f)"$(docker ps -aq)"})
+  (( ${#containers[@]} )) || { print "No containers to remove."; return 0; }
+  docker rm -f "${containers[@]}"
+}
 
-# take ownership and set permissions to 775 for dirs and 664 for files 
-alias fixperms='sudo chown -R $(whoami):$(whoami) . && sudo chmod -R a=,a+rX,u+w,g+w .'
-
-alias lg='lazygit'
-alias c='claude --dangerously-skip-permissions'
-alias cdx='codex --dangerously-bypass-approvals-and-sandbox'
-alias hl='rg --passthrough'
+fix-permissions() {
+  (( $# == 1 )) || { print -u2 "usage: fix-permissions DIRECTORY"; return 2; }
+  [[ -d $1 ]] || { print -u2 "not a directory: $1"; return 1; }
+  local owner
+  owner="$(id -un):$(id -gn)" || return 1
+  sudo chown -R "$owner" -- "$1" &&
+    sudo chmod -R a=,a+rX,u+w,g+w -- "$1"
+}
 
 # Clear bunx's per-package temp caches under $TMPDIR. Useful when a cached
 # install is corrupt (e.g. partial node_modules from an interrupted download
@@ -193,166 +213,39 @@ elif command -v vim >/dev/null 2>&1; then
     alias vimdiff="vim -d"
 fi
 
-function upd() {
-  local failures=()
-
-  _upd_run() {
-    local label="$1"; shift
-    local rc=0
-    echo "\n\033[1;34m:: $label\033[0m"
-    "$@"
-    rc=$?
-    if (( rc != 0 )); then
-      printf '\033[1;31mcommand failed (%d): %s\033[0m\n' "$rc" "$(printf '%q ' "$@")"
-      failures+=("$label")
-    fi
-    return $rc
-  }
-
-  _upd_run_bunx_skills() {
-    local rc=0
-    echo "\n\033[1;34m:: skills\033[0m"
-    bunx skills update --global
-    rc=$?
-
-    if (( rc != 0 )); then
-      echo "skills update failed; clearing bunx temp cache and retrying"
-      bunx-clean
-      bunx skills update --global
-      rc=$?
-    fi
-
-    if (( rc != 0 )); then
-      printf '\033[1;31mcommand failed (%d): %s\033[0m\n' "$rc" "bunx skills update --global"
-      failures+=("skills")
-    fi
-    return $rc
-  }
-
-  # System packages
-  if [[ $OSTYPE == linux* ]]; then
-    local package_helpers="${DOTFILES_DIR:-$HOME/git/dotfiles}/lib/packages.sh"
-    if [[ -r "$package_helpers" ]]; then
-      source "$package_helpers"
-      _upd_run "system packages" linux_packages_upgrade
-    else
-      failures+=("Linux package helpers missing")
-      printf '\033[1;31mmissing: %s\033[0m\n' "$package_helpers"
-    fi
-  fi
-
-  if [[ $OSTYPE == darwin* ]]; then
-    if command -v brew >/dev/null 2>&1; then
-      local brew_helpers="${DOTFILES_DIR:-$HOME/git/dotfiles}/lib/homebrew.sh"
-      if [[ -f "$brew_helpers" ]]; then
-        source "$brew_helpers"
-        _upd_run "brew update" brew update
-        _upd_run "brew bundle" homebrew_bundle_install_resilient \
-          "${DOTFILES_DIR:-$HOME/git/dotfiles}/Brewfile"
-        _upd_run "brew upgrades" homebrew_upgrade_individually
-      else
-        failures+=("Homebrew helpers missing")
-        printf '\033[1;31mmissing: %s\033[0m\n' "$brew_helpers"
-      fi
-    fi
-  fi
-
-  # Language toolchains
-  if command -v rustup >/dev/null 2>&1; then
-    _upd_run "rustup" rustup update
-  fi
-
-  # sdkman (sdk is a shell function, not a binary)
-  if [[ -s "${SDKMAN_DIR:-$HOME/.sdkman}/bin/sdkman-init.sh" ]]; then
-    # sdk upgrade prompts "Use prescribed default version(s)?" unless
-    # sdkman_auto_answer=true; fix idempotently so upd stays non-interactive.
-    local sdkman_cfg="${SDKMAN_DIR:-$HOME/.sdkman}/etc/config"
-    if [[ -f "$sdkman_cfg" ]] && grep -q '^sdkman_auto_answer=false' "$sdkman_cfg"; then
-      sed -i.bak 's/^sdkman_auto_answer=false/sdkman_auto_answer=true/' "$sdkman_cfg" && rm -f "${sdkman_cfg}.bak"
-    fi
-    _upd_run "sdkman self" sdk selfupdate
-    _upd_run "sdkman candidates" sdk update
-    _upd_run "sdkman upgrade" sdk upgrade
-  fi
-
-  if command -v bun >/dev/null 2>&1; then
-    _upd_run "bun" bun upgrade
-  fi
-
-  if command -v npm >/dev/null 2>&1; then
-    local npm_pkgs=($(npm outdated -g --parseable 2>/dev/null | cut -d: -f4 | sed 's/@[^@]*$//' | grep -v '/\.' | sort -u))
-    if (( ${#npm_pkgs[@]} )); then
-      _upd_run "npm global" npm update -g "${npm_pkgs[@]}"
-    else
-      echo "\n\033[1;34m:: npm global\033[0m"
-      echo "all packages up to date"
-    fi
-  fi
-
-  if command -v pnpm >/dev/null 2>&1; then
-    # Corepack prompts before downloading a new pnpm tarball; suppress it.
-    local pnpm_globals=""
-    pnpm_globals=$(env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm ls -g --depth=0 --parseable 2>/dev/null)
-    if [[ -n "$pnpm_globals" ]]; then
-      _upd_run "pnpm globals" env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm update -g --latest
-    else
-      echo "\n\033[1;34m:: pnpm globals\033[0m"
-      echo "no global packages installed"
-    fi
-  fi
-
-  # Misc tools
-  if command -v pi >/dev/null 2>&1; then
-    _upd_run "pi update" pi update
-  fi
-
-  if command -v tldr >/dev/null 2>&1; then
-    _upd_run "tldr" tldr -u
-  fi
-
-  # Keep petalas/nvim/master mirrored from Kickstart, merge upstream into the
-  # custom branch, smoke-test it, and publish the merge. Ordinary merges let
-  # other machines fast-forward safely without force-push reconciliation.
-  local nvim_sync="${DOTFILES_DIR:-$HOME/git/dotfiles}/lib/nvim-sync.sh"
-  local nvim_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/nvim"
-  if [[ -f "$nvim_sync" && -d "$nvim_cfg/.git" ]]; then
-    source "$nvim_sync"
-    if _upd_run "nvim config + upstream" nvim_sync_fork "$nvim_cfg"; then
-      _upd_run "nvim plugins" nvim_update_plugins "$nvim_cfg"
-    fi
-  fi
-
-  if command -v bunx >/dev/null 2>&1; then
-    _upd_run_bunx_skills
-  fi
-
-  # Summary
-  echo ""
-  if (( ${#failures[@]} )); then
-    echo "\033[1;31m✗ Failed: ${(j:, :)failures}\033[0m"
-    unset -f _upd_run _upd_run_bunx_skills
-    return 1
-  else
-    echo "\033[1;32m✓ Everything up to date.\033[0m"
-  fi
-
-  unset -f _upd_run _upd_run_bunx_skills
+upd() {
+  local updater="${DOTFILES_DIR:-$HOME/git/dotfiles}/update-dotfiles"
+  [[ -x "$updater" ]] || { print -u2 "missing or not executable: $updater"; return 1; }
+  "$updater"
 }
 
-# kill anything taking up the specified port, usage example: killport 6060
-function killport() {
-  sudo lsof -i :$1 | grep LISTEN | awk '{ print $2 }' | xargs kill -9
+# Kill listeners on one numeric TCP/UDP port.
+kill-port() {
+  (( $# == 1 )) && [[ $1 == <1-65535> ]] || {
+    print -u2 "usage: kill-port PORT"
+    return 2
+  }
+  local -a pids
+  pids=(${(f)"$(sudo lsof -nP -t -i :$1 2>/dev/null | sort -u)"})
+  (( ${#pids[@]} )) || { print "No process is listening on port $1."; return 0; }
+  sudo kill -TERM "${pids[@]}"
 }
 
 # https://yazi-rs.github.io/docs/quick-start
 # yazi wrapper that provides the ability to change the current working directory when exiting Yazi.
-function y() {
-    local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
-    yazi "$@" --cwd-file="$tmp"
-    if cwd="$(command cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
-        builtin cd -- "$cwd"
-    fi
-    rm -f -- "$tmp"
+y() {
+    local tmp cwd result
+    tmp=$(mktemp -t "yazi-cwd.XXXXXX") || return 1
+    {
+        yazi "$@" --cwd-file="$tmp"
+        result=$?
+        if cwd=$(command cat -- "$tmp") && [[ -n "$cwd" && "$cwd" != "$PWD" ]]; then
+            builtin cd -- "$cwd"
+        fi
+        return $result
+    } always {
+        rm -f -- "$tmp"
+    }
 }
 
 # To customize prompt layout, run `p10k configure` or edit ~/.p10k.zsh.
@@ -361,93 +254,66 @@ function y() {
 [[ ! -r "$_DOTFILES_ZSH_DIR/p10k-seashells.zsh" ]] || source "$_DOTFILES_ZSH_DIR/p10k-seashells.zsh"
 unset _DOTFILES_ZSH_DIR
 
-# The next line updates PATH for the Google Cloud SDK.
-if [ -f "$HOME/google-cloud-sdk/path.zsh.inc" ]; then . "$HOME/google-cloud-sdk/path.zsh.inc"; fi
+# Optional tool initialization. Each block is guarded so a partial install
+# cannot break every new shell.
+[[ -r "$HOME/google-cloud-sdk/path.zsh.inc" ]] && source "$HOME/google-cloud-sdk/path.zsh.inc"
+[[ -r "$HOME/google-cloud-sdk/completion.zsh.inc" ]] && source "$HOME/google-cloud-sdk/completion.zsh.inc"
 
-# The next line enables shell command completion for gcloud.
-if [ -f "$HOME/google-cloud-sdk/completion.zsh.inc" ]; then . "$HOME/google-cloud-sdk/completion.zsh.inc"; fi
-
-# adding ~/.local/bin to path (for things like getnf)
-export PATH="$HOME/.local/bin:$PATH"
-
-# adding /opt/homebrew/sbin to path
-export PATH="/opt/homebrew/sbin:$PATH"
-
-# setup nvm
-[[ -d "$HOME/.nvm" ]] && export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm 
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
-# setup nvm (homebrew version)
-[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && . "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
-[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && . "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
-[ -s "/usr/share/nvm/init-nvm.sh" ] && source "/usr/share/nvm/init-nvm.sh"
+# Select one NVM installation, in user, Homebrew, then distro order.
+if [[ -s "$HOME/.nvm/nvm.sh" ]]; then
+  export NVM_DIR="$HOME/.nvm"
+  source "$NVM_DIR/nvm.sh"
+elif [[ -s /opt/homebrew/opt/nvm/nvm.sh ]]; then
+  export NVM_DIR="$HOME/.nvm"
+  source /opt/homebrew/opt/nvm/nvm.sh
+elif [[ -s /usr/share/nvm/init-nvm.sh ]]; then
+  source /usr/share/nvm/init-nvm.sh
+fi
 
 export PASSWORD_STORE_ENABLE_EXTENSIONS=true
 
-# Add Rust's cargo bin to PATH if it's not already there
-if [[ ":$PATH:" != *":$HOME/.cargo/bin:"* ]]; then
-    export PATH="$HOME/.cargo/bin:$PATH"
-fi
-
 if command -v brew >/dev/null 2>&1; then
-    export LIBRARY_PATH="$LIBRARY_PATH:$(brew --prefix)/lib"
-    export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
+  brew_lib=$(brew --prefix)/lib
+  export LIBRARY_PATH="${LIBRARY_PATH:+$LIBRARY_PATH:}$brew_lib"
+  unset brew_lib
+  ruby_prefix=$(brew --prefix ruby 2>/dev/null) && path=("$ruby_prefix/bin" $path)
+  unset ruby_prefix
 fi
 
-# >>> conda initialize >>>
-# !! Contents within this block are managed by 'conda init' !!
-__conda_setup="$("$HOME/miniconda3/bin/conda" 'shell.zsh' 'hook' 2> /dev/null)"
-if [ $? -eq 0 ]; then
+if [[ -x "$HOME/miniconda3/bin/conda" ]]; then
+  __conda_setup=$("$HOME/miniconda3/bin/conda" shell.zsh hook 2>/dev/null)
+  if (( $? == 0 )); then
     eval "$__conda_setup"
-else
-    if [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
-        . "$HOME/miniconda3/etc/profile.d/conda.sh"
-    else
-        export PATH="$HOME/miniconda3/bin:$PATH"
-    fi
+  elif [[ -r "$HOME/miniconda3/etc/profile.d/conda.sh" ]]; then
+    source "$HOME/miniconda3/etc/profile.d/conda.sh"
+  fi
+  unset __conda_setup
 fi
-unset __conda_setup
-# <<< conda initialize <<<
 
-# pnpm
-export PNPM_HOME="$HOME/Library/pnpm"
-case ":$PATH:" in
-  *":$PNPM_HOME:"*) ;;
-  *) export PATH="$PNPM_HOME:$PATH" ;;
-esac
-# pnpm end
-export PATH="$HOME/bin:$PATH"
+if [[ -d "$HOME/Library/pnpm" ]]; then
+  export PNPM_HOME="$HOME/Library/pnpm"
+elif [[ -d "$HOME/.local/share/pnpm" ]]; then
+  export PNPM_HOME="$HOME/.local/share/pnpm"
+  path=("$PNPM_HOME" $path)
+fi
 
-# THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
-export SDKMAN_DIR="$HOME/.sdkman"
-[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
-
-# bun
 if [[ -d "$HOME/.bun" ]]; then
   export BUN_INSTALL="$HOME/.bun"
-  export PATH="$BUN_INSTALL/bin:$PATH"
+  path=("$BUN_INSTALL/bin" $path)
   # bun completions
   [[ -s "$BUN_INSTALL/_bun" ]] && source "$BUN_INSTALL/_bun"
 fi
-# maestro
-if [[ -d "$HOME/.maestro/bin" ]]; then
-  export PATH="$PATH:$HOME/.maestro/bin"
+[[ -d "$HOME/.maestro/bin" ]] && path+=("$HOME/.maestro/bin")
+[[ -d "$HOME/.lmstudio/bin" ]] && path+=("$HOME/.lmstudio/bin")
+
+if [[ $OSTYPE == darwin* && -d /opt/homebrew/share/android-commandlinetools ]]; then
+  export ANDROID_HOME=/opt/homebrew/share/android-commandlinetools
+  path+=("$ANDROID_HOME/emulator" "$ANDROID_HOME/platform-tools")
 fi
 
-# android sdk (homebrew cmdline-tools)
-if [[ -d "/opt/homebrew/share/android-commandlinetools" ]]; then
-  export ANDROID_HOME="/opt/homebrew/share/android-commandlinetools"
-  export PATH="$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools"
-fi
+export SDKMAN_DIR="$HOME/.sdkman"
+[[ -r "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"
 
-# lm studio cli (lms)
-if [[ -d "$HOME/.lmstudio/bin" ]]; then
-  export PATH="$PATH:$HOME/.lmstudio/bin"
-fi
-
-# Local machine-specific secrets and overrides. This file lives outside the
-# dotfiles repo because ~/.zshrc is a symlink to dot/zshrc.
+# Machine-specific secrets and overrides live outside this repository.
 [[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
-
-# Vite+ bin (https://viteplus.dev)
 [[ -r "$HOME/.vite-plus/env" ]] && source "$HOME/.vite-plus/env"

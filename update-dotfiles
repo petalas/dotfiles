@@ -1,0 +1,140 @@
+#!/usr/bin/env zsh
+# Update the dotfiles checkout, system packages, language tools, and managed
+# Neovim state. Every independent step runs; failures are summarized at end.
+setopt pipe_fail
+
+DOTFILES_ROOT=${DOTFILES_DIR:-$HOME/git/dotfiles}
+typeset -a failures
+
+# Restart from the newly pulled script so an update never continues through a
+# file that Git may have replaced while Zsh was still reading it.
+if (( $# > 1 )) || { (( $# == 1 )) && [[ $1 != --after-dotfiles-pull ]]; }; then
+  print -u2 "usage: update-dotfiles"
+  exit 2
+fi
+if [[ ${1:-} != --after-dotfiles-pull ]]; then
+  [[ -d $DOTFILES_ROOT/.git ]] || {
+    print -u2 "Not a Git checkout: $DOTFILES_ROOT"
+    exit 1
+  }
+  [[ -z $(git -C "$DOTFILES_ROOT" status --porcelain) ]] || {
+    print -u2 "Dotfiles checkout is dirty; commit or stash it before updating."
+    exit 1
+  }
+  git -C "$DOTFILES_ROOT" pull --ff-only || exit 1
+  exec "$DOTFILES_ROOT/update-dotfiles" --after-dotfiles-pull
+fi
+shift
+
+run_step() {
+  local label=$1
+  shift
+  print
+  print -P "%F{blue}:: $label%f"
+  local result
+  "$@"
+  result=$?
+  if (( result != 0 )); then
+    print -P "%F{red}failed: $label%f" >&2
+    failures+=("$label")
+  fi
+  return $result
+}
+
+record_missing() {
+  print -P "%F{red}missing: $2%f" >&2
+  failures+=("$1")
+}
+
+bunx_clean() {
+  local tmp=${TMPDIR:-/tmp}
+  rm -rf -- "${tmp%/}"/bunx-*(N)
+}
+
+update_skills() {
+  bunx skills update --global && return 0
+  print "Skills update failed; clearing Bun's temporary package cache and retrying."
+  bunx_clean
+  bunx skills update --global
+}
+
+restore_dotfiles_state() {
+  "$DOTFILES_ROOT/link-dotfiles.sh" && "$DOTFILES_ROOT/setup-tools.sh"
+}
+
+run_step "dotfiles links + generated tool state" restore_dotfiles_state
+
+if [[ $OSTYPE == linux* ]]; then
+  package_helpers=$DOTFILES_ROOT/lib/packages.sh
+  if [[ -r $package_helpers ]]; then
+    source "$package_helpers"
+    run_step "system packages" linux_packages_upgrade
+  else
+    record_missing "Linux package helpers" "$package_helpers"
+  fi
+elif [[ $OSTYPE == darwin* ]] && (( $+commands[brew] )); then
+  brew_helpers=$DOTFILES_ROOT/lib/homebrew.sh
+  if [[ -r $brew_helpers ]]; then
+    source "$brew_helpers"
+    run_step "Homebrew metadata" brew update
+    run_step "Brewfile reconciliation" homebrew_bundle_install_resilient "$DOTFILES_ROOT/Brewfile"
+    run_step "Homebrew upgrades" homebrew_upgrade_individually
+  else
+    record_missing "Homebrew helpers" "$brew_helpers"
+  fi
+fi
+
+(( $+commands[rustup] )) && run_step "Rust toolchain" rustup update
+
+if [[ -s ${SDKMAN_DIR:-$HOME/.sdkman}/bin/sdkman-init.sh ]]; then
+  source "${SDKMAN_DIR:-$HOME/.sdkman}/bin/sdkman-init.sh"
+  sdkman_cfg=${SDKMAN_DIR:-$HOME/.sdkman}/etc/config
+  if [[ -f $sdkman_cfg ]] && grep -q '^sdkman_auto_answer=false' "$sdkman_cfg"; then
+    sed -i.bak 's/^sdkman_auto_answer=false/sdkman_auto_answer=true/' "$sdkman_cfg" &&
+      rm -f "$sdkman_cfg.bak"
+  fi
+  run_step "SDKMAN self-update" sdk selfupdate
+  run_step "SDKMAN candidate metadata" sdk update
+  run_step "SDKMAN candidates" sdk upgrade
+fi
+
+(( $+commands[bun] )) && run_step "Bun" bun upgrade
+
+if (( $+commands[npm] )); then
+  npm_packages=(${(f)"$(npm outdated -g --parseable 2>/dev/null | cut -d: -f4 | sed 's/@[^@]*$//' | grep -v '/\.' | sort -u)"})
+  # Pi owns its self-update; do not immediately update the same package twice.
+  (( $+commands[pi] )) && npm_packages=(${npm_packages:#@earendil-works/pi-coding-agent})
+  if (( ${#npm_packages[@]} )); then
+    run_step "npm global packages" npm update -g "${npm_packages[@]}"
+  else
+    print "npm global packages are up to date."
+  fi
+fi
+
+if (( $+commands[pnpm] )); then
+  pnpm_globals=$(env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm ls -g --depth=0 --parseable 2>/dev/null)
+  if [[ -n $pnpm_globals ]]; then
+    run_step "pnpm global packages" env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm update -g --latest
+  fi
+fi
+
+(( $+commands[pi] )) && run_step "Pi" pi update
+(( $+commands[tldr] )) && run_step "tldr cache" tldr -u
+
+nvim_helpers=$DOTFILES_ROOT/lib/nvim-sync.sh
+nvim_config=${XDG_CONFIG_HOME:-$HOME/.config}/nvim
+if [[ -f $nvim_helpers && -d $nvim_config/.git ]]; then
+  source "$nvim_helpers"
+  if run_step "Neovim config + upstream" nvim_sync_fork "$nvim_config"; then
+    run_step "Neovim plugins" nvim_update_plugins "$nvim_config"
+  fi
+fi
+
+(( $+commands[bunx] )) && run_step "global skills" update_skills
+
+print
+if (( ${#failures[@]} )); then
+  print -P "%F{red}Failed: ${(j:, :)failures}%f" >&2
+  exit 1
+fi
+print -P "%F{green}Everything is up to date.%f"

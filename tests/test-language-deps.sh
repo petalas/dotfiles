@@ -4,11 +4,13 @@ set -euo pipefail
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 fixture=$(mktemp -d /tmp/dotfiles-language-deps.XXXXXX)
 trap 'rm -rf "$fixture"' EXIT
-mkdir -p "$fixture/bin"
+mkdir -p "$fixture/bin" "$fixture/home"
 log="$fixture/commands"
 export LANGUAGE_DEPS_LOG="$log"
+export HOME="$fixture/home"
 export PATH="$fixture/bin:/usr/bin:/bin"
 export DOTFILES_BATCH_RETRIES=1 DOTFILES_BATCH_RETRY_DELAY_SECONDS=0
+export DOTFILES_INSTALL_ALL_LANGUAGE_DEPS=1
 
 cat >"$fixture/bin/npm" <<'EOF'
 #!/usr/bin/env bash

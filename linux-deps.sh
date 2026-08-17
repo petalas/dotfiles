@@ -1,18 +1,24 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154
 set -euo pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
+root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+cd "$root_dir"
 # shellcheck source=installers/source_installers.sh
 source installers/source_installers.sh
 
-run_optional() {
-    local name="$1"
+os=$(dotfiles_os) || {
+    echo "Unsupported Linux distribution." >&2
+    exit 1
+}
+failures=()
+run_best_effort() {
+    local label="$1"
     shift
     if ! "$@"; then
-        echo "Warning: $name failed; continuing." >&2
-        return 1
+        echo "Warning: $label failed; continuing." >&2
+        failures+=("$label")
     fi
+    return 0
 }
 
 ensure_command_alias() {
@@ -22,16 +28,21 @@ ensure_command_alias() {
 
     command -v "$command_name" >/dev/null 2>&1 && return 0
     packaged_path=$(command -v "$packaged_name" 2>/dev/null) || return 0
-    [[ ! -e "$target" && ! -L "$target" ]] || return 0
     mkdir -p "${target%/*}"
+    if [[ -L "$target" ]]; then
+        [[ "$(readlink "$target")" == "$packaged_path" ]] && return 0
+        rm -f "$target"
+    elif [[ -e "$target" ]]; then
+        echo "Cannot manage command alias over existing file: $target" >&2
+        return 1
+    fi
     ln -s "$packaged_path" "$target"
 }
 
-if ! linux_packages_optimize_mirrors; then
-    echo "Warning: mirror optimization failed; using the current mirrors." >&2
-fi
+run_best_effort "mirror optimization" linux_packages_optimize_mirrors
+linux_packages_refresh
 
-case "$os_id" in
+case "$os" in
     ubuntu|debian)
         required=(
             ca-certificates build-essential clang cmake curl git gnupg jq locales
@@ -44,14 +55,11 @@ case "$os_id" in
         )
         language=(cargo default-jdk gradle kotlin nodejs npm rustc)
 
-        linux_packages_refresh
         linux_packages_install "${required[@]}"
-        if ((${#optional[@]})); then
-            run_optional "optional distro packages" \
-                linux_packages_install_available "${optional[@]}" || true
-            run_optional "language distro packages" \
-                linux_packages_install_available "${language[@]}" || true
-        fi
+        run_best_effort "optional distro packages" \
+            linux_packages_install_available "${optional[@]}"
+        run_best_effort "language distro packages" \
+            linux_packages_install_available "${language[@]}"
         ;;
     arch)
         required=(
@@ -69,45 +77,41 @@ case "$os_id" in
         )
 
         linux_packages_install "${required[@]}"
-        ((${#optional[@]} == 0)) ||
-            run_optional "optional distro packages" \
-                linux_packages_install_available "${optional[@]}" || true
+        run_best_effort "optional distro packages" \
+            linux_packages_install_available "${optional[@]}"
         ;;
     *)
-        echo "Unsupported Linux distribution: $os_id" >&2
+        echo "Unsupported Linux distribution: $os" >&2
         exit 1
         ;;
 esac
 
-# Debian renames these executables to avoid package-name collisions.
-ensure_command_alias fd fdfind
-ensure_command_alias bat batcat
+run_best_effort "fd command alias" ensure_command_alias fd fdfind
+run_best_effort "bat command alias" ensure_command_alias bat batcat
 
-if [[ "$os_id" == ubuntu || "$os_id" == debian ]]; then
+if [[ "$os" == ubuntu || "$os" == debian ]]; then
     for app in bitwarden chrome code discord docker ghostty lazygit neovim obsidian; do
-        run_optional "$app" "install_$app" || true
+        run_best_effort "$app" "install_$app"
     done
 else
-    # Arch provides these applications directly; the installer only performs
-    # Docker's service and group setup once the package is present.
-    run_optional docker install_docker || true
+    run_best_effort docker install_docker
 fi
 
-# No distro package currently exists for Herdr or Claude Code. Bun and
-# Lazydocker installers are no-ops when their native Arch packages are already
-# present.
 for app in bun claude_code herdr lazydocker; do
-    run_optional "$app" "install_$app" || true
+    run_best_effort "$app" "install_$app"
 done
 
-command -v npm >/dev/null 2>&1 &&
-    run_optional "Node packages" install_node_deps || true
+if command -v npm >/dev/null 2>&1; then
+    run_best_effort "Node packages" install_node_deps
+fi
 if command -v cargo >/dev/null 2>&1; then
-    run_optional "Rust packages" install_rust_deps || true
-    if [[ "$os_id" != arch ]]; then
-        run_optional yazi install_yazi || true
-    fi
+    run_best_effort "Rust packages" install_rust_deps
+    [[ "$os" == arch ]] || run_best_effort yazi install_yazi
 fi
 
-# Package-manager dependencies are required; individual applications are best effort.
+if ((${#failures[@]})); then
+    printf 'Best-effort Linux setup failures: %s\n' "${failures[*]}" >&2
+fi
+# System package-manager dependencies are required; individual applications
+# and language add-ons remain best effort.
 exit 0

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154
 
 install_discord() {
+    local os
     command -v discord >/dev/null 2>&1 && return 0
-    case "$os_id" in
+    os=$(dotfiles_os) || return 1
+    case "$os" in
         ubuntu|debian)
             linux_install_deb_url \
                 'https://discord.com/api/download?platform=linux&format=deb' \
@@ -13,8 +14,3 @@ install_discord() {
         *) return 1 ;;
     esac
 }
-
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-    echo "Run this installer through: ./install discord" >&2
-    exit 2
-fi

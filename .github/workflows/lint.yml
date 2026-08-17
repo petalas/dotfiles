@@ -4,60 +4,46 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  shellcheck:
+  checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
-      # shellcheck ships with ubuntu-latest runners.
-      # Keep excludes in sync with .githooks/pre-commit.
-      - name: Shellcheck
+      - name: Install test shell
         run: |
-          shellcheck --severity=warning --exclude=SC2034,SC1090 \
-            $(git ls-files '*.sh') \
-            install \
-            .githooks/pre-commit
+          command -v zsh >/dev/null || {
+            sudo apt-get update
+            sudo apt-get install -y zsh
+          }
 
-      - name: Test dotfile link state transitions
-        run: ./tests/test-link-path.sh
+      - name: ShellCheck Bash files
+        run: |
+          git ls-files -z '*.sh' | xargs -0 shellcheck --severity=warning --exclude=SC1090
+          shellcheck --severity=warning --exclude=SC1090 install .githooks/pre-commit
 
-      - name: Test Git synchronization retries
-        run: ./tests/test-git-sync.sh
+      - name: Shell syntax
+        run: |
+          while IFS= read -r -d '' file; do bash -n "$file"; done < <(git ls-files -z '*.sh')
+          bash -n install .githooks/pre-commit
+          zsh -n dot/zshrc dot/*.zsh update-dotfiles
 
-      - name: Test Neovim fork synchronization
-        run: ./tests/test-nvim-sync.sh
-
-      - name: Test Neovim GitHub authentication
-        run: ./tests/test-nvim-github-auth.sh
-
-      - name: Test macOS non-interactive install policy
-        run: ./tests/test-easy-install-noninteractive.sh
-
-      - name: Test Homebrew dependency setup
-        run: ./tests/test-brew-deps.sh
-
-      - name: Test language dependency setup
-        run: ./tests/test-language-deps.sh
-
-      - name: Test Linux package management
-        run: ./tests/test-linux-packages.sh
-
-      - name: Test Yazi installer compatibility
-        run: ./tests/test-yazi.sh
-
-      - name: Test config against latest stable Yazi
-        run: ./tests/test-yazi-config.sh
+      - name: Deterministic tests
+        run: ./tests/run.sh
 
   macos-arm:
     name: macOS arm64 smoke
-    # GitHub's macos-14 hosted image is Apple Silicon arm64.
     runs-on: macos-14
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -66,3 +52,13 @@ jobs:
 
       - name: Test dotfile links with macOS utilities
         run: /bin/bash ./tests/test-link-path.sh
+
+  yazi-latest:
+    name: Latest Yazi compatibility
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test managed config against latest stable Yazi
+        run: ./tests/test-yazi-config.sh

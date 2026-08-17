@@ -26,6 +26,11 @@ cat >"$fixture_dir/link-dotfiles.sh" <<'EOF'
 #!/usr/bin/env bash
 printf 'links\n' >>"$TEST_STEPS"
 EOF
+cat >"$fixture_dir/setup-tools.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'tools\n' >>"$TEST_STEPS"
+[[ "${TEST_SCENARIO:-}" != tool_failure ]]
+EOF
 cat >"$fixture_dir/setup-fonts.sh" <<'EOF'
 #!/usr/bin/env bash
 printf 'fonts\n' >>"$TEST_STEPS"
@@ -39,6 +44,8 @@ cat >"$fixture_dir/configure-zsh.sh" <<'EOF'
 printf 'plugins\n' >>"$TEST_STEPS"
 EOF
 chmod +x "$fixture_dir/bin/sudo" "$fixture_dir"/*.sh
+mkdir -p "$fixture_dir/lib"
+cp "$repo_dir/lib/platform.sh" "$fixture_dir/lib/platform.sh"
 
 steps="$fixture_dir/steps"
 run_install() {
@@ -52,13 +59,13 @@ run_install() {
 }
 
 run_install success
-[[ "$(cat "$steps")" == $'dependencies\nlinks\nfonts\nzsh\nplugins' ]]
+[[ "$(cat "$steps")" == $'dependencies\nplugins\nlinks\ntools\nfonts\nzsh' ]]
 
 if run_install font_failure; then
     echo "Expected an optional failure to produce a nonzero final status" >&2
     exit 1
 fi
-[[ "$(cat "$steps")" == $'dependencies\nlinks\nfonts\nzsh\nplugins' ]]
+[[ "$(cat "$steps")" == $'dependencies\nplugins\nlinks\ntools\nfonts\nzsh' ]]
 grep -Fq 'font setup failed; continuing' "$fixture_dir/font_failure.log"
 
 if run_install dependency_failure; then

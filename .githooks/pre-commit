@@ -1,21 +1,30 @@
 #!/usr/bin/env bash
-# Pre-commit: shellcheck staged *.sh files.
-# No-op if shellcheck isn't installed (brew install shellcheck).
-#
-# Excluded codes:
-#   SC2034 — unused color vars (ceremonial "red/green/yellow" at top of installers)
-#   SC1090 — can't follow non-constant source (intentional in source_installers.sh)
+# Validate staged Bash and Zsh scripts before commit. CI runs the same checks.
+set -euo pipefail
 
 if ! command -v shellcheck >/dev/null 2>&1; then
-	echo "[pre-commit] shellcheck not installed — skipping (brew install shellcheck)"
-	exit 0
+    echo "[pre-commit] shellcheck not installed; skipping local lint."
+    exit 0
 fi
 
-staged=()
+bash_files=()
+zsh_files=()
 while IFS= read -r file; do
-	[[ "$file" == *.sh ]] && staged+=("$file")
+    case "$file" in
+        *.sh|install|.githooks/pre-commit) bash_files+=("$file") ;;
+        dot/zshrc|*.zsh|update-dotfiles) zsh_files+=("$file") ;;
+    esac
 done < <(git diff --cached --name-only --diff-filter=ACM)
-[[ ${#staged[@]} -eq 0 ]] && exit 0
 
-echo "[pre-commit] shellcheck: ${staged[*]}"
-shellcheck --severity=warning --exclude=SC2034,SC1090 "${staged[@]}"
+if ((${#bash_files[@]})); then
+    echo "[pre-commit] ShellCheck: ${bash_files[*]}"
+    shellcheck --severity=warning --exclude=SC1090 "${bash_files[@]}"
+    for file in "${bash_files[@]}"; do
+        bash -n "$file"
+    done
+fi
+
+if ((${#zsh_files[@]})) && command -v zsh >/dev/null 2>&1; then
+    echo "[pre-commit] Zsh syntax: ${zsh_files[*]}"
+    zsh -n "${zsh_files[@]}"
+fi

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154
 
 install_docker() {
-    local user
+    local os user
     local -a packages
 
+    os=$(dotfiles_os) || return 1
     if ! command -v docker >/dev/null 2>&1; then
-        case "$os_id" in
+        case "$os" in
             ubuntu|debian)
                 packages=(docker.io)
                 if linux_package_available docker-compose-v2; then
@@ -25,16 +25,11 @@ install_docker() {
     fi
 
     if command -v systemctl >/dev/null 2>&1 && [[ -d /run/systemd/system ]]; then
-        sudo -n systemctl enable --now docker || return 1
+        run_as_root systemctl enable --now docker || return 1
     fi
     user=$(id -un)
     if getent group docker >/dev/null 2>&1; then
-        sudo -n usermod -aG docker "$user" || return 1
+        run_as_root usermod -aG docker "$user" || return 1
     fi
     echo "Docker is installed. Log out and back in for group access."
 }
-
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-    echo "Run this installer through: ./install docker" >&2
-    exit 2
-fi

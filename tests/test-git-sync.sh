@@ -45,4 +45,29 @@ fi
     exit 1
 }
 
-echo "Git synchronization retry tests passed."
+# Existing clones must retain the expected origin, branch, and clean state.
+remote="$fixture_dir/remote.git"
+seed="$fixture_dir/seed"
+checkout="$fixture_dir/checkout"
+git init --bare --initial-branch=main "$remote" >/dev/null
+git clone --quiet "$remote" "$seed"
+git -C "$seed" config user.name Test
+git -C "$seed" config user.email test@example.com
+printf 'managed\n' >"$seed/file"
+git -C "$seed" add file
+git -C "$seed" commit --quiet -m initial
+git -C "$seed" push --quiet origin main
+clone_or_ff "$remote" "$checkout" main
+printf 'untracked\n' >"$checkout/local"
+if clone_or_ff "$remote" "$checkout" main; then
+    echo "clone_or_ff accepted a dirty checkout" >&2
+    exit 1
+fi
+rm "$checkout/local"
+git -C "$checkout" remote set-url origin "$fixture_dir/wrong.git"
+if clone_or_ff "$remote" "$checkout" main; then
+    echo "clone_or_ff accepted an unexpected origin" >&2
+    exit 1
+fi
+
+echo "Git synchronization retry and checkout validation tests passed."

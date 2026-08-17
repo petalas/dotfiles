@@ -84,4 +84,12 @@ fi
 [[ -z "$(git -C "$config" status --porcelain)" ]]
 [[ "$(git --git-dir="$fork" rev-parse master)" == "$(git --git-dir="$upstream" rev-parse master)" ]]
 
+# Plugin updates never publish from an unexpected branch.
+git -C "$config" checkout --quiet master
+if nvim_update_plugins "$config"; then
+    echo 'nvim plugin update unexpectedly accepted master' >&2
+    exit 1
+fi
+git -C "$config" checkout --quiet custom
+
 echo 'Nvim fork synchronization tests passed.'

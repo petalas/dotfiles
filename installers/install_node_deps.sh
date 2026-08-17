@@ -23,8 +23,3 @@ install_node_deps() {
         @earendil-works/pi-coding-agent || install_failed=1
     return "$install_failed"
 }
-
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-    echo "Run this installer through: ./install node_deps" >&2
-    exit 2
-fi

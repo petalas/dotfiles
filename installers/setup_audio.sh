@@ -1,22 +1,30 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154
 
 setup_audio() {
-    local -a packages=(
-        pulseaudio libasound2 libasound2-plugins libasound2-doc alsa-utils
-        alsa-oss alsamixergui apulse alsa-firmware-loaders
-        pulseaudio-module-bluetooth
-    )
+    local os
+    local -a packages=(alsa-utils bluez)
 
-    [[ "$os_id" == ubuntu || "$os_id" == debian ]] || return 1
-    linux_packages_install_available "${packages[@]}"
-    sudo -n alsactl init
-    sudo -n systemctl restart bluetooth.service
-    echo "${yellow}Attempting to power-cycle Bluetooth (timeout 10s)...${reset}"
-    timeout 10 bash -c 'bluetoothctl power off && bluetoothctl power on'
+    os=$(dotfiles_os) || return 1
+    [[ "$os" == ubuntu || "$os" == debian ]] || {
+        echo "Audio setup is supported only on Debian and Ubuntu." >&2
+        return 1
+    }
+
+    if command -v pipewire >/dev/null 2>&1; then
+        packages+=(pipewire pipewire-audio wireplumber)
+    else
+        packages+=(pulseaudio pulseaudio-module-bluetooth)
+    fi
+    linux_packages_install_available "${packages[@]}" || return 1
+
+    if command -v alsactl >/dev/null 2>&1; then
+        run_as_root alsactl init || return 1
+    fi
+    if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files bluetooth.service >/dev/null 2>&1; then
+        run_as_root systemctl restart bluetooth.service || return 1
+    fi
+    if command -v bluetoothctl >/dev/null 2>&1; then
+        echo "Power-cycling Bluetooth (timeout 10s)..."
+        timeout 10 bash -c 'bluetoothctl power off && bluetoothctl power on'
+    fi
 }
-
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-    echo "Run this setup through: ./install audio" >&2
-    exit 2
-fi

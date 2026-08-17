@@ -7,15 +7,23 @@ trap 'rm -rf "$fixture"' EXIT
 mkdir -p "$fixture/bin" "$fixture/installers" "$fixture/home" "$fixture/lib"
 cp "$repo_dir/brew-deps.sh" "$fixture/brew-deps.sh"
 cp "$repo_dir/lib/homebrew.sh" "$fixture/lib/homebrew.sh"
+cp "$repo_dir/lib/download.sh" "$fixture/lib/download.sh"
 : >"$fixture/Brewfile"
-: >"$fixture/setup-brew.sh"
+cat >"$fixture/setup-brew.sh" <<'EOF'
+setup_homebrew() { :; }
+EOF
 
 cat >"$fixture/bin/brew" <<'EOF'
 #!/usr/bin/env bash
 printf 'brew %s\n' "$*" >>"$TEST_STEPS"
 case "$1" in
     update) exit 0 ;;
-    bundle) [[ "${TEST_SCENARIO:-}" != bundle_failure ]] ;;
+    bundle)
+        if [[ "${2:-}" == list ]]; then
+            exit 0
+        fi
+        [[ "${TEST_SCENARIO:-}" != bundle_failure ]]
+        ;;
     *) exit 1 ;;
 esac
 EOF
@@ -57,6 +65,17 @@ run_test bundle_failure
 for expected in ghostty node-deps bun rust-deps yazi; do
     grep -Fxq "$expected" "$steps"
 done
-grep -Fq 'Brewfile installation failed' "$fixture/bundle_failure.log"
+grep -Fq 'Brewfile reconciliation failed' "$fixture/bundle_failure.log"
+
+# Isolated fallback keeps the complete Brewfile declaration, including trust.
+cat >"$fixture/options.Brewfile" <<'EOF'
+unless ENV["HOMEBREW_SKIP_MOBILE"]
+  brew "vendor/tap/tool", trusted: true
+end
+EOF
+# shellcheck source=../lib/homebrew.sh
+source "$repo_dir/lib/homebrew.sh"
+_homebrew_extract_entry "$fixture/options.Brewfile" formula vendor/tap/tool "$fixture/entry.Brewfile"
+grep -Fxq 'brew "vendor/tap/tool", trusted: true' "$fixture/entry.Brewfile"
 
 echo "Homebrew dependency continuation tests passed."
