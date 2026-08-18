@@ -25,14 +25,14 @@ import (
 type outcome string
 
 const (
-	ensure outcome = "ensure"
-	leave  outcome = "leave"
-	remove outcome = "remove"
-	force  outcome = "force"
+	ensure      outcome = "ensure"
+	leave       outcome = "leave"
+	remove      outcome = "remove"
+	legacyForce outcome = "force"
 )
 
-var orderedOutcomes = []outcome{ensure, leave, remove, force}
-var outcomeTitles = map[outcome]string{ensure: "ENSURE PRESENT", leave: "LEAVE UNCHANGED", remove: "REMOVE", force: "FORCE REMOVAL"}
+var orderedOutcomes = []outcome{ensure, leave, remove}
+var outcomeTitles = map[outcome]string{ensure: "ENSURE PRESENT", leave: "LEAVE UNCHANGED", remove: "REMOVE"}
 
 type planStep struct {
 	id, label string
@@ -40,8 +40,13 @@ type planStep struct {
 }
 
 type application struct {
-	id, group, groupLabel, label, availability, presence, custody, policy, exact, force, evidence string
-	outcome                                                                                       outcome
+	id, group, groupLabel, label, availability, presence, custody, policy, exact, cleanup, evidence string
+	outcome                                                                                         outcome
+	cleanupFallback                                                                                 bool
+}
+
+func (app application) usesCleanupFallback() bool {
+	return app.outcome == remove && (app.cleanupFallback || app.exact != "enabled" && app.cleanup == "enabled")
 }
 
 type displayMode string
@@ -84,8 +89,10 @@ func parseInputs(observationsPath, selectionPath string) ([]application, []planS
 		switch {
 		case len(fields) == 3 && fields[0] == "outcome":
 			switch outcome(fields[2]) {
-			case ensure, leave, remove, force:
+			case ensure, leave, remove:
 				selected[fields[1]] = outcome(fields[2])
+			case legacyForce:
+				selected[fields[1]] = remove
 			default:
 				return fmt.Errorf("invalid desired outcome for %s", fields[1])
 			}
@@ -117,7 +124,7 @@ func parseInputs(observationsPath, selectionPath string) ([]application, []planS
 			}
 			apps = append(apps, application{
 				id: fields[1], availability: fields[2], presence: fields[3], custody: fields[4], policy: fields[5],
-				exact: fields[6], force: fields[7], group: fields[8], groupLabel: groupLabels[fields[8]], label: fields[9],
+				exact: fields[6], cleanup: fields[7], group: fields[8], groupLabel: groupLabels[fields[8]], label: fields[9],
 				evidence: fields[10], outcome: wanted,
 			})
 			return nil
@@ -247,16 +254,12 @@ func (m model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			m.setSelectedOutcome(leave)
 		case "r":
 			m.setSelectedOutcome(remove)
-		case "f":
-			m.setSelectedOutcome(force)
 		case "E":
 			m.setGroupOutcome(ensure)
 		case "U":
 			m.setGroupOutcome(leave)
 		case "R":
 			m.setGroupOutcome(remove)
-		case "F":
-			m.setGroupOutcome(force)
 		case "enter":
 			m.stage, m.reviewScroll = "review", 0
 		}
@@ -330,37 +333,35 @@ func (m *model) beginConfirmation() {
 }
 
 func (m model) confirmationStepCount() int {
-	forces, exact := len(m.appsWithOutcome(force)), len(m.appsWithOutcome(remove))
-	count := forces
-	if exact > 0 {
-		count++
-	}
-	if forces > 0 {
+	count := len(m.appsUsingCleanupFallback())
+	if len(m.appsWithOutcome(remove)) > 0 {
 		count++
 	}
 	if count == 0 {
-		count = 1
+		return 1
 	}
 	return count
 }
+
 func (m model) expectedPhrase() string {
-	forces := m.appsWithOutcome(force)
-	position := m.arm
-	if position < len(forces) {
-		return forces[position].label
+	fallbacks := m.appsUsingCleanupFallback()
+	if m.arm < len(fallbacks) {
+		return fallbacks[m.arm].label
 	}
-	position -= len(forces)
-	exact := len(m.appsWithOutcome(remove))
-	if exact > 0 {
-		if position == 0 {
-			return fmt.Sprintf("REMOVE %d", exact)
-		}
-		position--
-	}
-	if len(forces) > 0 && position == 0 {
-		return fmt.Sprintf("FORCE REMOVE %d", len(forces))
+	if removals := len(m.appsWithOutcome(remove)); removals > 0 && m.arm == len(fallbacks) {
+		return fmt.Sprintf("REMOVE %d", removals)
 	}
 	return "START"
+}
+
+func (m model) appsUsingCleanupFallback() []application {
+	apps := []application{}
+	for _, app := range m.apps {
+		if app.usesCleanupFallback() {
+			apps = append(apps, app)
+		}
+	}
+	return apps
 }
 
 func (m *model) setSelectedOutcome(next outcome) {
@@ -388,14 +389,11 @@ func (m *model) trySetOutcome(index int, next outcome) string {
 	if app.policy == "required" && next != ensure {
 		return app.label + " is required"
 	}
-	if (next == remove || next == force) && m.retainedDependent(app.id) != "" {
+	if next == remove && m.retainedDependent(app.id) != "" {
 		return app.label + " is retained by " + m.retainedDependent(app.id)
 	}
-	if next == remove && app.exact != "enabled" {
-		return app.label + " lacks managed custody for exact removal"
-	}
-	if next == force && app.force != "enabled" {
-		return app.label + " has no curated cleanup recipe"
+	if next == remove && app.exact != "enabled" && app.cleanup != "enabled" {
+		return app.label + " has no supported removal method"
 	}
 	m.apps[index].outcome = next
 	if next == ensure {
@@ -404,7 +402,7 @@ func (m *model) trySetOutcome(index int, next outcome) string {
 		}
 	} else if next == leave {
 		for _, prerequisite := range m.dependencies[app.id] {
-			if current := m.appByID(prerequisite); current != nil && (current.outcome == remove || current.outcome == force) {
+			if current := m.appByID(prerequisite); current != nil && current.outcome == remove {
 				m.setOutcomeByID(prerequisite, leave)
 			}
 		}
@@ -427,7 +425,7 @@ func (m *model) setGroupOutcomeFor(group string, next outcome) {
 			indices = append(indices, i)
 		}
 	}
-	if next == remove || next == force {
+	if next == remove {
 		for left, right := 0, len(indices)-1; left < right; left, right = left+1, right-1 {
 			indices[left], indices[right] = indices[right], indices[left]
 		}
@@ -476,7 +474,7 @@ func (m model) retainedDependent(prerequisite string) string {
 			if app == nil {
 				continue
 			}
-			if app.outcome != remove && app.outcome != force && app.presence != "absent" {
+			if app.outcome != remove && app.presence != "absent" {
 				return app.label
 			}
 		}
@@ -671,7 +669,7 @@ func (m model) renderPlan() string {
 			managed++
 		}
 		if app.outcome == ensure && app.presence != "present" ||
-			(app.outcome == remove || app.outcome == force) && app.presence != "absent" {
+			app.outcome == remove && app.presence != "absent" {
 			changes++
 		}
 		if app.presence == "present" && app.custody == "unverified" {
@@ -702,8 +700,8 @@ func (m model) renderPlan() string {
 		}
 		header = append(header, fit(line, width))
 	}
-	footer := wrapWords("up/down select  left/right collapse/expand  e/u/r/f set node outcome", width)
-	footer = append(footer, wrapWords("Shift+E/U/R/F parent group  [/] filter group  tab steps", width)...)
+	footer := wrapWords("up/down select  left/right collapse/expand  e/u/r set node outcome", width)
+	footer = append(footer, wrapWords("Shift+E/U/R parent group  [/] filter group  tab steps", width)...)
 	detailControl := "v show details"
 	if m.verbose {
 		detailControl = "v hide details"
@@ -726,7 +724,7 @@ func compactContext(active, separator, message, control string, width, height in
 	lines := []string{fit("STAGES", width)}
 	lines = append(lines, wrapSegments(stageParts, separator, width)...)
 	lines = append(lines, fit("OUTCOMES", width))
-	lines = append(lines, wrapSegments([]string{"Ensure", "Leave", "Remove", "Force"}, separator, width)...)
+	lines = append(lines, wrapSegments([]string{"Ensure", "Leave", "Remove"}, separator, width)...)
 	lines = append(lines, wrapWords(message, width)...)
 	if control != "" {
 		lines = append(lines, wrapWords(control, width)...)
@@ -748,7 +746,7 @@ func stageStepper(active, separator string) string {
 }
 
 func (m model) outcomeSummaryParts() []string {
-	labels := map[outcome]string{ensure: "Ensure", leave: "Leave", remove: "Remove", force: "Force"}
+	labels := map[outcome]string{ensure: "Ensure", leave: "Leave", remove: "Remove"}
 	parts := make([]string, 0, len(orderedOutcomes))
 	for _, wanted := range orderedOutcomes {
 		parts = append(parts, fmt.Sprintf("%s %d", labels[wanted], len(m.appsWithOutcomeInGroup(wanted))))
@@ -785,8 +783,6 @@ func outcomeLabel(wanted outcome) string {
 		return "Leave unchanged"
 	case remove:
 		return "Remove"
-	case force:
-		return "Force removal"
 	default:
 		return string(wanted)
 	}
@@ -882,7 +878,7 @@ func (m model) groupOutcomeSummary(group string) string {
 			counts[app.outcome]++
 		}
 	}
-	return fmt.Sprintf("Ensure %d%sLeave %d%sRemove %d%sForce %d", counts[ensure], m.separator(), counts[leave], m.separator(), counts[remove], m.separator(), counts[force])
+	return fmt.Sprintf("Ensure %d%sLeave %d%sRemove %d", counts[ensure], m.separator(), counts[leave], m.separator(), counts[remove])
 }
 
 func stateTransitionValues(app application) (string, string, bool) {
@@ -894,7 +890,7 @@ func stateTransitionValues(app application) (string, string, bool) {
 	switch app.outcome {
 	case ensure:
 		desired = "present"
-	case remove, force:
+	case remove:
 		desired = "removed"
 	}
 	changed := current != desired && !(current == "absent" && desired == "removed") && current != "unavailable"
@@ -1000,10 +996,14 @@ func (m model) renderReview() string {
 		fmt.Fprintf(&b, "%s (%d)\n", outcomeTitles[wanted], len(apps))
 		for _, app := range apps {
 			label := m.renderApplicationLabel("  ", app)
+			method := ""
+			if wanted == remove && app.usesCleanupFallback() {
+				method = m.separator() + "cleanup fallback"
+			}
 			if m.verbose {
-				fmt.Fprintf(&b, "%s%s%s%s%s\n", label, m.separator(), m.renderStateTransition(app), m.separator(), app.evidence)
+				fmt.Fprintf(&b, "%s%s%s%s%s%s\n", label, m.separator(), m.renderStateTransition(app), method, m.separator(), app.evidence)
 			} else {
-				fmt.Fprintf(&b, "%s%s%s\n", label, m.separator(), m.renderStateTransition(app))
+				fmt.Fprintf(&b, "%s%s%s%s\n", label, m.separator(), m.renderStateTransition(app), method)
 			}
 		}
 	}
@@ -1213,8 +1213,13 @@ func parsePrepared(path string) ([]application, []planStep, []string, error) {
 	details := []string{}
 	err := scanPrepared(path, func(fields []string) error {
 		if len(fields) == 8 && fields[0] == "app" {
-			apps = append(apps, application{id: fields[1], outcome: outcome(fields[2]), policy: fields[3],
-				group: fields[4], label: fields[5], presence: fields[6], custody: fields[7], evidence: fields[6] + " · " + fields[7]})
+			wanted := outcome(fields[2])
+			cleanupFallback := wanted == legacyForce
+			if cleanupFallback {
+				wanted = remove
+			}
+			apps = append(apps, application{id: fields[1], outcome: wanted, policy: fields[3],
+				group: fields[4], label: fields[5], presence: fields[6], custody: fields[7], evidence: fields[6] + " · " + fields[7], cleanupFallback: cleanupFallback})
 			return nil
 		}
 		if len(fields) == 5 && fields[0] == "step" {
@@ -1222,7 +1227,16 @@ func parsePrepared(path string) ([]application, []planStep, []string, error) {
 			return nil
 		}
 		if len(fields) == 6 && fields[0] == "removal" {
-			details = append(details, fmt.Sprintf("%s: %s %s (%s)", fields[2], fields[3], fields[4], fields[1]))
+			mode := fields[2]
+			if mode == "force" {
+				mode = "cleanup fallback"
+				for index := range apps {
+					if apps[index].id == fields[1] {
+						apps[index].cleanupFallback = true
+					}
+				}
+			}
+			details = append(details, fmt.Sprintf("%s: %s %s (%s)", mode, fields[3], fields[4], fields[1]))
 			return nil
 		}
 		if len(fields) == 4 && fields[0] == "blocker" {
@@ -1497,7 +1511,7 @@ func (m progressModel) render() string {
 	}
 	var b strings.Builder
 	fmt.Fprintln(&b, fit(stageStepper(m.stage, separator), width))
-	for _, line := range wrapSegments([]string{"Ensure", "Leave", "Remove", "Force"}, separator, width) {
+	for _, line := range wrapSegments([]string{"Ensure", "Leave", "Remove"}, separator, width) {
 		fmt.Fprintln(&b, line)
 	}
 	activity := "RUN"

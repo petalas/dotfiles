@@ -26,6 +26,7 @@ tools.client	brew	payload	brew-formula	client
 tools.loose	direct	payload	installer	loose
 EOF
 cat >"$catalog/removals.tsv" <<'EOF'
+macos	tools.runtime	path	/usr/local/bin/runtime-fallback
 macos	tools.loose	path	~/.local/bin/loose
 macos	tools.loose	retain	~/.config/loose	user-data
 EOF
@@ -33,7 +34,7 @@ cat >"$fixture/observations.tsv" <<'EOF'
 format	1
 os	macos
 observation	foundation.git	available	present	provided	required	disabled	disabled	foundation	Git	provided
-observation	tools.runtime	available	present	managed	optional	enabled	disabled	tools	Runtime	registered
+observation	tools.runtime	available	present	managed	optional	enabled	enabled	tools	Runtime	registered
 mechanism	tools.runtime	brew-formula	runtime
 observation	tools.client	available	present	managed	optional	enabled	disabled	tools	Client	registered
 mechanism	tools.client	brew-formula	client
@@ -59,7 +60,7 @@ format	1
 outcome	foundation.git	ensure
 outcome	tools.runtime	remove
 outcome	tools.client	remove
-outcome	tools.loose	force
+outcome	tools.loose	remove
 EOF
 DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare \
     --mode outcomes --os macos --selection "$fixture/removal-selection.tsv" \
@@ -68,6 +69,29 @@ DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare \
 grep -Fxq $'removal\ttools.runtime\texact\tbrew-formula\truntime\t' "$fixture/removal.plan"
 grep -Fxq $'removal\ttools.client\texact\tbrew-formula\tclient\t' "$fixture/removal.plan"
 grep -Fxq $'removal\ttools.loose\tforce\tpath\t~/.local/bin/loose\t' "$fixture/removal.plan"
+if grep -Fq $'removal\ttools.runtime\tforce\t' "$fixture/removal.plan"; then
+    echo 'Expected exact removal to take precedence over cleanup fallback' >&2
+    exit 1
+fi
+
+sed $'s/observation\ttools.loose\tavailable\tpresent\tunverified\toptional\tdisabled\tenabled/observation\ttools.loose\tavailable\tpresent\tunverified\toptional\tdisabled\tdisabled/' \
+    "$fixture/observations.tsv" >"$fixture/no-removal-observations.tsv"
+if DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare \
+    --mode outcomes --os macos --selection "$fixture/removal-selection.tsv" \
+    --observations "$fixture/no-removal-observations.tsv" --output "$fixture/no-removal.plan" \
+    >/dev/null 2>"$fixture/no-removal.err"; then
+    echo 'Expected removal without an exact mechanism or cleanup recipe to fail' >&2
+    exit 1
+fi
+grep -Fq 'removal is disabled for tools.loose' "$fixture/no-removal.err"
+
+sed $'s/outcome\ttools.loose\tremove/outcome\ttools.loose\tforce/' \
+    "$fixture/removal-selection.tsv" >"$fixture/legacy-force-selection.tsv"
+DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare \
+    --mode outcomes --os macos --selection "$fixture/legacy-force-selection.tsv" \
+    --observations "$fixture/observations.tsv" --output "$fixture/legacy-force.plan" >/dev/null
+grep -Fxq $'app\ttools.loose\tforce\toptional\ttools\tLoose\tpresent\tunverified' "$fixture/legacy-force.plan"
+grep -Fxq $'removal\ttools.loose\tforce\tpath\t~/.local/bin/loose\t' "$fixture/legacy-force.plan"
 
 cat >"$fixture/adapter" <<'EOF'
 #!/usr/bin/env bash
@@ -106,7 +130,7 @@ tools.client	apt	payload	apt-package	client
 tools.loose	direct	payload	installer	loose
 EOF
 sed 's/^os\tmacos$/os\tubuntu/; s/brew-formula/apt-package/g' "$fixture/observations.tsv" >"$fixture/ubuntu-observations.tsv"
-sed $'s/outcome\ttools.loose\tforce/outcome\ttools.loose\tleave/' "$fixture/removal-selection.tsv" >"$fixture/apt-selection.tsv"
+sed $'s/outcome\ttools.loose\tremove/outcome\ttools.loose\tleave/' "$fixture/removal-selection.tsv" >"$fixture/apt-selection.tsv"
 DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare --mode outcomes --os ubuntu \
     --selection "$fixture/apt-selection.tsv" --observations "$fixture/ubuntu-observations.tsv" \
     --output "$fixture/apt.plan" >/dev/null

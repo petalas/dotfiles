@@ -60,7 +60,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 ## Aggregate custody cannot authorize an exact removal method
 
 - An application can have several possible providers (for example APT plus a direct installer). Reporting only `custody=managed` loses which mechanism actually established custody and can make preparation remove every candidate package identity.
-- Inspection artifacts therefore include one aggregate `observation` plus exact `mechanism` rows. Prepared Exact Remove operations come only from those mechanism rows; Force removal alone expands the broader cleanup recipe. Deduplicate mechanism rows: a package identity often appears in both the install action and cleanup recipe, and executing the duplicate removes it once then falsely fails on the second attempt.
+- Inspection artifacts therefore include one aggregate `observation` plus exact `mechanism` rows. Remove prefers those exact mechanism rows and expands the broader cleanup recipe only when no exact mechanism is available. Do not prepare both sets speculatively: a package identity often appears in both the install action and cleanup recipe, and executing the duplicate removes it once then falsely fails on the second attempt.
 - A direct-install receipt may be created only when the command was absent before a successful installer run or when an existing valid receipt is being refreshed. A successful no-op installer over a pre-existing unreceipted command must not claim custody.
 
 ## Release helper hashes must disable Go VCS stamping
@@ -75,9 +75,10 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - The `choose` command must honor its own “Enter opens review” help text. Exiting directly from Plan made the separate prepared-run review feel like an unrelated second UI. Keep the state-transition and 80×24 bounds tests at the model seam.
 - Successful interactive inspection uses the alternate screen and leaves no static “run settled” report behind before Plan opens. Redirected runs still print their final report for automation and diagnostics.
 - Compact rows should carry state text independently of color: rich mode colors the application/current state and any changed desired state, while plain and ASCII modes retain the same `current -> desired` wording. Once rows contain ANSI styling, truncate with the ANSI-aware `x/ansi.Truncate`; rune slicing can cut an escape sequence and corrupt the rest of the terminal.
-- Outcome buckets are summaries, not list-navigation surfaces. Moving an application into another filtered lane after `e/u/r/f` destroys spatial context just when the user needs to verify the new scheduled state. Keep one catalog-order, group-filtered planning tree; update the selected node and outcome counts in place.
+- Outcome buckets are summaries, not list-navigation surfaces. Moving an application into another filtered lane after `e/u/r` destroys spatial context just when the user needs to verify the new scheduled state. Keep one catalog-order, group-filtered planning tree; update the selected node and outcome counts in place.
 - The catalog's real tree is dependency-group root → application leaves. Application prerequisites form a graph with shared nodes and must not be presented as tree parentage. Emit canonical group labels in the TUI selection artifact; deriving labels from IDs loses names such as “Terminal & shell.”
-- Persistent disabled-reason rows make the tree jump even before an action is attempted. Keep compact rows one line and replace the fixed summary/status line with the rejection reason only after an invalid `e/u/r/f` action.
+- Persistent disabled-reason rows make the tree jump even before an action is attempted. Keep compact rows one line and replace the fixed summary/status line with the rejection reason only after an invalid `e/u/r` action.
+- Exact removal and cleanup fallback are execution methods, not separate user intents. Expose one Remove outcome: prefer exact custody-backed mechanisms, automatically select a curated cleanup recipe only when exact removal is unavailable, and disclose fallback targets in review plus differentiated confirmation. Keep accepting legacy `force` artifacts without writing new ones.
 
 ## Bubble Tea progress needs consumed terminal replies and a dedicated event channel
 

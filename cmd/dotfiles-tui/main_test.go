@@ -2,19 +2,20 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
 )
 
-func TestDifferentiatedConfirmationSequence(t *testing.T) {
+func TestRemovalConfirmationDisclosesAutomaticCleanupFallback(t *testing.T) {
 	m := model{apps: []application{
-		{id: "exact", label: "Exact", outcome: remove},
-		{id: "forced", label: "Forced", outcome: force},
+		{id: "exact", label: "Exact", exact: "enabled", outcome: remove},
+		{id: "fallback", label: "Fallback", exact: "disabled", cleanup: "enabled", outcome: remove},
 	}}
 	m.beginConfirmation()
-	want := []string{"Forced", "REMOVE 1", "FORCE REMOVE 1"}
+	want := []string{"Fallback", "REMOVE 2"}
 	for index, expected := range want {
 		if got := m.expectedPhrase(); got != expected {
 			t.Fatalf("step %d: expected %q, got %q", index, expected, got)
@@ -26,13 +27,37 @@ func TestDifferentiatedConfirmationSequence(t *testing.T) {
 	}
 }
 
+func TestPreparedCleanupFallbackUsesUnifiedRemovalReview(t *testing.T) {
+	path := t.TempDir() + "/prepared.tsv"
+	content := "format\t2\n" +
+		"os\tmacos\n" +
+		"app\tloose\tremove\toptional\ttools\tLoose\tpresent\tunverified\n" +
+		"removal\tloose\tforce\tpath\t~/.local/bin/loose\t\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	apps, steps, details, err := parsePrepared(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := model{apps: apps, steps: steps, reviewDetails: details, display: plain, stage: "review", confirmOnly: true, width: 80, height: 24}
+	view := m.render()
+	if apps[0].outcome != remove || !apps[0].cleanupFallback || !strings.Contains(view, "cleanup fallback") || strings.Contains(view, "Force") {
+		t.Fatalf("prepared cleanup fallback was not presented as unified removal:\n%s", view)
+	}
+	m.beginConfirmation()
+	if phrase := m.expectedPhrase(); phrase != "Loose" {
+		t.Fatalf("cleanup fallback did not retain differentiated confirmation: %q", phrase)
+	}
+}
+
 func TestPlanningViewFitsTerminalAndKeepsSelectionVisible(t *testing.T) {
 	apps := make([]application, 20)
 	for i := range apps {
 		apps[i] = application{
 			id: fmt.Sprintf("app-%02d", i+1), label: fmt.Sprintf("Application %02d", i+1),
 			group: "tools", presence: "present", custody: "managed", policy: "optional",
-			exact: "enabled", force: "disabled", evidence: "registered by package manager", outcome: ensure,
+			exact: "enabled", cleanup: "disabled", evidence: "registered by package manager", outcome: ensure,
 		}
 	}
 	m := model{apps: apps, dependencies: map[string][]string{}, display: plain, stage: "select", chooseOnly: true, cursor: 20}
@@ -50,10 +75,30 @@ func TestPlanningViewFitsTerminalAndKeepsSelectionVisible(t *testing.T) {
 	if !strings.Contains(view, "Application 20") {
 		t.Fatal("selected application must remain visible in the scrollable planning list")
 	}
-	for _, required := range []string{"[PLAN]", "REVIEW", "RUN", "Ensure", "Leave", "Remove", "Force", "Application 20 · present", "enter review", "q quit"} {
+	for _, required := range []string{"[PLAN]", "REVIEW", "RUN", "Ensure", "Leave", "Remove", "Application 20 · present", "enter review", "q quit"} {
 		if !strings.Contains(view, required) {
 			t.Fatalf("planning view is missing persistent context or control %q", required)
 		}
+	}
+	if strings.Contains(view, "Force") || strings.Contains(view, "/f") {
+		t.Fatalf("planning view still exposes a separate force-removal option:\n%s", view)
+	}
+}
+
+func TestRemoveUsesCleanupFallbackWhenExactRemovalIsUnavailable(t *testing.T) {
+	m := model{apps: []application{{
+		id: "unverified", label: "Unverified app", group: "tools", availability: "available", presence: "present",
+		policy: "optional", exact: "disabled", cleanup: "enabled", outcome: ensure,
+	}}, dependencies: map[string][]string{}, display: plain, stage: "select", width: 80, height: 18}
+	m.cursor = 1 // Application leaf beneath the group root.
+	updated, _ := m.Update(tea.KeyPressMsg(tea.Key{Text: "r", Code: 'r'}))
+	result := updated.(model)
+	if result.apps[0].outcome != remove || result.notice != "" {
+		t.Fatalf("r did not schedule automatic cleanup fallback: outcome=%q notice=%q", result.apps[0].outcome, result.notice)
+	}
+	result.stage = "review"
+	if view := result.render(); !strings.Contains(view, "cleanup fallback") {
+		t.Fatalf("review did not disclose cleanup fallback:\n%s", view)
 	}
 }
 
@@ -134,7 +179,7 @@ func TestTinyTerminalKeepsStageAndLaneContextVisible(t *testing.T) {
 			t.Fatalf("tiny-terminal line exceeds width: %q", line)
 		}
 	}
-	for _, required := range []string{"[PLAN]", "REVIEW", "RUN", "Ensure", "Leave", "Remove", "Force", "Resize"} {
+	for _, required := range []string{"[PLAN]", "REVIEW", "RUN", "Ensure", "Leave", "Remove", "Resize"} {
 		if !strings.Contains(view, required) {
 			t.Fatalf("tiny-terminal fallback is missing %q", required)
 		}
@@ -152,7 +197,7 @@ func TestReviewFitsTerminalAndScrollsToLastApplication(t *testing.T) {
 	if lines := strings.Count(strings.TrimSuffix(view, "\n"), "\n") + 1; lines > 18 {
 		t.Fatalf("60x18 review received %d rendered lines", lines)
 	}
-	for _, required := range []string{"PLAN", "[REVIEW]", "RUN", "Ensure", "Leave", "Remove", "Force", "Application 18", "enter accept", "choices esc back"} {
+	for _, required := range []string{"PLAN", "[REVIEW]", "RUN", "Ensure", "Leave", "Remove", "Application 18", "enter accept", "choices esc back"} {
 		if !strings.Contains(view, required) {
 			t.Fatalf("scrolled review is missing %q:\n%s", required, view)
 		}
@@ -184,9 +229,21 @@ func TestGroupOutcomeChangesSpecificGroupOnly(t *testing.T) {
 	}
 	m.groupFilter = 0
 	m.cursor = 1 // A child still targets its parent subtree without a group filter.
-	m.setGroupOutcome(force)
+	m.setGroupOutcome(leave)
 	if !strings.Contains(m.notice, "Gaming:") {
 		t.Fatalf("child group action did not target its parent subtree, got %q", m.notice)
+	}
+}
+
+func TestRemoveRejectsApplicationWithoutAnyCataloguedMethod(t *testing.T) {
+	m := model{apps: []application{{
+		id: "unsupported", label: "Unsupported app", group: "tools", availability: "available", presence: "present",
+		policy: "optional", exact: "disabled", cleanup: "disabled", outcome: ensure,
+	}}, dependencies: map[string][]string{}, display: plain, stage: "select", width: 80, height: 18, cursor: 1}
+	updated, _ := m.Update(tea.KeyPressMsg(tea.Key{Text: "r", Code: 'r'}))
+	result := updated.(model)
+	if result.apps[0].outcome != ensure || result.notice != "Unsupported app has no supported removal method" {
+		t.Fatalf("unsupported removal did not fail contextually: outcome=%q notice=%q", result.apps[0].outcome, result.notice)
 	}
 }
 

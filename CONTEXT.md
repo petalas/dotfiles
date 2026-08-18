@@ -53,20 +53,20 @@ How confidently present payload is attributable: managed by an exact catalog-dec
 _Avoid_: Ownership, provenance
 
 **Removal capability**:
-Whether exact or force removal has a supported recipe and whether current catalog policy or retained dependents block it. It is independent of application presence and installation custody.
+Whether exact removal or cleanup fallback is supported and whether current catalog policy or retained dependents block removal. It is independent of application presence and installation custody.
 _Avoid_: Uninstallable flag
 
-**Force removal**:
-An explicit one-run, best-effort removal outcome for a catalog application that may use a cleanup recipe without verified installation custody while retaining dependency and user-data safeguards.
-_Avoid_: Purge, forced package removal
+**Cleanup fallback**:
+The automatic, best-effort removal method used when an application lacks verified custody for exact removal but has a cleanup recipe. It retains dependency and user-data safeguards and is disclosed during review and confirmation rather than exposed as a separate desired outcome.
+_Avoid_: Force removal, purge
 
 **Cleanup recipe**:
-An ordered, catalog-declared set of reviewed methods and bounded targets that Force removal may try for one application. It may remove dedicated managed support artifacts but never user data or shared prerequisites.
+An ordered, catalog-declared set of reviewed methods and bounded targets that cleanup fallback may try for one application. It may remove dedicated managed support artifacts but never user data or shared prerequisites.
 _Avoid_: Uninstaller, cleanup script
 
 **Desired outcome**:
-The instruction a visual run assigns to an application: ensure present, leave unchanged, remove exactly, or force removal. Only wanted or not-wanted intent survives into selection defaults; destructive outcomes belong to one confirmed run.
-_Avoid_: Selection state, action
+The instruction a visual run assigns to an application: ensure present, leave unchanged, or remove. Remove chooses exact removal when custody supports it and cleanup fallback otherwise. Only wanted or not-wanted intent survives into selection defaults; destructive outcomes belong to one confirmed run.
+_Avoid_: Selection state, removal method, action
 
 **Retained application**:
 A present, partial, or unknown application not selected for removal, whether or not it remains wanted for reconciliation. Its transitive prerequisites cannot be removed without also removing the retained application.

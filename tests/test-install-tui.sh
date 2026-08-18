@@ -26,7 +26,7 @@ step	dependencies	on	Install dependencies
 dependency	editors.neovim	foundation.git
 outcome	foundation.git	ensure
 outcome	editors.neovim	remove
-outcome	communication.discord	force
+outcome	communication.discord	remove
 outcome	gaming.steam	leave
 EOF
 
@@ -35,12 +35,25 @@ go build -o "$fixture/dotfiles-tui" ./cmd/dotfiles-tui
     --selection "$fixture/selection.tsv" --width 120 --display rich >"$fixture/rich"
 grep -Fq 'Ensure 1' "$fixture/rich"
 grep -Fq 'Leave 1' "$fixture/rich"
-grep -Fq 'Remove 1' "$fixture/rich"
-grep -Fq 'Force 1' "$fixture/rich"
+grep -Fq 'Remove 2' "$fixture/rich"
+if grep -Fq 'Force' "$fixture/rich"; then
+    echo 'Planning must not expose Force as a separate outcome' >&2
+    exit 1
+fi
 grep -Fq 'custody warnings 1' "$fixture/rich"
 grep -Fq 'enter review' "$fixture/rich"
 grep -Fq '4 applications' "$fixture/rich"
 grep -Fq 'Install dependencies' "$fixture/rich"
+
+sed $'s/outcome\tcommunication.discord\tremove/outcome\tcommunication.discord\tforce/' \
+    "$fixture/selection.tsv" >"$fixture/legacy-force-selection.tsv"
+"$fixture/dotfiles-tui" render --observations "$fixture/observations.tsv" \
+    --selection "$fixture/legacy-force-selection.tsv" --width 120 --display plain >"$fixture/legacy-force"
+grep -Fq 'Remove 2' "$fixture/legacy-force"
+if grep -Fq 'Force' "$fixture/legacy-force"; then
+    echo 'Legacy force selections must render as unified removal' >&2
+    exit 1
+fi
 
 sed 's/outcome\teditors.neovim\tremove/outcome\teditors.neovim\tensure/' \
     "$fixture/selection.tsv" >"$fixture/compact-selection.tsv"
@@ -90,7 +103,7 @@ PY
 LC_ALL=C grep -q '^[ -~]*$' "$fixture/ascii"
 grep -Fq '[!]' "$fixture/ascii"
 grep -Fq 'APPLICATION TREE (4 apps)  node 1/8' "$fixture/ascii"
-grep -Fq 'e/u/r/f set node outcome' "$fixture/ascii"
+grep -Fq 'e/u/r set node outcome' "$fixture/ascii"
 grep -Fq 'left/right collapse/expand' "$fixture/ascii"
 if grep -Fq 'left/right lane' "$fixture/ascii"; then
     echo 'Planning tree must not advertise outcome lanes as navigation' >&2
@@ -110,7 +123,7 @@ EOF
 chmod +x "$fixture/events"
 TERM=xterm "$fixture/dotfiles-tui" run -- "$fixture/events" >"$fixture/run"
 grep -Fq '[RUN]' "$fixture/run"
-grep -Fq 'Ensure · Leave · Remove · Force' "$fixture/run"
+grep -Fq 'Ensure · Leave · Remove' "$fixture/run"
 grep -Fq '2/2 settled' "$fixture/run"
 grep -Fq 'One — succeeded' "$fixture/run"
 grep -Fq 'Run settled successfully' "$fixture/run"

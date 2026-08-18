@@ -848,11 +848,12 @@ write_outcome_plan() {
     for app_index in "${!app_ids[@]}"; do
         app_is_available "${app_ids[$app_index]}" || continue
         observation_index=$(observation_index_for_app "${app_ids[$app_index]}") || fail "missing observation for ${app_ids[$app_index]}"
-        if [[ "${app_outcomes[$app_index]}" == remove && "${observation_exact[$observation_index]}" != enabled ]]; then
-            fail "exact removal is disabled for ${app_ids[$app_index]}"
+        if [[ "${app_outcomes[$app_index]}" == remove && "${observation_exact[$observation_index]}" != enabled &&
+              "${observation_force[$observation_index]}" != enabled ]]; then
+            fail "removal is disabled for ${app_ids[$app_index]}"
         fi
         if [[ "${app_outcomes[$app_index]}" == force && "${observation_force[$observation_index]}" != enabled ]]; then
-            fail "force removal is disabled for ${app_ids[$app_index]}"
+            fail "cleanup fallback is disabled for ${app_ids[$app_index]}"
         fi
         if [[ "${app_states[$app_index]}" == required ]]; then policy=required; else policy=optional; fi
         printf 'app\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "${app_ids[$app_index]}" "${app_outcomes[$app_index]}" \
@@ -878,6 +879,8 @@ write_outcome_plan() {
     for index in "${!mechanism_apps[@]}"; do
         app_index=$(find_value_index "${mechanism_apps[$index]}" "${app_ids[@]}")
         [[ "${app_outcomes[$app_index]}" == remove ]] || continue
+        observation_index=$(observation_index_for_app "${app_ids[$app_index]}") || fail "missing observation for ${app_ids[$app_index]}"
+        [[ "${observation_exact[$observation_index]}" == enabled ]] || continue
         case "${mechanism_kinds[$index]}" in
             apt-package|pacman-package|brew-formula|brew-cask|npm-package|cargo-package)
                 printf 'removal\t%s\texact\t%s\t%s\t%s\n' "${mechanism_apps[$index]}" "${mechanism_kinds[$index]}" \
@@ -895,7 +898,9 @@ write_outcome_plan() {
     for index in "${!removal_apps[@]}"; do
         [[ "${removal_oses[$index]}" == "$os" ]] || continue
         app_index=$(find_value_index "${removal_apps[$index]}" "${app_ids[@]}")
-        if [[ "${app_outcomes[$app_index]}" == force ]]; then
+        observation_index=$(observation_index_for_app "${app_ids[$app_index]}") || fail "missing observation for ${app_ids[$app_index]}"
+        if [[ "${app_outcomes[$app_index]}" == force ||
+              ( "${app_outcomes[$app_index]}" == remove && "${observation_exact[$observation_index]}" != enabled ) ]]; then
             printf 'removal\t%s\tforce\t%s\t%s\t%s\n' "${removal_apps[$index]}" "${removal_methods[$index]}" \
                 "${removal_targets[$index]}" "${removal_options[$index]}" >>"$output"
         fi
@@ -1131,9 +1136,9 @@ run_real_adapter() {
     fi
     if [[ ( "$operation" == force || "$operation" == remove ) && ( "$kind" == path || "$kind" == payload-tree ) ]]; then
         case "$value" in \~/*) value="$HOME/${value#\~/}" ;; esac
-        case "$value" in "$HOME"/*|/usr/local/bin/*) ;; *) echo "Refusing unsafe Force target: $value" >&2; return 1 ;; esac
+        case "$value" in "$HOME"/*|/usr/local/bin/*) ;; *) echo "Refusing unsafe cleanup target: $value" >&2; return 1 ;; esac
         if [[ "$kind" == path ]]; then
-            [[ ! -d "$value" ]] || { echo "Refusing directory Force target: $value" >&2; return 1; }
+            [[ ! -d "$value" ]] || { echo "Refusing directory cleanup target: $value" >&2; return 1; }
             if [[ "$value" == "$HOME"/* ]]; then rm -f -- "$value"; else "${privilege[@]}" rm -f -- "$value"; fi
         else
             [[ "$value" != "$HOME" && "$value" != /usr/local/bin ]] || { echo "Refusing broad payload tree: $value" >&2; return 1; }
@@ -1512,13 +1517,18 @@ prepared_removal_is_catalogued() {
 }
 
 validate_prepared_removals() {
-    local index=0 app_index removal_index found expected_outcome
+    local index=0 app_index removal_index found
     while ((index < ${#apply_removal_apps[@]})); do
         app_index=$(find_value_index "${apply_removal_apps[$index]}" "${apply_app_ids[@]}") ||
             fail "prepared removal has no application: ${apply_removal_apps[$index]}"
-        if [[ "${apply_removal_modes[$index]}" == exact ]]; then expected_outcome=remove; else expected_outcome=force; fi
-        [[ "${apply_app_outcomes[$app_index]}" == "$expected_outcome" ]] ||
-            fail "prepared removal differs from desired outcome: ${apply_removal_apps[$index]}"
+        if [[ "${apply_removal_modes[$index]}" == exact ]]; then
+            [[ "${apply_app_outcomes[$app_index]}" == remove ]] ||
+                fail "prepared removal differs from desired outcome: ${apply_removal_apps[$index]}"
+        else
+            case "${apply_app_outcomes[$app_index]}" in remove|force) ;;
+                *) fail "prepared removal differs from desired outcome: ${apply_removal_apps[$index]}" ;;
+            esac
+        fi
         prepared_removal_is_catalogued "$apply_os" "${apply_removal_apps[$index]}" "${apply_removal_modes[$index]}" \
             "${apply_removal_kinds[$index]}" "${apply_removal_targets[$index]}" "${apply_removal_options[$index]}" ||
             fail "prepared removal is absent from catalog: ${apply_removal_apps[$index]} ${apply_removal_kinds[$index]}"
