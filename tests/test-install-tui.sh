@@ -38,6 +38,49 @@ grep -Fq 'enter review' "$fixture/rich"
 grep -Fq '4 applications' "$fixture/rich"
 grep -Fq 'Install dependencies' "$fixture/rich"
 
+sed 's/outcome\teditors.neovim\tremove/outcome\teditors.neovim\tensure/' \
+    "$fixture/selection.tsv" >"$fixture/compact-selection.tsv"
+"$fixture/dotfiles-tui" render --observations "$fixture/observations.tsv" \
+    --selection "$fixture/compact-selection.tsv" --width 100 --display plain >"$fixture/compact"
+if grep -Fq 'Evidence:' "$fixture/compact" || grep -Fq 'package present; launcher missing' "$fixture/compact"; then
+    echo 'Compact mode must hide per-application evidence' >&2
+    exit 1
+fi
+grep -Fq 'Git · present' "$fixture/compact"
+grep -Fq 'Neovim · partial -> present' "$fixture/compact"
+if grep -F 'Git · present' "$fixture/compact" | grep -Fq -- '->'; then
+    echo 'Compact mode must omit transitions when current and desired states match' >&2
+    exit 1
+fi
+"$fixture/dotfiles-tui" render --observations "$fixture/observations.tsv" \
+    --selection "$fixture/compact-selection.tsv" --width 100 --display plain --verbose >"$fixture/verbose"
+grep -Fq 'Evidence: package present; launcher missing' "$fixture/verbose"
+grep -Fq 'State: partial -> present' "$fixture/verbose"
+grep -Fq 'Custody: managed' "$fixture/verbose"
+
+sed -e 's/outcome\teditors.neovim\tremove/outcome\teditors.neovim\tensure/' \
+    -e 's/outcome\tgaming.steam\tleave/outcome\tgaming.steam\tensure/' \
+    "$fixture/selection.tsv" >"$fixture/color-selection.tsv"
+"$fixture/dotfiles-tui" render --observations "$fixture/observations.tsv" \
+    --selection "$fixture/color-selection.tsv" --width 100 --display rich >"$fixture/colored"
+COLORED_RENDER="$fixture/colored" python3 <<'PY'
+import os
+import re
+
+content = open(os.environ["COLORED_RENDER"], "rb").read().splitlines()
+styles = {}
+for label, state in ((b"Git", b"present"), (b"Neovim", b"partial"), (b"Steam", b"absent")):
+    line = next((candidate for candidate in content if label in candidate and state in candidate), None)
+    if line is None:
+        raise SystemExit(f"missing colored application line for {label.decode()}")
+    codes = tuple(code for code in re.findall(rb"\x1b\[[0-9;:]*m", line) if code != b"\x1b[0m")
+    if not codes:
+        raise SystemExit(f"application/state is not colored for {label.decode()}: {line!r}")
+    styles[label] = codes
+if len(set(styles.values())) != len(styles):
+    raise SystemExit("present, partial, and absent applications must use distinct state colors")
+PY
+
 "$fixture/dotfiles-tui" render --observations "$fixture/observations.tsv" \
     --selection "$fixture/selection.tsv" --width 70 --display ascii >"$fixture/ascii"
 LC_ALL=C grep -q '^[ -~]*$' "$fixture/ascii"

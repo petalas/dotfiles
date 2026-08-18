@@ -50,11 +50,48 @@ func TestPlanningViewFitsTerminalAndKeepsSelectionVisible(t *testing.T) {
 	if !strings.Contains(view, "Application 20") {
 		t.Fatal("selected application must remain visible in the scrollable lane")
 	}
-	for _, required := range []string{"[PLAN]", "REVIEW", "RUN", "Ensure", "Leave", "Remove", "Force", "Current:", "After run:", "enter review", "q quit"} {
+	for _, required := range []string{"[PLAN]", "REVIEW", "RUN", "Ensure", "Leave", "Remove", "Force", "Application 20 · present", "enter review", "q quit"} {
 		if !strings.Contains(view, required) {
 			t.Fatalf("planning view is missing persistent context or control %q", required)
 		}
 	}
+}
+
+func TestCompactStateTransitionsDescribeOnlyRealChanges(t *testing.T) {
+	cases := []struct {
+		name     string
+		app      application
+		contains string
+		excludes string
+	}{
+		{name: "removal", app: application{label: "Managed app", presence: "present", outcome: remove}, contains: "present -> removed"},
+		{name: "already absent", app: application{label: "Absent app", presence: "absent", outcome: remove}, contains: "Absent app · absent", excludes: "->"},
+		{name: "ensure partial", app: application{label: "Partial app", presence: "partial", outcome: ensure}, contains: "partial -> present"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			m := model{apps: []application{test.app}, display: plain, stage: "select", lane: laneIndex(test.app.outcome), dependencies: map[string][]string{}, width: 80, height: 20}
+			view := m.render()
+			if !strings.Contains(view, test.contains) {
+				t.Fatalf("compact view is missing %q:\n%s", test.contains, view)
+			}
+			if test.excludes != "" {
+				line := nextLineContaining(view, test.app.label)
+				if strings.Contains(line, test.excludes) {
+					t.Fatalf("compact row %q unexpectedly contains %q", line, test.excludes)
+				}
+			}
+		})
+	}
+}
+
+func nextLineContaining(content, value string) string {
+	for _, line := range strings.Split(content, "\n") {
+		if strings.Contains(line, value) {
+			return line
+		}
+	}
+	return ""
 }
 
 func TestASCIIFallbackRemainsASCIIWhileScrolling(t *testing.T) {
@@ -98,7 +135,7 @@ func TestTinyTerminalKeepsStageAndLaneContextVisible(t *testing.T) {
 func TestReviewFitsTerminalAndScrollsToLastApplication(t *testing.T) {
 	apps := make([]application, 18)
 	for i := range apps {
-		apps[i] = application{id: fmt.Sprintf("app-%02d", i+1), label: fmt.Sprintf("Application %02d", i+1), evidence: "review evidence", outcome: ensure}
+		apps[i] = application{id: fmt.Sprintf("app-%02d", i+1), label: fmt.Sprintf("Application %02d", i+1), presence: "present", custody: "managed", evidence: "review evidence", outcome: ensure}
 	}
 	m := model{apps: apps, display: plain, stage: "review", chooseOnly: true, reviewScroll: 1 << 20}
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
@@ -106,9 +143,9 @@ func TestReviewFitsTerminalAndScrollsToLastApplication(t *testing.T) {
 	if lines := strings.Count(strings.TrimSuffix(view, "\n"), "\n") + 1; lines > 18 {
 		t.Fatalf("60x18 review received %d rendered lines", lines)
 	}
-	for _, required := range []string{"PLAN", "[REVIEW]", "RUN", "Ensure", "Leave", "Remove", "Force", "Application 18", "enter accept choices"} {
+	for _, required := range []string{"PLAN", "[REVIEW]", "RUN", "Ensure", "Leave", "Remove", "Force", "Application 18", "enter accept", "choices esc back"} {
 		if !strings.Contains(view, required) {
-			t.Fatalf("scrolled review is missing %q", required)
+			t.Fatalf("scrolled review is missing %q:\n%s", required, view)
 		}
 	}
 }
@@ -130,6 +167,24 @@ func TestGroupOutcomeChangesSpecificGroupOnly(t *testing.T) {
 	m.setGroupOutcome(force)
 	if !strings.Contains(m.notice, "Choose a specific group") {
 		t.Fatalf("all-groups bulk action should be rejected, got %q", m.notice)
+	}
+}
+
+func TestVerboseKeyTogglesDetailWithoutLosingNavigation(t *testing.T) {
+	for _, stage := range []string{"select", "review"} {
+		m := model{apps: []application{{id: "app", label: "App", outcome: ensure}}, stage: stage, lane: 2, cursor: 4, groupFilter: 1, reviewScroll: 7}
+		updated, _ := m.Update(tea.KeyPressMsg(tea.Key{Text: "v", Code: 'v'}))
+		result := updated.(model)
+		if !result.verbose {
+			t.Fatalf("v did not enable verbose mode during %s", stage)
+		}
+		if result.lane != 2 || result.cursor != 4 || result.groupFilter != 1 || result.reviewScroll != 7 {
+			t.Fatalf("verbose toggle changed navigation during %s", stage)
+		}
+		updated, _ = result.Update(tea.KeyPressMsg(tea.Key{Text: "v", Code: 'v'}))
+		if updated.(model).verbose {
+			t.Fatalf("second v did not restore compact mode during %s", stage)
+		}
 	}
 }
 

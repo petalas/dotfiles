@@ -67,6 +67,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Every interactive view now consumes both dimensions, reserves fixed rows for the Plan/Review/Run stepper, all four outcome names, and controls, and windows the variable application/review content around the cursor. Tiny terminals show a bounded resize view rather than overflowing.
 - The `choose` command must honor its own “Enter opens review” help text. Exiting directly from Plan made the separate prepared-run review feel like an unrelated second UI. Keep the state-transition and 80×24 bounds tests at the model seam.
 - Successful interactive inspection uses the alternate screen and leaves no static “run settled” report behind before Plan opens. Redirected runs still print their final report for automation and diagnostics.
+- Compact rows should carry state text independently of color: rich mode colors the application/current state and any changed desired state, while plain and ASCII modes retain the same `current -> desired` wording. Once rows contain ANSI styling, truncate with the ANSI-aware `x/ansi.Truncate`; rune slicing can cut an escape sequence and corrupt the rest of the terminal.
 
 ## Bubble Tea progress needs consumed terminal replies and a dedicated event channel
 

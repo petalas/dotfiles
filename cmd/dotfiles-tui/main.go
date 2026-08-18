@@ -19,6 +19,7 @@ import (
 	"charm.land/bubbles/v2/progress"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 type outcome string
@@ -70,6 +71,7 @@ type model struct {
 	chooseOnly           bool
 	confirmOnly          bool
 	interactive          bool
+	verbose              bool
 }
 
 func parseInputs(observationsPath, selectionPath string) ([]application, []planStep, map[string][]string, error) {
@@ -171,6 +173,10 @@ func (m model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if key == "ctrl+c" || key == "q" && (m.stage == "select" || (m.confirmOnly && m.stage == "review")) {
 			m.cancelled = true
 			return m, tea.Quit
+		}
+		if key == "v" && (m.stage == "select" || m.stage == "review") {
+			m.verbose = !m.verbose
+			return m, nil
 		}
 		if m.stage == "confirm" {
 			return m.updateConfirmation(key)
@@ -599,7 +605,11 @@ func (m model) renderLanes() string {
 	}
 	footer := wrapWords("up/down select  left/right lane  e/u/r/f item outcome", width)
 	footer = append(footer, wrapWords("[/] choose group  Shift+E/U/R/F whole group  tab steps", width)...)
-	footer = append(footer, wrapWords("pgup/pgdown page  enter review  q quit", width)...)
+	detailControl := "v show details"
+	if m.verbose {
+		detailControl = "v hide details"
+	}
+	footer = append(footer, wrapWords("pgup/pgdown page  "+detailControl+"  enter review  q quit", width)...)
 	bodyHeight := max(1, height-len(header)-len(footer))
 	body := strings.Split(m.renderLane(lanes[m.lane], width, bodyHeight), "\n")
 	lines := append(header, body...)
@@ -713,23 +723,25 @@ func (m model) renderLane(wanted outcome, width, height int) string {
 
 	lines := []string{}
 	selectedStart, selectedEnd := 0, 0
-	compact := height < 9 || width < 42
 	for i, app := range apps {
 		start := len(lines)
 		cursor := "  "
 		if i == m.cursor {
 			cursor = "> "
 		}
-		lines = append(lines, fit(cursor+m.marker(app)+" "+app.label, width))
-		if compact {
-			lines = append(lines, fit("    "+app.presence+" -> "+outcomeLabel(app.outcome), width))
-		} else {
-			lines = append(lines, fit("    Current: "+app.presence+m.separator()+app.custody, width))
-			lines = append(lines, fit("    After run: "+outcomeLabel(app.outcome), width))
+		item := m.renderApplicationLabel(cursor, app)
+		if m.verbose {
+			lines = append(lines, fit(item, width))
+			lines = append(lines, fit("    State: "+m.renderStateTransition(app), width))
+			lines = append(lines, fit("    Custody: "+app.custody, width))
 			lines = append(lines, fit("    Evidence: "+app.evidence, width))
-			if reason := m.removalDisabledReason(app); reason != "" {
-				lines = append(lines, fit("    "+reason, width))
-			}
+		} else {
+			lines = append(lines, fit(item+m.separator()+m.renderStateTransition(app), width))
+		}
+		if reason := m.removalDisabledReason(app); reason != "" && (m.verbose || i == m.cursor) {
+			lines = append(lines, fit("    "+reason, width))
+		}
+		if m.verbose {
 			lines = append(lines, "")
 		}
 		if i == m.cursor {
@@ -742,6 +754,66 @@ func (m model) renderLane(wanted outcome, width, height int) string {
 	}
 	visible := viewportAround(lines, selectedStart, selectedEnd, max(0, height-1), width, up, down)
 	return strings.Join(append([]string{fit(title, width)}, visible...), "\n")
+}
+
+func stateTransitionValues(app application) (string, string, bool) {
+	current := app.presence
+	if app.availability == "unavailable" {
+		current = "unavailable"
+	}
+	desired := current
+	switch app.outcome {
+	case ensure:
+		desired = "present"
+	case remove, force:
+		desired = "removed"
+	}
+	changed := current != desired && !(current == "absent" && desired == "removed") && current != "unavailable"
+	return current, desired, changed
+}
+
+func (m model) stateTransition(app application) string {
+	current, desired, changed := stateTransitionValues(app)
+	if !changed {
+		return current
+	}
+	return current + " -> " + desired
+}
+
+func (m model) stateStyle(state string) lipgloss.Style {
+	color := lipgloss.Color("1")
+	switch state {
+	case "present":
+		color = lipgloss.Color("2")
+	case "partial":
+		color = lipgloss.Color("3")
+	case "absent":
+		color = lipgloss.Color("8")
+	case "removed":
+		color = lipgloss.Color("1")
+	}
+	return lipgloss.NewStyle().Foreground(color)
+}
+
+func (m model) colorState(value, state string) string {
+	if m.display != rich {
+		return value
+	}
+	return m.stateStyle(state).Render(value)
+}
+
+func (m model) renderApplicationLabel(cursor string, app application) string {
+	label := cursor + m.marker(app) + " " + app.label
+	current, _, _ := stateTransitionValues(app)
+	return m.colorState(label, current)
+}
+
+func (m model) renderStateTransition(app application) string {
+	current, desired, changed := stateTransitionValues(app)
+	if !changed {
+		return m.colorState(current, current)
+	}
+	return m.colorState(current, current) + " -> " + m.colorState(desired, desired)
 }
 
 func (m model) removalDisabledReason(app application) string {
@@ -817,7 +889,12 @@ func (m model) renderReview() string {
 		apps := m.appsWithOutcome(wanted)
 		fmt.Fprintf(&b, "%s (%d)\n", laneTitles[wanted], len(apps))
 		for _, app := range apps {
-			fmt.Fprintf(&b, "  %s %s%s%s\n", m.marker(app), app.label, m.separator(), app.evidence)
+			label := m.renderApplicationLabel("  ", app)
+			if m.verbose {
+				fmt.Fprintf(&b, "%s%s%s%s%s\n", label, m.separator(), m.renderStateTransition(app), m.separator(), app.evidence)
+			} else {
+				fmt.Fprintf(&b, "%s%s%s\n", label, m.separator(), m.renderStateTransition(app))
+			}
 		}
 	}
 	if len(m.reviewDetails) > 0 {
@@ -839,7 +916,11 @@ func (m model) renderReview() string {
 		if m.chooseOnly {
 			verb = "accept choices"
 		}
-		footer = append(footer, wrapWords("up/down scroll  pgup/pgdown page  enter "+verb+"  esc back", width)...)
+		detailControl := "v show details"
+		if m.verbose {
+			detailControl = "v hide details"
+		}
+		footer = append(footer, wrapWords("up/down scroll  pgup/pgdown page  "+detailControl+"  enter "+verb+"  esc back", width)...)
 	}
 	bodyHeight := max(1, height-len(header)-len(footer))
 	up, down := "↑ earlier", "↓ more"
@@ -930,19 +1011,10 @@ func fit(value string, width int) string {
 	if lipgloss.Width(value) <= width {
 		return value + strings.Repeat(" ", width-lipgloss.Width(value))
 	}
-	limit := max(0, width-1)
-	var b strings.Builder
-	for _, character := range value {
-		candidate := b.String() + string(character)
-		if lipgloss.Width(candidate) > limit {
-			break
-		}
-		b.WriteRune(character)
-	}
 	if width == 1 {
-		return "…"
+		return ansi.Truncate(value, 1, "")
 	}
-	return b.String() + "…"
+	return ansi.Truncate(value, width, "…")
 }
 
 func wrapWords(value string, width int) []string {
@@ -1184,25 +1256,26 @@ func defaultDisplay() string {
 	return "rich"
 }
 
-func parseCommon(args []string) ([]application, []planStep, map[string][]string, int, displayMode, string, error) {
+func parseCommon(args []string) ([]application, []planStep, map[string][]string, int, displayMode, string, bool, error) {
 	flags := flag.NewFlagSet("dotfiles-tui", flag.ContinueOnError)
 	observations := flags.String("observations", "", "inspection artifact")
 	selection := flags.String("selection", "", "desired-outcome artifact")
 	width := flags.Int("width", 120, "render width")
 	display := flags.String("display", defaultDisplay(), "rich, ascii, or plain")
 	output := flags.String("output", "", "confirmed selection output")
+	verbose := flags.Bool("verbose", false, "show application evidence and custody details")
 	if err := flags.Parse(args); err != nil {
-		return nil, nil, nil, 0, "", "", err
+		return nil, nil, nil, 0, "", "", false, err
 	}
 	if *observations == "" || *selection == "" {
-		return nil, nil, nil, 0, "", "", errors.New("--observations and --selection are required")
+		return nil, nil, nil, 0, "", "", false, errors.New("--observations and --selection are required")
 	}
 	mode := displayMode(*display)
 	if mode != rich && mode != ascii && mode != plain {
-		return nil, nil, nil, 0, "", "", errors.New("invalid display mode")
+		return nil, nil, nil, 0, "", "", false, errors.New("invalid display mode")
 	}
 	apps, steps, dependencies, err := parseInputs(*observations, *selection)
-	return apps, steps, dependencies, *width, mode, *output, err
+	return apps, steps, dependencies, *width, mode, *output, *verbose, err
 }
 
 type executionEvent struct{ fields []string }
@@ -1483,6 +1556,7 @@ func run(args []string) error {
 		output := flags.String("output", "", "approval artifact")
 		width := flags.Int("width", 120, "render width")
 		display := flags.String("display", defaultDisplay(), "rich, ascii, or plain")
+		verbose := flags.Bool("verbose", false, "show application evidence and custody details")
 		if err := flags.Parse(args[1:]); err != nil {
 			return err
 		}
@@ -1490,7 +1564,7 @@ func run(args []string) error {
 		if err != nil {
 			return err
 		}
-		m := model{apps: apps, steps: steps, reviewDetails: details, width: *width, display: displayMode(*display), stage: "review", confirmOnly: true, interactive: true}
+		m := model{apps: apps, steps: steps, reviewDetails: details, width: *width, display: displayMode(*display), stage: "review", confirmOnly: true, interactive: true, verbose: *verbose}
 		final, err := tea.NewProgram(m).Run()
 		if err != nil {
 			return err
@@ -1501,11 +1575,11 @@ func run(args []string) error {
 		}
 		return writeApproval(*output, *plan)
 	}
-	apps, steps, dependencies, width, display, output, err := parseCommon(args[1:])
+	apps, steps, dependencies, width, display, output, verbose, err := parseCommon(args[1:])
 	if err != nil {
 		return err
 	}
-	m := model{apps: apps, steps: steps, dependencies: dependencies, width: width, display: display, stage: "select", output: output, chooseOnly: args[0] == "choose", interactive: args[0] != "render"}
+	m := model{apps: apps, steps: steps, dependencies: dependencies, width: width, display: display, stage: "select", output: output, chooseOnly: args[0] == "choose", interactive: args[0] != "render", verbose: verbose}
 	switch args[0] {
 	case "render":
 		fmt.Print(m.render())
