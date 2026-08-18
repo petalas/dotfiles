@@ -103,12 +103,12 @@ ai.herdr	ai	Herdr	on
 ai.lm-studio	ai	LM Studio	on
 ai.pi	ai	Pi	on	languages.node
 mobile.applesimutils	mobile	Apple simulator utilities	on
-mobile.bundletool	mobile	Bundletool	on	languages.java
+mobile.bundletool	mobile	Bundletool	on	mobile.java17
 mobile.cocoapods	mobile	CocoaPods	on
 mobile.fastlane	mobile	Fastlane	on
-mobile.maestro	mobile	Maestro	on	languages.java
-mobile.android-tools	mobile	Android command-line and platform tools	on	languages.java
-mobile.android-studio	mobile	Android Studio	on	languages.java
+mobile.maestro	mobile	Maestro	on	mobile.java17
+mobile.android-tools	mobile	Android command-line and platform tools	on	mobile.java17
+mobile.android-studio	mobile	Android Studio	on	mobile.java17
 mobile.java17	mobile	Temurin 17	on
 cad.bambu-studio	cad	Bambu Studio	on
 cad.openscad	cad	OpenSCAD	on

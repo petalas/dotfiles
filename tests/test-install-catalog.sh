@@ -34,6 +34,7 @@ done
 grep -Fxq $'action\tgaming.steam\tbrew-cask\tsteam\t' "$fixture/macos.plan"
 grep -Fxq $'action\tcad.bambu-studio\tbrew-cask\tbambu-studio\t' "$fixture/macos.plan"
 grep -Fxq $'action\tmobile.maestro\tbrew-formula\tmobile-dev-inc/tap/maestro\ttrusted=true' "$fixture/macos.plan"
+grep -Fxq $'dependency\tmobile.maestro\tmobile.java17' "$fixture/macos.plan"
 grep -Fxq $'action\tfoundation.locale\tapt-package\tlocales\t' "$fixture/debian.plan"
 grep -Fxq $'action\tcli.fd\tcommand-alias\tfd:fdfind\t' "$fixture/debian.plan"
 grep -Fxq $'action\tcli.bat\tcommand-alias\tbat:batcat\t' "$fixture/debian.plan"

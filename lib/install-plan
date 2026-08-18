@@ -501,6 +501,7 @@ run_visual_selector() {
                     fi
                 fi ;;
             ''|$'\n'|$'\r')
+                resolve_app_selection
                 printf '\033[2J\033[HReview installation plan\n\n' >&9
                 for index in "${!step_ids[@]}"; do
                     [[ "${step_selection[$index]}" != on ]] || printf '  %s. %s\n' "${step_orders[$index]}" "${step_labels[$index]}" >&9
@@ -510,7 +511,7 @@ run_visual_selector() {
                             for app_state_index in "${!app_ids[@]}"; do
                                 if [[ "${app_groups[$app_state_index]}" == "${group_ids[$group_index]}" ]] && app_is_available "${app_ids[$app_state_index]}"; then
                                     available_count=$((available_count + 1))
-                                    [[ $(current_app_state "$app_state_index") != on ]] || selected_count=$((selected_count + 1))
+                                    [[ "${app_selection[$app_state_index]}" != on ]] || selected_count=$((selected_count + 1))
                                 fi
                             done
                             if ((available_count > 0)); then
