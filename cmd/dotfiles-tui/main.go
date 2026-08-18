@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"charm.land/bubbles/v2/progress"
 	tea "charm.land/bubbletea/v2"
@@ -257,6 +258,10 @@ func (m model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		case "R":
 			m.setGroupOutcome(remove)
 		case "enter":
+			if m.chooseOnly {
+				m.confirmed = true
+				return m, tea.Quit
+			}
 			m.stage, m.reviewScroll = "review", 0
 		}
 	}
@@ -633,7 +638,11 @@ func (m model) renderPlan() string {
 	if m.verbose {
 		detailControl = "v hide details"
 	}
-	footer = append(footer, wrapWords("pgup/pgdown page  "+detailControl+"  enter review  q quit", width)...)
+	enterControl := "enter review"
+	if m.chooseOnly {
+		enterControl = "enter prepare review"
+	}
+	footer = append(footer, wrapWords("pgup/pgdown page  "+detailControl+"  "+enterControl+"  q quit", width)...)
 	bodyHeight := max(1, height-len(header)-len(footer))
 	body := strings.Split(m.renderPlanningTree(width, bodyHeight), "\n")
 	lines := append(header, body...)
@@ -1343,10 +1352,11 @@ type progressModel struct {
 	stage          string
 	display        displayMode
 	interrupt      func()
+	logPath        string
 }
 
-func newProgressModel(interactive bool, stage string, interrupt func()) progressModel {
-	return progressModel{bar: progress.New(progress.WithDefaultBlend()), active: map[string]string{}, interactive: interactive, stage: stage, display: displayMode(defaultDisplay()), interrupt: interrupt}
+func newProgressModel(interactive bool, stage, logPath string, interrupt func()) progressModel {
+	return progressModel{bar: progress.New(progress.WithDefaultBlend()), active: map[string]string{}, interactive: interactive, stage: stage, display: displayMode(defaultDisplay()), interrupt: interrupt, logPath: logPath}
 }
 func (m progressModel) Init() tea.Cmd { return nil }
 func (m progressModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
@@ -1427,7 +1437,7 @@ func (m progressModel) render() string {
 	}
 	if width < 40 || height < 14 {
 		activity := fmt.Sprintf("Working: %d/%d settled", m.settled, m.total)
-		return compactContext(m.stage, separator, activity, "", width, height)
+		return compactContext(m.stage, separator, activity, "Log: "+m.logPath, width, height)
 	}
 	percent := 0.0
 	if m.total > 0 {
@@ -1442,7 +1452,8 @@ func (m progressModel) render() string {
 	if m.stage == "plan" {
 		activity = "INSPECTING MACHINE"
 	}
-	fmt.Fprintf(&b, "DOTFILES %s  %d/%d settled\n%s\n\n", activity, m.settled, m.total, m.bar.ViewAs(percent))
+	fmt.Fprintf(&b, "DOTFILES %s  %d/%d settled\n%s\n", activity, m.settled, m.total, m.bar.ViewAs(percent))
+	fmt.Fprintf(&b, "LOG  %s\n\n", m.logPath)
 	fmt.Fprintln(&b, "ACTIVE")
 	if len(m.active) == 0 {
 		fmt.Fprintln(&b, "  (none)")
@@ -1507,13 +1518,84 @@ func executionStage(command []string) string {
 	return "run"
 }
 
+type runLogger struct {
+	file *os.File
+	mu   sync.Mutex
+}
+
+func openRunLog() (*runLogger, string, error) {
+	stateHome := os.Getenv("XDG_STATE_HOME")
+	if stateHome == "" {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			stateHome = filepath.Join(home, ".local", "state")
+		}
+	}
+	if stateHome != "" {
+		directory := filepath.Join(stateHome, "dotfiles")
+		if err := os.MkdirAll(directory, 0o700); err == nil {
+			path := filepath.Join(directory, "latest-run.log")
+			file, openErr := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+			if openErr == nil {
+				if chmodErr := file.Chmod(0o600); chmodErr == nil {
+					return &runLogger{file: file}, path, nil
+				}
+				_ = file.Close()
+			}
+		}
+	}
+	file, err := os.CreateTemp("", "dotfiles-run-*.log")
+	if err != nil {
+		return nil, "", fmt.Errorf("create run log: %w", err)
+	}
+	if err := file.Chmod(0o600); err != nil {
+		_ = file.Close()
+		return nil, "", fmt.Errorf("restrict run log: %w", err)
+	}
+	return &runLogger{file: file}, file.Name(), nil
+}
+
+func (logger *runLogger) write(source, line string) {
+	logger.mu.Lock()
+	defer logger.mu.Unlock()
+	_, _ = fmt.Fprintf(logger.file, "%s\t%s\t%s\n", time.Now().Format(time.RFC3339Nano), source, line)
+}
+
+func (logger *runLogger) close() {
+	logger.mu.Lock()
+	defer logger.mu.Unlock()
+	_ = logger.file.Close()
+}
+
+func commandDescription(command []string) string {
+	quoted := make([]string, len(command))
+	for index, argument := range command {
+		quoted[index] = strconv.Quote(argument)
+	}
+	return strings.Join(quoted, " ")
+}
+
+func signalCommandSession(cmd *exec.Cmd, signal syscall.Signal) {
+	if cmd.Process != nil {
+		_ = syscall.Kill(-cmd.Process.Pid, signal)
+	}
+}
+
 func runExecution(command []string) error {
 	if len(command) == 0 {
 		return errors.New("run requires a command after --")
 	}
+	logger, logPath, err := openRunLog()
+	if err != nil {
+		return err
+	}
+	logger.write("start", commandDescription(command))
 	cmd := exec.Command(command[0], command[1:]...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	eventReader, eventWriter, err := os.Pipe()
 	if err != nil {
+		logger.write("finish", "failed: "+err.Error())
+		logger.close()
 		return err
 	}
 	defer eventReader.Close()
@@ -1522,26 +1604,28 @@ func runExecution(command []string) error {
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		eventWriter.Close()
+		logger.write("finish", "failed: "+err.Error())
+		logger.close()
 		return err
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		eventWriter.Close()
+		logger.write("finish", "failed: "+err.Error())
+		logger.close()
 		return err
 	}
 	interactive := isTerminalFile(os.Stdout)
-	interrupt := func() {
-		if cmd.Process != nil {
-			_ = cmd.Process.Signal(os.Interrupt)
-		}
-	}
+	interrupt := func() { signalCommandSession(cmd, syscall.SIGINT) }
 	programOptions := []tea.ProgramOption{tea.WithoutSignalHandler()}
 	if !interactive {
 		programOptions = append(programOptions, tea.WithInput(nil), tea.WithEnvironment(nonInteractiveProgressEnvironment()))
 	}
-	program := tea.NewProgram(newProgressModel(interactive, executionStage(command), interrupt), programOptions...)
+	program := tea.NewProgram(newProgressModel(interactive, executionStage(command), logPath, interrupt), programOptions...)
 	if err = cmd.Start(); err != nil {
 		eventWriter.Close()
+		logger.write("finish", "failed: "+err.Error())
+		logger.close()
 		return err
 	}
 	_ = eventWriter.Close()
@@ -1550,8 +1634,8 @@ func runExecution(command []string) error {
 	defer signal.Stop(signals)
 	go func() {
 		for received := range signals {
-			if cmd.Process != nil {
-				_ = cmd.Process.Signal(received)
+			if unixSignal, ok := received.(syscall.Signal); ok {
+				signalCommandSession(cmd, unixSignal)
 			}
 		}
 	}()
@@ -1560,24 +1644,42 @@ func runExecution(command []string) error {
 	scanEvents := func(scanner *bufio.Scanner) {
 		defer scanners.Done()
 		for scanner.Scan() {
-			program.Send(executionEvent{strings.Split(scanner.Text(), "\t")})
+			line := scanner.Text()
+			logger.write("event", line)
+			program.Send(executionEvent{strings.Split(line, "\t")})
+		}
+		if scanErr := scanner.Err(); scanErr != nil {
+			logger.write("event-error", scanErr.Error())
 		}
 	}
-	scanLogs := func(scanner *bufio.Scanner) {
+	scanLogs := func(source string, scanner *bufio.Scanner) {
 		defer scanners.Done()
 		for scanner.Scan() {
-			program.Send(executionLog(scanner.Text()))
+			line := scanner.Text()
+			logger.write(source, line)
+			program.Send(executionLog(line))
+		}
+		if scanErr := scanner.Err(); scanErr != nil {
+			logger.write(source+"-error", scanErr.Error())
 		}
 	}
 	go scanEvents(bufio.NewScanner(eventReader))
-	go scanLogs(bufio.NewScanner(stdout))
-	go scanLogs(bufio.NewScanner(stderr))
-	go func() { commandErr := cmd.Wait(); scanners.Wait(); program.Send(executionDone{commandErr}) }()
+	go scanLogs("stdout", bufio.NewScanner(stdout))
+	go scanLogs("stderr", bufio.NewScanner(stderr))
+	go func() {
+		commandErr := cmd.Wait()
+		scanners.Wait()
+		if commandErr != nil {
+			logger.write("finish", "failed: "+commandErr.Error())
+		} else {
+			logger.write("finish", "succeeded")
+		}
+		logger.close()
+		program.Send(executionDone{commandErr})
+	}()
 	final, runErr := program.Run()
 	if runErr != nil {
-		if cmd.Process != nil {
-			_ = cmd.Process.Signal(syscall.SIGTERM)
-		}
+		signalCommandSession(cmd, syscall.SIGTERM)
 		return runErr
 	}
 	result := final.(progressModel)

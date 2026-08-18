@@ -86,7 +86,7 @@ func TestPlanningViewFitsTerminalAndKeepsSelectionVisible(t *testing.T) {
 	if !strings.Contains(view, "Application 20") {
 		t.Fatal("selected application must remain visible in the scrollable planning list")
 	}
-	for _, required := range []string{"[PLAN]", "REVIEW", "RUN", "Ensure", "Leave", "Remove", "Application 20 · present", "enter review", "q quit"} {
+	for _, required := range []string{"[PLAN]", "REVIEW", "RUN", "Ensure", "Leave", "Remove", "Application 20 · present", "enter prepare review", "q quit"} {
 		if !strings.Contains(view, required) {
 			t.Fatalf("planning view is missing persistent context or control %q", required)
 		}
@@ -532,12 +532,21 @@ func TestVerboseKeyTogglesDetailWithoutLosingNavigation(t *testing.T) {
 	}
 }
 
-func TestChooseEnterOpensReviewBeforeAcceptingSelection(t *testing.T) {
+func TestChooseEnterSubmitsChoicesForSinglePreparedReview(t *testing.T) {
 	m := model{apps: []application{{id: "app", label: "App", group: "tools", outcome: ensure}}, stage: "select", chooseOnly: true}
-	updated, _ := m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
+	updated, command := m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
 	result := updated.(model)
-	if result.stage != "review" || result.confirmed {
-		t.Fatalf("Enter from planning should open review, got stage=%q confirmed=%t", result.stage, result.confirmed)
+	if !result.confirmed || command == nil || result.stage != "select" {
+		t.Fatalf("choice collection did not proceed directly to prepared review: stage=%q confirmed=%t command=%v", result.stage, result.confirmed, command)
+	}
+}
+
+func TestStandaloneSelectEnterStillOpensReview(t *testing.T) {
+	m := model{apps: []application{{id: "app", label: "App", group: "tools", outcome: ensure}}, stage: "select"}
+	updated, command := m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
+	result := updated.(model)
+	if result.stage != "review" || result.confirmed || command != nil {
+		t.Fatalf("standalone selection skipped its review: stage=%q confirmed=%t command=%v", result.stage, result.confirmed, command)
 	}
 }
 

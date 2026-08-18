@@ -50,7 +50,7 @@ The selector exposes the same dependency groups on every supported OS and report
 
 **Remove** immediately cancels a pending installation when the application is already absent. Otherwise it prefers the exact package-manager registration or matching installation receipt; if exact custody is unavailable, it automatically uses the application's catalog-reviewed cleanup recipe and discloses that fallback in the confirming review. Retained dependents block prerequisite removal; package-manager dependency checks are never bypassed. Removal never deletes package-manager orphans, shared prerequisites, projects, profiles, vaults, sessions, editor configuration, browser data, Docker data, or other user data. Changed support files are retained rather than deleted.
 
-Only wanted/not-wanted defaults are saved in `${XDG_STATE_HOME:-~/.local/state}/dotfiles/installation-plan`; Remove never persists or replays. The latest permission-restricted, non-replayable result is written to `${XDG_STATE_HOME:-~/.local/state}/dotfiles/latest-run-report`.
+Only wanted/not-wanted defaults are saved in `${XDG_STATE_HOME:-~/.local/state}/dotfiles/installation-plan`; Remove never persists or replays. The latest permission-restricted, non-replayable result is written to `${XDG_STATE_HOME:-~/.local/state}/dotfiles/latest-run-report`. Timestamped events and adapter stdout/stderr are captured from run start in the permission-restricted `${XDG_STATE_HOME:-~/.local/state}/dotfiles/latest-run.log`, whose path remains visible in progress.
 
 ## Run a single installer
 

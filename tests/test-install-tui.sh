@@ -8,6 +8,7 @@ if ! command -v go >/dev/null 2>&1; then
 fi
 fixture=$(mktemp -d /tmp/dotfiles-install-tui.XXXXXX)
 trap 'rm -rf "$fixture"' EXIT
+export XDG_STATE_HOME="$fixture/state"
 cat >"$fixture/observations.tsv" <<'EOF'
 format	1
 os	macos
@@ -114,6 +115,8 @@ cat >"$fixture/events" <<'EOF'
 #!/usr/bin/env bash
 event_fd=${DOTFILES_INSTALL_PLAN_EVENT_FD:-1}
 printf 'event\t1\trun-start\t2\n' >&"$event_fd"
+printf 'diagnostic stdout\n'
+printf 'diagnostic stderr\n' >&2
 printf 'event\t1\toperation-start\tapp:one\tOne\tindeterminate\n' >&"$event_fd"
 printf 'event\t1\toperation-settled\tapp:one\tsucceeded\t1\t2\n' >&"$event_fd"
 printf 'event\t1\toperation-start\tstep:links\tLinks\tindeterminate\n' >&"$event_fd"
@@ -127,6 +130,58 @@ grep -Fq 'Ensure · Leave · Remove' "$fixture/run"
 grep -Fq '2/2 settled' "$fixture/run"
 grep -Fq 'One — succeeded' "$fixture/run"
 grep -Fq 'Run settled successfully' "$fixture/run"
+run_log="$fixture/state/dotfiles/latest-run.log"
+if stat -c '%a' "$run_log" >/dev/null 2>&1; then
+    log_mode=$(stat -c '%a' "$run_log")
+else
+    log_mode=$(stat -f '%Lp' "$run_log")
+fi
+[[ -f "$run_log" && "$log_mode" == 600 ]]
+grep -Fq "$run_log" "$fixture/run"
+grep -Fq $'\tevent\tevent\t1\trun-start\t2' "$run_log"
+grep -Fq $'\tstdout\tdiagnostic stdout' "$run_log"
+grep -Fq $'\tstderr\tdiagnostic stderr' "$run_log"
+grep -Fq $'\tfinish\tsucceeded' "$run_log"
+
+cat >"$fixture/interrupt-events" <<'EOF'
+#!/usr/bin/env bash
+event_fd=${DOTFILES_INSTALL_PLAN_EVENT_FD:-1}
+trap 'printf "engine received interrupt\n" >&2; exit 130' INT TERM
+printf 'event\t1\trun-start\t1\n' >&"$event_fd"
+printf 'event\t1\toperation-start\tapp:wait\tWait\tindeterminate\n' >&"$event_fd"
+printf 'ready\n' >"$INTERRUPT_READY"
+while :; do sleep 1; done
+EOF
+chmod +x "$fixture/interrupt-events"
+rm -f "$run_log"
+mkfifo "$fixture/interrupt-ready"
+INTERRUPT_READY="$fixture/interrupt-ready" TERM=xterm "$fixture/dotfiles-tui" run -- "$fixture/interrupt-events" >"$fixture/interrupt-run" 2>&1 &
+interrupt_pid=$!
+read -r interrupt_ready <"$fixture/interrupt-ready"
+[[ "$interrupt_ready" == ready ]]
+kill -TERM "$interrupt_pid"
+if wait "$interrupt_pid"; then
+    echo 'Expected interrupted progress command to fail' >&2
+    exit 1
+fi
+grep -Fq $'\tstderr\tengine received interrupt' "$run_log"
+grep -Fq $'\tfinish\tfailed:' "$run_log"
+
+cat >"$fixture/failing-command" <<'EOF'
+#!/usr/bin/env bash
+event_fd=${DOTFILES_INSTALL_PLAN_EVENT_FD:-1}
+printf 'event\t1\trun-start\t1\n' >&"$event_fd"
+printf 'adapter failed clearly\n' >&2
+exit 17
+EOF
+chmod +x "$fixture/failing-command"
+if TERM=xterm "$fixture/dotfiles-tui" run -- "$fixture/failing-command" >"$fixture/failing-run" 2>&1; then
+    echo 'Expected adapter exit status to fail the run' >&2
+    exit 1
+fi
+grep -Fq 'exit status 17' "$fixture/failing-run"
+grep -Fq $'\tstderr\tadapter failed clearly' "$run_log"
+grep -Fq $'\tfinish\tfailed: exit status 17' "$run_log"
 
 cat >"$fixture/event-shaped-log" <<'EOF'
 #!/usr/bin/env bash

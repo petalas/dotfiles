@@ -96,6 +96,10 @@ _Avoid_: Background mode, batch mode
 A permission-restricted, non-replayable record of a confirmed run's destructive targets, attempted methods, operation results, and post-operation observations.
 _Avoid_: Plan record, execution plan, log
 
+**Run log**:
+A permission-restricted chronological diagnostic stream containing execution events and adapter output from the start of the latest inspection or run. It can explain active or failed work but does not authorize replay or establish final machine state.
+_Avoid_: Run report, receipt
+
 **Reconciliation**:
 Installing or restoring a selected application or managed state that is missing from the machine. Deselected applications are not reconciled.
 _Avoid_: Update, upgrade
