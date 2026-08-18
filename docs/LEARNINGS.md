@@ -40,6 +40,11 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - The catalog already validates package names and invokes pacman without a shell, so an option separator is unnecessary. `pacman -R --noconfirm -- package` was interpreted incorrectly and reported the installed package as an unavailable target in the disposable Arch adapter smoke.
 - Use `pacman -R --noconfirm package`. Keep the scheduled Arch container smoke because fake adapters cannot catch package-manager CLI grammar differences.
 
+## Frozen catalog fixtures need a fixed collation locale
+
+- Catalog parity fixtures are sorted text. `en_US.UTF-8` orders `python@3.14` before `python-setuptools`, while the GitHub runner's C locale orders the hyphen first; a silent `cmp` then fails only in CI.
+- `tests/test-install-catalog.sh` exports `LC_ALL=C`, and every sorted frozen fixture must be generated under that same locale.
+
 ## Platform catalog schema changes must include language-addon readers
 
 - `lib/install-plan` is not the only reader of `catalog/platforms/*.tsv`: `installers/install_node_deps.sh` and `installers/install_rust_deps.sh` read those rows directly to restore npm and Cargo add-ons.
