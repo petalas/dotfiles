@@ -539,6 +539,35 @@ installer_probe_command() {
     esac
 }
 
+installer_receipt_package() {
+    local os=$1 installer=$2
+    case "$os:$installer" in
+        debian:bitwarden|ubuntu:bitwarden) printf 'bitwarden\n' ;;
+        debian:chrome|ubuntu:chrome) printf 'google-chrome-stable\n' ;;
+        debian:code|ubuntu:code) printf 'code\n' ;;
+        debian:discord|ubuntu:discord) printf 'discord\n' ;;
+        debian:obsidian|ubuntu:obsidian) printf 'obsidian\n' ;;
+        *) return 1 ;;
+    esac
+}
+
+installer_receipt_version() {
+    local os=$1 installer=$2 target=$3 package output version=
+    package=$(installer_receipt_package "$os" "$installer" 2>/dev/null || true)
+    if [[ -n "$package" ]]; then
+        version=$(dpkg-query -W -f='${Version}' "$package" 2>/dev/null || true)
+    else
+        case "$installer" in
+            bun|chrome|claude_code|code|docker|ghostty|herdr|lazydocker|lazygit|locale|neovim|yazi)
+                output=$("$target" --version 2>/dev/null || true)
+                version=${output%%$'\n'*}
+                ;;
+        esac
+    fi
+    [[ -n "$version" ]] || version=unknown
+    printf '%s\n' "${version//$'\t'/ }"
+}
+
 inspect_real_action() {
     local kind=$1 value=$2 option=$3 binary
     case "$kind" in
@@ -603,8 +632,7 @@ write_installation_receipt() {
     binary=$(installer_probe_command "$installer")
     target=$(command -v "$binary" 2>/dev/null) || return 0
     [[ -f "$target" ]] || return 0
-    version=$("$target" --version 2>/dev/null | head -n 1 | tr '\t' ' ' || true)
-    [[ -n "$version" ]] || version=unknown
+    version=$(installer_receipt_version "$os" "$installer" "$target")
     output=$(receipt_path_for_app "$os" "$app")
     mkdir -p "$(dirname "$output")"
     temporary=$(mktemp "$(dirname "$output")/.receipt.XXXXXX")

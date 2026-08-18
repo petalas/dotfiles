@@ -114,6 +114,41 @@ DOTFILES_INSTALL_PLAN_ADAPTER="$fixture/receipt-adapter" DOTFILES_INSTALL_PLAN_T
     "$repo_dir/lib/install-plan" apply --operation install --plan "$fixture/receipt-plan" >/dev/null
 [[ ! -e "$receipt" ]]
 
+# Receipt metadata for packaged desktop applications must come from the package
+# database. Executing the GUI target can launch the application, and truncating
+# its output can leave Electron writing to a closed pipe.
+mkdir -p "$fixture/gui-receipt-bin"
+cat >"$fixture/gui-receipt-bin/dpkg-query" <<'EOF'
+#!/usr/bin/env bash
+[[ "$*" == '-W -f=${Version} bitwarden' ]] || exit 1
+printf '2026.7.0'
+EOF
+chmod +x "$fixture/gui-receipt-bin/dpkg-query"
+cat >"$fixture/gui-receipt-plan" <<'EOF'
+format	1
+os	debian
+step	dependencies	on	10	Install dependencies
+app	productivity.bitwarden	on	optional	productivity	Bitwarden
+action	productivity.bitwarden	installer	bitwarden
+EOF
+cat >"$fixture/gui-receipt-adapter" <<'EOF'
+#!/usr/bin/env bash
+cat >"$GUI_RECEIPT_BIN/bitwarden" <<'SCRIPT'
+#!/usr/bin/env bash
+printf 'invoked %s\n' "$*" >"$BITWARDEN_EXECUTION_MARKER"
+printf 'X11 available: true\n'
+SCRIPT
+chmod +x "$GUI_RECEIPT_BIN/bitwarden"
+EOF
+chmod +x "$fixture/gui-receipt-adapter"
+gui_receipt="$fixture/gui-state/dotfiles/receipts/debian/productivity.bitwarden.tsv"
+PATH="$fixture/gui-receipt-bin:/usr/bin:/bin" XDG_STATE_HOME="$fixture/gui-state" \
+GUI_RECEIPT_BIN="$fixture/gui-receipt-bin" BITWARDEN_EXECUTION_MARKER="$fixture/bitwarden-executed" \
+DOTFILES_INSTALL_PLAN_ADAPTER="$fixture/gui-receipt-adapter" DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN=1 \
+    "$repo_dir/lib/install-plan" apply --operation install --plan "$fixture/gui-receipt-plan" >/dev/null
+[[ ! -e "$fixture/bitwarden-executed" ]]
+grep -Fxq $'version\t2026.7.0' "$gui_receipt"
+
 # Post-operation inspection must translate a prepared-run index back to the
 # full catalog. An unavailable catalog entry is omitted from the prepared run.
 alignment_catalog="$fixture/alignment-catalog"
