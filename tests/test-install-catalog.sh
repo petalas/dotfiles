@@ -24,6 +24,11 @@ cmp -s "$repo_dir/tests/fixtures/catalog/arch-packages" "$fixture/arch-packages"
 "$repo_dir/tools/generate-brewfile" |
     awk '/^(brew|cask|tap) / {print}' | sort >"$fixture/macos-brew.entries"
 cmp -s "$repo_dir/tests/fixtures/catalog/macos-brew.entries" "$fixture/macos-brew.entries"
+for os in macos debian arch; do
+    awk -F '\t' '$2 == "installer" || $2 == "npm-package" || $2 == "cargo-package" {print}' \
+        "$repo_dir/catalog/platforms/$os.tsv" | sort >"$fixture/$os-addon-actions"
+    cmp -s "$repo_dir/tests/fixtures/catalog/$os-addon-actions" "$fixture/$os-addon-actions"
+done
 
 # Representative declarations protect each adapter ownership surface.
 grep -Fxq $'action\tgaming.steam\tbrew-cask\tsteam\t' "$fixture/macos.plan"

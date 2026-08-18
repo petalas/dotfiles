@@ -594,7 +594,7 @@ prepare_plan() {
 
 load_resolved_plan() {
     local path=$1 type first second third fourth fifth _extra format_seen=0
-    apply_step_ids=(); apply_step_states=(); apply_step_labels=()
+    apply_step_ids=(); apply_step_states=(); apply_step_labels=(); apply_step_statuses=()
     apply_app_ids=(); apply_app_states=(); apply_app_labels=(); apply_app_statuses=()
     apply_dependency_apps=(); apply_dependency_requirements=()
     apply_action_apps=(); apply_action_kinds=(); apply_action_values=(); apply_action_options=(); apply_action_done=()
@@ -606,7 +606,8 @@ load_resolved_plan() {
             os) case "$first" in macos|ubuntu|debian|arch) apply_os=$first ;; *) fail "invalid resolved plan OS" ;; esac ;;
             step)
                 [[ "$second" == on || "$second" == off ]] || fail "invalid resolved step state"
-                apply_step_ids+=("$first"); apply_step_states+=("$second"); apply_step_labels+=("$fourth") ;;
+                apply_step_ids+=("$first"); apply_step_states+=("$second"); apply_step_labels+=("$fourth")
+                if [[ "$second" == on ]]; then apply_step_statuses+=(pending); else apply_step_statuses+=(skipped); fi ;;
             group) ;;
             app)
                 [[ "$second" == on || "$second" == off ]] || fail "invalid resolved application state"
@@ -999,6 +1000,7 @@ validate_resolved_plan_against_catalog() {
 
 apply_plan() {
     local operation='' plan='' index step_id step_failed=0 app_index action_index interrupted=0
+    local step_action_failed dependency_failed
     shift
     while (($#)); do
         case "$1" in
@@ -1010,7 +1012,10 @@ apply_plan() {
     case "$operation" in install|reconcile) ;; *) fail "invalid apply operation: $operation" ;; esac
     [[ -n "$plan" ]] || fail "apply requires --plan"
     load_resolved_plan "$plan"
-    [[ "${DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN:-0}" == 1 ]] || validate_resolved_plan_against_catalog
+    if [[ "${DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN:-0}" != 1 ||
+          -z "${DOTFILES_INSTALL_PLAN_ADAPTER:-}" ]]; then
+        validate_resolved_plan_against_catalog
+    fi
     export NONINTERACTIVE=1 HOMEBREW_NO_ASK=1 DOTFILES_NONINTERACTIVE=1
     export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a GIT_TERMINAL_PROMPT=0
     exec </dev/null
@@ -1020,7 +1025,6 @@ apply_plan() {
     while ((index < ${#apply_step_ids[@]})); do
         step_id=${apply_step_ids[$index]}
         if [[ "${apply_step_states[$index]}" == off ]]; then
-            printf 'skipped: %s\n' "$step_id"
             index=$((index + 1)); continue
         fi
         if [[ "$interrupted" == 1 ]]; then step_failed=1; break; fi
@@ -1033,19 +1037,38 @@ apply_plan() {
                 fi
                 app_index=$((app_index + 1))
             done
+            dependency_failed=0
+            for app_index in "${!apply_app_statuses[@]}"; do
+                case "${apply_app_statuses[$app_index]}" in failed|blocked) dependency_failed=1 ;; esac
+            done
+            if [[ "$dependency_failed" == 1 ]]; then apply_step_statuses[$index]=failed
+            else apply_step_statuses[$index]=succeeded; fi
         else
+            step_action_failed=0
             action_index=0
             while ((action_index < ${#apply_step_action_ids[@]})); do
                 if [[ "${apply_step_action_ids[$action_index]}" == "$step_id" ]]; then
                     run_plan_adapter "$operation" "${apply_step_action_kinds[$action_index]}" \
-                        "${apply_step_action_values[$action_index]}" "${apply_step_action_options[$action_index]}" || step_failed=1
+                        "${apply_step_action_values[$action_index]}" "${apply_step_action_options[$action_index]}" || step_action_failed=1
                 fi
                 action_index=$((action_index + 1))
             done
+            if [[ "$step_action_failed" == 1 ]]; then apply_step_statuses[$index]=failed
+            else apply_step_statuses[$index]=succeeded; fi
         fi
         index=$((index + 1))
     done
 
+    index=0
+    while ((index < ${#apply_step_ids[@]})); do
+        case "${apply_step_statuses[$index]}" in
+            succeeded) printf 'succeeded: step %s\n' "${apply_step_ids[$index]}" ;;
+            skipped) printf 'skipped: step %s\n' "${apply_step_ids[$index]}" ;;
+            failed) printf 'failed: step %s\n' "${apply_step_ids[$index]}" >&2; step_failed=1 ;;
+            pending) printf 'blocked: step %s\n' "${apply_step_ids[$index]}" >&2; step_failed=1 ;;
+        esac
+        index=$((index + 1))
+    done
     app_index=0
     while ((app_index < ${#apply_app_ids[@]})); do
         case "${apply_app_statuses[$app_index]}" in

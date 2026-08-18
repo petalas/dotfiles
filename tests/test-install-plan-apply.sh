@@ -41,6 +41,8 @@ grep -Fxq 'install installer independent ' "$log"
 grep -Fq 'failed: tools.broken' "$fixture/err"
 grep -Fq 'blocked: tools.dependent' "$fixture/err"
 grep -Fq 'succeeded: tools.independent' "$fixture/out"
+grep -Fq 'succeeded: step links' "$fixture/out"
+grep -Fq 'failed: step dependencies' "$fixture/err"
 
 : >"$log"
 DOTFILES_INSTALL_PLAN_ADAPTER="$fixture/fake-adapter" INSTALL_PLAN_TEST_LOG="$log" \
