@@ -50,9 +50,13 @@ grep -Fq '@earendil-works/pi-coding-agent' "$log"
 
 : >"$log"
 install_rust_deps
-for package in tree-sitter-cli ripgrep wasm-bindgen-cli cargo-edit tealdeer bat bottom du-dust watchexec-cli; do
+for package in tree-sitter-cli ripgrep wasm-bindgen-cli cargo-edit tealdeer bat watchexec-cli; do
     grep -Fq "$package" "$log"
 done
+if [[ "$(dotfiles_os)" == debian ]]; then
+    grep -Fq 'bottom' "$log"
+    grep -Fq 'du-dust' "$log"
+fi
 
 : >"$log"
 if FAIL_CARGO=1 install_rust_deps; then

@@ -55,6 +55,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 - `lib/install-plan` is not the only reader of `catalog/platforms/*.tsv`: `installers/install_node_deps.sh` and `installers/install_rust_deps.sh` read those rows directly to restore npm and Cargo add-ons.
 - When provider and action-role columns were added, catalog parity and plan tests still passed while both addon installers silently selected zero packages. Keep `tests/test-language-deps.sh` in the full migration gate and search for direct platform-catalog readers before changing columns.
+- `tests/test-language-deps.sh` executes the direct reader for the runner's detected OS. Expectations for Debian-only Cargo rows must be conditional; otherwise they pass in a Debian development VM and fail on the Ubuntu CI runner before exercising retries.
 
 ## Aggregate custody cannot authorize an exact removal method
 
