@@ -32,6 +32,8 @@ for os in macos debian arch; do
 done
 
 # Representative declarations protect each adapter ownership surface.
+grep -Fxq $'action\tterminal.zsh\tprovided\tzsh\t' "$fixture/macos.plan"
+grep -Fxq $'action\tcli.ripgrep\tcargo-package\tripgrep\tmissing-only' "$fixture/macos.plan"
 grep -Fxq $'action\tgaming.steam\tbrew-cask\tsteam\t' "$fixture/macos.plan"
 grep -Fxq $'action\tcad.bambu-studio\tbrew-cask\tbambu-studio\t' "$fixture/macos.plan"
 grep -Fxq $'action\tmobile.maestro\tbrew-formula\tmobile-dev-inc/tap/maestro\ttrusted=true' "$fixture/macos.plan"

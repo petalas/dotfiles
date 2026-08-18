@@ -4,6 +4,7 @@ foundation.git	provided	payload	provided	git
 foundation.locale	provided	payload	provided	locale
 foundation.locale	provided	effect	installer	locale
 foundation.archives	provided	payload	provided	tar unzip zip
+terminal.zsh	provided	payload	provided	zsh
 cli.aria2	brew	payload	brew-formula	aria2
 terminal.bash	brew	payload	brew-formula	bash
 cli.bat	brew	payload	brew-formula	bat
@@ -113,6 +114,7 @@ ai.codex-cli	npm	payload	npm-package	@openai/codex
 ai.pi	npm	payload	npm-package	@earendil-works/pi-coding-agent	ignore-scripts
 cli.tealdeer	cargo	payload	cargo-package	tealdeer
 cli.bat	cargo	payload	cargo-package	bat	missing-only
+cli.ripgrep	cargo	payload	cargo-package	ripgrep	missing-only
 development.tree-sitter	cargo	payload	cargo-package	tree-sitter-cli	missing-only
 development.cargo-edit	cargo	payload	cargo-package	cargo-edit	missing-only
 development.wasm-bindgen	cargo	payload	cargo-package	wasm-bindgen-cli	missing-only
