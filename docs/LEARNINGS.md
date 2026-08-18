@@ -61,6 +61,13 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - `-trimpath` and an empty build ID are not enough for reproducible Go binaries when building inside a Git checkout. Go also embeds VCS revision and dirty-state metadata by default, so an artifact built before commit has a different SHA-256 after the same source is committed.
 - Build release helpers and verify `catalog/tui-releases.tsv` with `go build -buildvcs=false -trimpath -ldflags='-s -w -buildid='`. The release-manifest test intentionally rebuilds every target after commit so this cannot silently recur.
 
+## A terminal TUI must treat height and stage context as part of its interface
+
+- Tracking only terminal width made the first state-aware selector render dozens of application-card lines below an 80×24 viewport. It also rendered all four lanes as columns until 90 cells, where labels and evidence were already unreadable.
+- Every interactive view now consumes both dimensions, reserves fixed rows for the Plan/Review/Run stepper, all four outcome names, and controls, and windows the variable application/review content around the cursor. Tiny terminals show a bounded resize view rather than overflowing.
+- The `choose` command must honor its own “Enter opens review” help text. Exiting directly from Plan made the separate prepared-run review feel like an unrelated second UI. Keep the state-transition and 80×24 bounds tests at the model seam.
+- Successful interactive inspection uses the alternate screen and leaves no static “run settled” report behind before Plan opens. Redirected runs still print their final report for automation and diagnostics.
+
 ## Bubble Tea execution completion must follow both output scanners
 
 - The progress helper reads engine events from stdout and diagnostic output from stderr concurrently. Sending the completion message as soon as `cmd.Wait()` returns can overtake queued scanner messages, leaving the final view at `0/N` even though execution settled.

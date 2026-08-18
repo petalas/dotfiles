@@ -8,7 +8,7 @@ Personal dotfiles and machine setup for macOS and Linux (Ubuntu / Debian / Arch)
 curl -fsSL https://raw.githubusercontent.com/petalas/dotfiles/main/bootstrap.sh | bash
 ```
 
-Installs Git if missing, clones this repo to `~/git/dotfiles` (override with `$DOTFILES_DIR`), inspects application state, then opens the state-aware visual installation plan. Applications appear in **Ensure present**, **Leave unchanged**, **Remove**, and **Force removal** lanes. Use arrows to navigate, `[`/`]` to filter groups, and `e`/`u`/`r`/`f` to choose an outcome. Enter opens the prepared-run review. Once its differentiated confirmation succeeds, execution is fully unattended and shows overall plus active-operation progress.
+Installs Git if missing, clones this repo to `~/git/dotfiles` (override with `$DOTFILES_DIR`), inspects application state, then opens the state-aware visual installation plan. A persistent **Plan → Review → Run** stepper and the **Ensure present**, **Leave unchanged**, **Remove**, and **Force removal** lanes show where you are and what will happen. Use arrows to navigate, `[`/`]` to choose a group, and `e`/`u`/`r`/`f` to change one application. `Shift+E/U/R/F` applies an outcome to the selected group; bulk actions are rejected while **All groups** is selected. Enter opens review. Once differentiated confirmation succeeds, execution is fully unattended and shows overall plus active-operation progress.
 
 For an unattended full installation with every available item selected:
 
@@ -46,7 +46,7 @@ The linker is local-only, idempotent, and preserves any replaced file, directory
 
 ## Per-machine intent and safe removal
 
-The selector exposes the same dependency groups on every supported OS and reports each application's presence, installation custody, and removal capabilities. Foundation and the Bun, Node, and Rust applications are required and cannot be removed. Groups filter and initialize applications but never initiate destructive work.
+The selector exposes the same dependency groups on every supported OS and reports each application's current presence/custody beside its desired post-run outcome. Foundation and the Bun, Node, and Rust applications are required and cannot be removed. Group actions only edit the reviewed desired-outcome plan; they never cross the destructive confirmation boundary or initiate execution.
 
 **Exact Remove** is enabled only for a package-manager registration or matching installation receipt. **Force removal** is a separately confirmed, best-effort cleanup through catalog-reviewed package identities and bounded paths. Retained dependents block prerequisite removal; package-manager dependency checks are never bypassed. Neither mode removes package-manager orphans, shared prerequisites, projects, profiles, vaults, sessions, editor configuration, browser data, Docker data, or other user data. Changed support files are retained rather than deleted.
 

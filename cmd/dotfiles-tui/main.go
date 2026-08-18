@@ -56,8 +56,10 @@ type model struct {
 	steps                []planStep
 	dependencies         map[string][]string
 	reviewDetails        []string
-	width, lane, cursor  int
+	width, height        int
+	lane, cursor         int
 	groupFilter          int
+	reviewScroll         int
 	display              displayMode
 	stage, input, notice string
 	stepMode             bool
@@ -67,6 +69,7 @@ type model struct {
 	confirmed, cancelled bool
 	chooseOnly           bool
 	confirmOnly          bool
+	interactive          bool
 }
 
 func parseInputs(observationsPath, selectionPath string) ([]application, []planStep, map[string][]string, error) {
@@ -162,7 +165,7 @@ func (m model) Init() tea.Cmd { return nil }
 func (m model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := message.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
+		m.width, m.height = msg.Width, msg.Height
 	case tea.KeyPressMsg:
 		key := msg.String()
 		if key == "ctrl+c" || key == "q" && (m.stage == "select" || (m.confirmOnly && m.stage == "review")) {
@@ -171,6 +174,9 @@ func (m model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.stage == "confirm" {
 			return m.updateConfirmation(key)
+		}
+		if m.stage == "review" {
+			return m.updateReview(key)
 		}
 		if key == "tab" && len(m.steps) > 0 {
 			m.stepMode = !m.stepMode
@@ -222,6 +228,10 @@ func (m model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor+1 < len(m.appsInLane(lanes[m.lane])) {
 				m.cursor++
 			}
+		case "pgup":
+			m.cursor = max(0, m.cursor-5)
+		case "pgdown":
+			m.cursor = min(max(0, len(m.appsInLane(lanes[m.lane]))-1), m.cursor+5)
 		case "e":
 			m.setSelectedOutcome(ensure)
 		case "u":
@@ -230,25 +240,48 @@ func (m model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			m.setSelectedOutcome(remove)
 		case "f":
 			m.setSelectedOutcome(force)
+		case "E":
+			m.setGroupOutcome(ensure)
+		case "U":
+			m.setGroupOutcome(leave)
+		case "R":
+			m.setGroupOutcome(remove)
+		case "F":
+			m.setGroupOutcome(force)
 		case "enter":
-			if m.stage == "select" && m.chooseOnly {
-				m.confirmed = true
-				return m, tea.Quit
-			}
-			if m.stage == "select" {
-				m.stage = "review"
-			} else {
-				m.beginConfirmation()
-			}
-		case "esc":
-			if m.stage == "review" && m.confirmOnly {
-				m.cancelled = true
-				return m, tea.Quit
-			}
-			if m.stage == "review" {
-				m.stage = "select"
-			}
+			m.stage, m.reviewScroll = "review", 0
 		}
+	}
+	return m, nil
+}
+
+func (m model) updateReview(key string) (tea.Model, tea.Cmd) {
+	page := max(3, m.contentHeight()-4)
+	switch key {
+	case "up", "k":
+		m.reviewScroll = max(0, m.reviewScroll-1)
+	case "down", "j":
+		m.reviewScroll++
+	case "pgup":
+		m.reviewScroll = max(0, m.reviewScroll-page)
+	case "pgdown":
+		m.reviewScroll += page
+	case "home":
+		m.reviewScroll = 0
+	case "end":
+		m.reviewScroll = 1 << 20
+	case "esc":
+		if m.confirmOnly {
+			m.cancelled = true
+			return m, tea.Quit
+		}
+		m.stage, m.reviewScroll = "select", 0
+	case "enter":
+		if m.chooseOnly {
+			m.confirmed = true
+			return m, tea.Quit
+		}
+		m.beginConfirmation()
 	}
 	return m, nil
 }
@@ -331,42 +364,80 @@ func (m *model) setSelectedOutcome(next outcome) {
 		if m.apps[i].id != id {
 			continue
 		}
-		if m.apps[i].availability == "unavailable" && next != leave {
-			m.notice = "Unavailable on this platform"
+		if reason := m.trySetOutcome(i, next); reason != "" {
+			m.notice = reason
 			return
 		}
-		if m.apps[i].policy == "required" && next != ensure {
-			m.notice = "Removal disabled: required application"
-			return
-		}
-		if (next == remove || next == force) && m.retainedDependent(id) != "" {
-			m.notice = "Removal disabled: retained dependent " + m.retainedDependent(id)
-			return
-		}
-		if next == remove && m.apps[i].exact != "enabled" {
-			m.notice = "Exact removal disabled: managed custody is required"
-			return
-		}
-		if next == force && m.apps[i].force != "enabled" {
-			m.notice = "Force removal disabled: no cleanup recipe"
-			return
-		}
-		m.apps[i].outcome = next
 		m.notice = ""
-		if next == ensure {
-			for _, prerequisite := range m.dependencies[id] {
-				m.setOutcomeByID(prerequisite, ensure)
-			}
-		} else if next == leave {
-			for _, prerequisite := range m.dependencies[id] {
-				if current := m.appByID(prerequisite); current != nil && (current.outcome == remove || current.outcome == force) {
-					m.setOutcomeByID(prerequisite, leave)
-				}
-			}
-		}
 		m.lane = laneIndex(next)
 		m.cursor = len(m.appsInLane(next)) - 1
 		return
+	}
+}
+
+func (m *model) trySetOutcome(index int, next outcome) string {
+	app := m.apps[index]
+	if app.availability == "unavailable" && next != leave {
+		return app.label + " is unavailable on this platform"
+	}
+	if app.policy == "required" && next != ensure {
+		return app.label + " is required"
+	}
+	if (next == remove || next == force) && m.retainedDependent(app.id) != "" {
+		return app.label + " is retained by " + m.retainedDependent(app.id)
+	}
+	if next == remove && app.exact != "enabled" {
+		return app.label + " lacks managed custody for exact removal"
+	}
+	if next == force && app.force != "enabled" {
+		return app.label + " has no curated cleanup recipe"
+	}
+	m.apps[index].outcome = next
+	if next == ensure {
+		for _, prerequisite := range m.dependencies[app.id] {
+			m.setOutcomeByID(prerequisite, ensure)
+		}
+	} else if next == leave {
+		for _, prerequisite := range m.dependencies[app.id] {
+			if current := m.appByID(prerequisite); current != nil && (current.outcome == remove || current.outcome == force) {
+				m.setOutcomeByID(prerequisite, leave)
+			}
+		}
+	}
+	return ""
+}
+
+func (m *model) setGroupOutcome(next outcome) {
+	if m.groupFilter == 0 {
+		m.notice = "Choose a specific group with [ or ] before using a group action"
+		return
+	}
+	group := m.groupFilters()[m.groupFilter]
+	indices := []int{}
+	for i := range m.apps {
+		if m.apps[i].group == group {
+			indices = append(indices, i)
+		}
+	}
+	if next == remove || next == force {
+		for left, right := 0, len(indices)-1; left < right; left, right = left+1, right-1 {
+			indices[left], indices[right] = indices[right], indices[left]
+		}
+	}
+	changed, skipped := 0, 0
+	for _, index := range indices {
+		if reason := m.trySetOutcome(index, next); reason != "" {
+			skipped++
+		} else {
+			changed++
+		}
+	}
+	if changed > 0 {
+		m.lane, m.cursor = laneIndex(next), 0
+	}
+	m.notice = fmt.Sprintf("Group %s: %d set to %s", group, changed, outcomeLabel(next))
+	if skipped > 0 {
+		m.notice += fmt.Sprintf("; %d unchanged because the action is disabled", skipped)
 	}
 }
 
@@ -450,7 +521,11 @@ func filterApps(apps []application, wanted outcome) []application {
 	return filtered
 }
 
-func (m model) View() tea.View { return tea.NewView(m.render()) }
+func (m model) View() tea.View {
+	view := tea.NewView(m.render())
+	view.AltScreen = m.interactive
+	return view
+}
 
 func (m model) render() string {
 	if m.stage == "review" || m.stage == "confirm" {
@@ -459,92 +534,233 @@ func (m model) render() string {
 	return m.renderLanes()
 }
 
+func (m model) screenWidth() int {
+	if m.width > 0 {
+		return max(1, m.width)
+	}
+	return 120
+}
+
+func (m model) contentHeight() int {
+	if m.height > 0 {
+		return max(1, m.height)
+	}
+	return 30
+}
+
+func (m model) separator() string {
+	if m.display == ascii {
+		return " | "
+	}
+	return " · "
+}
+
 func (m model) renderLanes() string {
-	width := m.width
-	if width <= 0 {
-		width = 120
+	width, height := m.screenWidth(), m.contentHeight()
+	if width < 40 || height < 14 {
+		return compactContext("plan", m.separator(), "Resize to at least 40x14", "q quit", width, height)
 	}
 	group := m.groupFilters()[m.groupFilter]
-	managed, reconcile, warnings := 0, 0, 0
+	managed, changes, warnings := 0, 0, 0
 	for _, app := range m.apps {
 		if app.presence == "present" && app.custody == "managed" {
 			managed++
 		}
-		if app.outcome == ensure && app.presence != "present" {
-			reconcile++
+		if app.outcome == ensure && app.presence != "present" ||
+			(app.outcome == remove || app.outcome == force) && app.presence != "absent" {
+			changes++
 		}
 		if app.presence == "present" && app.custody == "unverified" {
 			warnings++
 		}
 	}
-	header := fmt.Sprintf("DOTFILES  PLAN  |  %d applications  |  group: %s  |  arrows move · tab steps · [/] filter · e/u/r/f choose · enter review\nmanaged %d · reconcile %d · custody warnings %d · exact removals %d · Force removals %d\n", len(m.apps), group, managed, reconcile, warnings, len(m.appsWithOutcome(remove)), len(m.appsWithOutcome(force)))
+	sep := m.separator()
+	header := []string{fit(stageStepper("plan", sep), width)}
+	header = append(header, fit("DOTFILES"+sep+fmt.Sprintf("%d applications", len(m.apps))+sep+"group: "+group, width))
+	header = append(header, fit(fmt.Sprintf("managed %d%splanned changes %d%scustody warnings %d", managed, sep, changes, sep, warnings), width))
+	header = append(header, wrapSegments(m.laneTabParts(), sep, width)...)
 	if m.notice != "" {
-		header += "! " + m.notice + "\n"
+		header = append(header, fit("! "+m.notice, width))
 	}
 	if len(m.steps) > 0 {
-		header += "STEPS"
+		line := "Steps:"
 		for i, step := range m.steps {
 			mark := " "
 			if step.enabled {
 				mark = "x"
 			}
-			cursor := " "
+			cursor := ""
 			if m.stepMode && i == m.stepCursor {
 				cursor = ">"
 			}
-			header += fmt.Sprintf("  %s[%s] %s", cursor, mark, step.label)
+			line += fmt.Sprintf("  %s[%s] %s", cursor, mark, step.label)
 		}
-		header += "\n"
+		header = append(header, fit(line, width))
 	}
-	if width < 90 {
-		return header + fmt.Sprintf("Lane %d/4\n", m.lane+1) + m.renderLane(lanes[m.lane], width-2, true) + "\n"
-	}
-	laneWidth := (width - 5) / 4
-	columns := make([]string, 0, 4)
-	for i, wanted := range lanes {
-		columns = append(columns, m.renderLane(wanted, laneWidth, i == m.lane))
-	}
-	if m.display == rich {
-		return header + lipgloss.JoinHorizontal(lipgloss.Top, columns...) + "\n"
-	}
-	return header + joinColumns(columns, laneWidth) + "\n"
+	footer := wrapWords("up/down select  left/right lane  e/u/r/f item outcome", width)
+	footer = append(footer, wrapWords("[/] choose group  Shift+E/U/R/F whole group  tab steps", width)...)
+	footer = append(footer, wrapWords("pgup/pgdown page  enter review  q quit", width)...)
+	bodyHeight := max(1, height-len(header)-len(footer))
+	body := strings.Split(m.renderLane(lanes[m.lane], width, bodyHeight), "\n")
+	lines := append(header, body...)
+	lines = append(lines, footer...)
+	return fitScreen(lines, width, height)
 }
 
-func (m model) renderLane(wanted outcome, width int, active bool) string {
+func compactContext(active, separator, message, control string, width, height int) string {
+	stageParts := []string{"PLAN", "REVIEW", "RUN"}
+	for i := range stageParts {
+		if strings.EqualFold(stageParts[i], active) {
+			stageParts[i] = "[" + stageParts[i] + "]"
+		}
+	}
+	lines := []string{fit("STAGES", width)}
+	lines = append(lines, wrapSegments(stageParts, separator, width)...)
+	lines = append(lines, fit("OUTCOMES", width))
+	lines = append(lines, wrapSegments([]string{"Ensure", "Leave", "Remove", "Force"}, separator, width)...)
+	lines = append(lines, wrapWords(message, width)...)
+	if control != "" {
+		lines = append(lines, wrapWords(control, width)...)
+	}
+	return fitScreen(lines, width, height)
+}
+
+func stageStepper(active, separator string) string {
+	stages := []string{"plan", "review", "run"}
+	parts := make([]string, 0, len(stages))
+	for _, stage := range stages {
+		label := strings.ToUpper(stage)
+		if stage == active {
+			label = "[" + label + "]"
+		}
+		parts = append(parts, label)
+	}
+	return "STAGES  " + strings.Join(parts, separator)
+}
+
+func (m model) laneSummaryParts() []string {
+	labels := map[outcome]string{ensure: "Ensure", leave: "Leave", remove: "Remove", force: "Force"}
+	parts := make([]string, 0, len(lanes))
+	for _, wanted := range lanes {
+		parts = append(parts, fmt.Sprintf("%s %d", labels[wanted], len(m.appsInLane(wanted))))
+	}
+	return parts
+}
+
+func (m model) laneTabParts() []string {
+	labels := map[outcome]string{ensure: "Ensure", leave: "Leave", remove: "Remove", force: "Force"}
+	parts := make([]string, 0, len(lanes))
+	for index, wanted := range lanes {
+		part := fmt.Sprintf("%s %d", labels[wanted], len(m.appsInLane(wanted)))
+		if index == m.lane {
+			part = "> " + part
+		} else {
+			part = "  " + part
+		}
+		parts = append(parts, part)
+	}
+	return parts
+}
+
+func wrapSegments(parts []string, separator string, width int) []string {
+	lines := []string{}
+	current := ""
+	for _, part := range parts {
+		candidate := part
+		if current != "" {
+			candidate = current + separator + part
+		}
+		if current == "" || lipgloss.Width(candidate) <= width {
+			current = candidate
+			continue
+		}
+		lines = append(lines, fit(current, width))
+		current = part
+	}
+	if current != "" {
+		lines = append(lines, fit(current, width))
+	}
+	return lines
+}
+
+func outcomeLabel(wanted outcome) string {
+	switch wanted {
+	case ensure:
+		return "Ensure present"
+	case leave:
+		return "Leave unchanged"
+	case remove:
+		return "Remove"
+	case force:
+		return "Force removal"
+	default:
+		return string(wanted)
+	}
+}
+
+func (m model) renderLane(wanted outcome, width, height int) string {
 	apps := m.appsInLane(wanted)
-	lines := []string{fmt.Sprintf("%s (%d)", laneTitles[wanted], len(apps))}
+	if height <= 0 {
+		return ""
+	}
+	title := fmt.Sprintf("%s (%d)", laneTitles[wanted], len(apps))
+	if len(apps) > 0 {
+		title += fmt.Sprintf("  item %d/%d", min(m.cursor+1, len(apps)), len(apps))
+	}
+	if len(apps) == 0 {
+		return strings.Join([]string{fit(title, width), fit("  (empty)", width)}, "\n")
+	}
+
+	lines := []string{}
+	selectedStart, selectedEnd := 0, 0
+	compact := height < 9 || width < 42
 	for i, app := range apps {
+		start := len(lines)
 		cursor := "  "
-		if active && i == m.cursor {
+		if i == m.cursor {
 			cursor = "> "
 		}
 		lines = append(lines, fit(cursor+m.marker(app)+" "+app.label, width))
-		lines = append(lines, fit("  "+app.group+" · "+app.custody, width))
-		lines = append(lines, fit("  "+app.evidence, width))
-		if app.availability == "unavailable" {
-			lines = append(lines, fit("  unavailable on this platform", width))
-		} else if dependent := m.retainedDependent(app.id); dependent != "" {
-			lines = append(lines, fit("  removal disabled · retained by "+dependent, width))
-		} else if app.policy == "required" {
-			lines = append(lines, fit("  removal disabled · required", width))
-		} else if app.exact != "enabled" && app.force != "enabled" {
-			lines = append(lines, fit("  removal disabled · no safe method", width))
-		} else if app.exact != "enabled" {
-			lines = append(lines, fit("  exact disabled · custody unverified", width))
+		if compact {
+			lines = append(lines, fit("    "+app.presence+" -> "+outcomeLabel(app.outcome), width))
+		} else {
+			lines = append(lines, fit("    Current: "+app.presence+m.separator()+app.custody, width))
+			lines = append(lines, fit("    After run: "+outcomeLabel(app.outcome), width))
+			lines = append(lines, fit("    Evidence: "+app.evidence, width))
+			if reason := m.removalDisabledReason(app); reason != "" {
+				lines = append(lines, fit("    "+reason, width))
+			}
+			lines = append(lines, "")
+		}
+		if i == m.cursor {
+			selectedStart, selectedEnd = start, len(lines)-1
 		}
 	}
-	if len(apps) == 0 {
-		lines = append(lines, "  (empty)")
+	up, down := "↑ more", "↓ more"
+	if m.display == ascii {
+		up, down = "^ more", "v more"
 	}
-	content := strings.Join(lines, "\n")
-	if m.display != rich {
-		return content
+	visible := viewportAround(lines, selectedStart, selectedEnd, max(0, height-1), width, up, down)
+	return strings.Join(append([]string{fit(title, width)}, visible...), "\n")
+}
+
+func (m model) removalDisabledReason(app application) string {
+	if app.availability == "unavailable" {
+		return "unavailable on this platform"
 	}
-	border := lipgloss.Color("8")
-	if active {
-		border = lipgloss.Color("6")
+	if dependent := m.retainedDependent(app.id); dependent != "" {
+		return "removal disabled: retained by " + dependent
 	}
-	return lipgloss.NewStyle().Width(width-3).Padding(0, 1).Border(lipgloss.RoundedBorder()).BorderForeground(border).Render(content)
+	if app.policy == "required" {
+		return "removal disabled: required"
+	}
+	if app.exact != "enabled" && app.force != "enabled" {
+		return "removal disabled: no safe method"
+	}
+	if app.exact != "enabled" {
+		return "exact disabled: custody unverified"
+	}
+	return ""
 }
 
 func (m model) marker(app application) string {
@@ -579,8 +795,16 @@ func (m model) marker(app application) string {
 }
 
 func (m model) renderReview() string {
+	width, height := m.screenWidth(), m.contentHeight()
+	if width < 40 || height < 14 {
+		return compactContext("review", m.separator(), "Resize to at least 40x14", "esc back", width, height)
+	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "REVIEW PREPARED RUN\n\nSTEPS\n")
+	title := "REVIEW CHOICES"
+	if m.confirmOnly {
+		title = "REVIEW PREPARED RUN"
+	}
+	fmt.Fprintf(&b, "%s\n\nSTEPS\n", title)
 	for _, step := range m.steps {
 		state := "off"
 		if step.enabled {
@@ -593,7 +817,7 @@ func (m model) renderReview() string {
 		apps := m.appsWithOutcome(wanted)
 		fmt.Fprintf(&b, "%s (%d)\n", laneTitles[wanted], len(apps))
 		for _, app := range apps {
-			fmt.Fprintf(&b, "  %s %s — %s\n", m.marker(app), app.label, app.evidence)
+			fmt.Fprintf(&b, "  %s %s%s%s\n", m.marker(app), app.label, m.separator(), app.evidence)
 		}
 	}
 	if len(m.reviewDetails) > 0 {
@@ -602,12 +826,75 @@ func (m model) renderReview() string {
 			fmt.Fprintf(&b, "  %s\n", detail)
 		}
 	}
+	body := wrapIndentedLines(strings.TrimSuffix(b.String(), "\n"), width)
+	header := []string{fit(stageStepper("review", m.separator()), width)}
+	header = append(header, wrapSegments(m.laneSummaryParts(), m.separator(), width)...)
+	footer := []string{}
 	if m.stage == "confirm" {
-		fmt.Fprintf(&b, "\nType %q to continue:\n> %s", m.expectedPhrase(), m.input)
+		footer = append(footer, fit(fmt.Sprintf("Type %q to continue:", m.expectedPhrase()), width))
+		footer = append(footer, fit("> "+m.input, width))
+		footer = append(footer, fit("backspace edits  enter confirms  esc returns to review", width))
 	} else {
-		fmt.Fprint(&b, "\nEnter confirms this review; Esc returns to planning.")
+		verb := "continue to confirmation"
+		if m.chooseOnly {
+			verb = "accept choices"
+		}
+		footer = append(footer, wrapWords("up/down scroll  pgup/pgdown page  enter "+verb+"  esc back", width)...)
 	}
-	return b.String()
+	bodyHeight := max(1, height-len(header)-len(footer))
+	up, down := "↑ earlier", "↓ more"
+	if m.display == ascii {
+		up, down = "^ earlier", "v more"
+	}
+	visible := viewportAt(body, m.reviewScroll, bodyHeight, width, up, down)
+	lines := append(header, visible...)
+	return fitScreen(append(lines, footer...), width, height)
+}
+
+func wrapIndentedLines(content string, width int) []string {
+	result := []string{}
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimLeft(line, " ")
+		indent := line[:len(line)-len(trimmed)]
+		if trimmed == "" {
+			result = append(result, "")
+			continue
+		}
+		available := max(1, width-lipgloss.Width(indent))
+		wrapped := wrapWords(trimmed, available)
+		for _, part := range wrapped {
+			result = append(result, fit(indent+strings.TrimRight(part, " "), width))
+		}
+	}
+	return result
+}
+
+func viewportAt(lines []string, offset, height, width int, up, down string) []string {
+	if height <= 0 || len(lines) == 0 {
+		return nil
+	}
+	if len(lines) <= height {
+		return lines
+	}
+	if height == 1 {
+		return []string{lines[min(max(0, offset), len(lines)-1)]}
+	}
+	offset = max(0, offset)
+	atBottom := offset >= len(lines)-height
+	if atBottom {
+		start := max(0, len(lines)-(height-1))
+		return append([]string{fit(up, width)}, lines[start:]...)
+	}
+	visible := []string{}
+	capacity := height - 1 // Keep the lower scroll affordance visible.
+	if offset > 0 {
+		visible = append(visible, fit(up, width))
+		capacity--
+	}
+	end := min(len(lines), offset+capacity)
+	visible = append(visible, lines[offset:end]...)
+	visible = append(visible, fit(down, width))
+	return visible
 }
 
 func joinColumns(columns []string, width int) string {
@@ -637,14 +924,105 @@ func joinColumns(columns []string, width int) string {
 }
 
 func fit(value string, width int) string {
-	runes := []rune(value)
-	if len(runes) > width {
-		if width > 1 {
-			return string(runes[:width-1]) + "…"
-		}
-		return string(runes[:width])
+	if width <= 0 {
+		return ""
 	}
-	return value + strings.Repeat(" ", width-len(runes))
+	if lipgloss.Width(value) <= width {
+		return value + strings.Repeat(" ", width-lipgloss.Width(value))
+	}
+	limit := max(0, width-1)
+	var b strings.Builder
+	for _, character := range value {
+		candidate := b.String() + string(character)
+		if lipgloss.Width(candidate) > limit {
+			break
+		}
+		b.WriteRune(character)
+	}
+	if width == 1 {
+		return "…"
+	}
+	return b.String() + "…"
+}
+
+func wrapWords(value string, width int) []string {
+	if width <= 0 {
+		return nil
+	}
+	words := strings.Fields(value)
+	if len(words) == 0 {
+		return []string{""}
+	}
+	lines := []string{}
+	current := ""
+	for _, word := range words {
+		candidate := word
+		if current != "" {
+			candidate = current + " " + word
+		}
+		if lipgloss.Width(candidate) <= width {
+			current = candidate
+			continue
+		}
+		if current != "" {
+			lines = append(lines, fit(current, width))
+		}
+		current = word
+	}
+	if current != "" {
+		lines = append(lines, fit(current, width))
+	}
+	return lines
+}
+
+func fitScreen(lines []string, width, height int) string {
+	if height > 0 && len(lines) > height {
+		lines = lines[:height]
+	}
+	for i := range lines {
+		lines[i] = fit(strings.TrimRight(lines[i], " "), width)
+	}
+	return strings.TrimRight(strings.Join(lines, "\n"), " ") + "\n"
+}
+
+func viewportAround(lines []string, selectedStart, _ int, height, width int, up, down string) []string {
+	if height <= 0 || len(lines) == 0 {
+		return nil
+	}
+	if len(lines) <= height {
+		return lines
+	}
+	if height == 1 {
+		return []string{lines[min(selectedStart, len(lines)-1)]}
+	}
+	start := max(0, selectedStart-height/2)
+	top := start > 0
+	capacity := height
+	if top {
+		capacity--
+	}
+	end := min(len(lines), start+capacity)
+	bottom := end < len(lines)
+	if bottom && capacity > 1 {
+		end--
+	}
+	if selectedStart >= end {
+		end = min(len(lines), selectedStart+1)
+		start = max(0, end-capacity)
+		top = start > 0
+	}
+	visible := make([]string, 0, height)
+	if top {
+		visible = append(visible, fit("  "+up, width))
+	}
+	visible = append(visible, lines[start:end]...)
+	if end < len(lines) && len(visible) < height {
+		visible = append(visible, fit("  "+down, width))
+	}
+	if len(visible) > height {
+		visible = visible[:height]
+	}
+	return visible
 }
 
 func parsePrepared(path string) ([]application, []planStep, []string, error) {
@@ -833,22 +1211,27 @@ type executionLog string
 
 type progressModel struct {
 	bar            progress.Model
+	width, height  int
 	total, settled int
 	active         map[string]string
 	results        []string
 	logs           []string
 	done           bool
 	err            error
+	interactive    bool
+	stage          string
+	display        displayMode
 }
 
-func newProgressModel() progressModel {
-	return progressModel{bar: progress.New(progress.WithDefaultBlend()), active: map[string]string{}}
+func newProgressModel(interactive bool, stage string) progressModel {
+	return progressModel{bar: progress.New(progress.WithDefaultBlend()), active: map[string]string{}, interactive: interactive, stage: stage, display: displayMode(defaultDisplay())}
 }
 func (m progressModel) Init() tea.Cmd { return nil }
 func (m progressModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := message.(type) {
 	case tea.WindowSizeMsg:
-		m.bar.SetWidth(max(20, msg.Width-12))
+		m.width, m.height = msg.Width, msg.Height
+		m.bar.SetWidth(max(10, msg.Width-12))
 	case executionEvent:
 		fields := msg.fields
 		if len(fields) < 3 || fields[0] != "event" || fields[1] != "1" ||
@@ -875,7 +1258,11 @@ func (m progressModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				delete(m.active, fields[3])
 				m.settled, _ = strconv.Atoi(fields[5])
 				m.total, _ = strconv.Atoi(fields[6])
-				m.results = append(m.results, label+" — "+fields[4])
+				separator := " — "
+				if m.display == ascii {
+					separator = " - "
+				}
+				m.results = append(m.results, label+separator+fields[4])
 			}
 		}
 	case executionLog:
@@ -894,26 +1281,53 @@ func (m progressModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	return m, nil
 }
-func (m progressModel) View() tea.View { return tea.NewView(m.render()) }
+func (m progressModel) View() tea.View {
+	view := tea.NewView(m.render())
+	view.AltScreen = m.interactive
+	return view
+}
 func (m progressModel) render() string {
+	width, height := m.width, m.height
+	if width <= 0 {
+		width = 100
+	}
+	if height <= 0 {
+		height = 30
+	}
+	separator, activeMarker, settledMarker := " · ", "◐", "●"
+	if m.display == ascii {
+		separator, activeMarker, settledMarker = " | ", "[~]", "[+]"
+	}
+	if width < 40 || height < 14 {
+		activity := fmt.Sprintf("Working: %d/%d settled", m.settled, m.total)
+		return compactContext(m.stage, separator, activity, "", width, height)
+	}
 	percent := 0.0
 	if m.total > 0 {
 		percent = float64(m.settled) / float64(m.total)
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "DOTFILES RUN  %d/%d settled\n%s\n\n", m.settled, m.total, m.bar.ViewAs(percent))
+	fmt.Fprintln(&b, fit(stageStepper(m.stage, separator), width))
+	for _, line := range wrapSegments([]string{"Ensure", "Leave", "Remove", "Force"}, separator, width) {
+		fmt.Fprintln(&b, line)
+	}
+	activity := "RUN"
+	if m.stage == "plan" {
+		activity = "INSPECTING MACHINE"
+	}
+	fmt.Fprintf(&b, "DOTFILES %s  %d/%d settled\n%s\n\n", activity, m.settled, m.total, m.bar.ViewAs(percent))
 	fmt.Fprintln(&b, "ACTIVE")
 	if len(m.active) == 0 {
 		fmt.Fprintln(&b, "  (none)")
 	} else {
 		for _, label := range m.active {
-			fmt.Fprintf(&b, "  ◐ %s — working\n", label)
+			fmt.Fprintf(&b, "  %s %s%sworking\n", activeMarker, label, separator)
 		}
 	}
 	fmt.Fprintln(&b, "\nSETTLED")
 	start := max(0, len(m.results)-8)
 	for _, result := range m.results[start:] {
-		fmt.Fprintf(&b, "  ● %s\n", result)
+		fmt.Fprintf(&b, "  %s %s\n", settledMarker, result)
 	}
 	waiting := max(0, m.total-m.settled-len(m.active))
 	fmt.Fprintf(&b, "\nWAITING\n  %d logical operations\n", waiting)
@@ -930,7 +1344,26 @@ func (m progressModel) render() string {
 			fmt.Fprintln(&b, "\nRun settled successfully.")
 		}
 	}
-	return b.String()
+	lines := strings.Split(strings.TrimSuffix(b.String(), "\n"), "\n")
+	if len(lines) > height {
+		footer := lines[len(lines)-1:]
+		lines = append(lines[:max(0, height-len(footer))], footer...)
+	}
+	return fitScreen(lines, width, height)
+}
+
+func isTerminalFile(file *os.File) bool {
+	info, err := file.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
+}
+
+func executionStage(command []string) string {
+	for _, argument := range command {
+		if argument == "inspect" {
+			return "plan"
+		}
+	}
+	return "run"
 }
 
 func runExecution(command []string) error {
@@ -947,7 +1380,8 @@ func runExecution(command []string) error {
 	if err != nil {
 		return err
 	}
-	program := tea.NewProgram(newProgressModel(), tea.WithInput(nil), tea.WithoutSignalHandler())
+	interactive := isTerminalFile(os.Stdout)
+	program := tea.NewProgram(newProgressModel(interactive, executionStage(command)), tea.WithInput(nil), tea.WithoutSignalHandler())
 	if err = cmd.Start(); err != nil {
 		return err
 	}
@@ -986,7 +1420,9 @@ func runExecution(command []string) error {
 		return runErr
 	}
 	result := final.(progressModel)
-	fmt.Print(result.render())
+	if result.err != nil || !interactive {
+		fmt.Print(result.render())
+	}
 	return result.err
 }
 
@@ -1014,7 +1450,7 @@ func run(args []string) error {
 		if err != nil {
 			return err
 		}
-		m := model{apps: apps, steps: steps, reviewDetails: details, width: *width, display: displayMode(*display), stage: "review", confirmOnly: true}
+		m := model{apps: apps, steps: steps, reviewDetails: details, width: *width, display: displayMode(*display), stage: "review", confirmOnly: true, interactive: true}
 		final, err := tea.NewProgram(m).Run()
 		if err != nil {
 			return err
@@ -1029,7 +1465,7 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	m := model{apps: apps, steps: steps, dependencies: dependencies, width: width, display: display, stage: "select", output: output, chooseOnly: args[0] == "choose"}
+	m := model{apps: apps, steps: steps, dependencies: dependencies, width: width, display: display, stage: "select", output: output, chooseOnly: args[0] == "choose", interactive: args[0] != "render"}
 	switch args[0] {
 	case "render":
 		fmt.Print(m.render())

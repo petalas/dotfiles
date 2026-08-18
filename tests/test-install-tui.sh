@@ -29,12 +29,12 @@ EOF
 go build -o "$fixture/dotfiles-tui" ./cmd/dotfiles-tui
 "$fixture/dotfiles-tui" render --observations "$fixture/observations.tsv" \
     --selection "$fixture/selection.tsv" --width 120 --display rich >"$fixture/rich"
-grep -Fq 'ENSURE PRESENT' "$fixture/rich"
-grep -Fq 'LEAVE UNCHANGED' "$fixture/rich"
-grep -Fq 'REMOVE' "$fixture/rich"
-grep -Fq 'FORCE REMOVAL' "$fixture/rich"
-grep -Fq 'Discord' "$fixture/rich"
-grep -Fq 'unverified' "$fixture/rich"
+grep -Fq 'Ensure 1' "$fixture/rich"
+grep -Fq 'Leave 1' "$fixture/rich"
+grep -Fq 'Remove 1' "$fixture/rich"
+grep -Fq 'Force 1' "$fixture/rich"
+grep -Fq 'custody warnings 1' "$fixture/rich"
+grep -Fq 'enter review' "$fixture/rich"
 grep -Fq '4 applications' "$fixture/rich"
 grep -Fq 'Install dependencies' "$fixture/rich"
 
@@ -42,7 +42,8 @@ grep -Fq 'Install dependencies' "$fixture/rich"
     --selection "$fixture/selection.tsv" --width 70 --display ascii >"$fixture/ascii"
 LC_ALL=C grep -q '^[ -~]*$' "$fixture/ascii"
 grep -Fq '[!]' "$fixture/ascii"
-grep -Fq 'Lane 1/4' "$fixture/ascii"
+grep -Fq 'item 1/1' "$fixture/ascii"
+grep -Fq 'left/right lane' "$fixture/ascii"
 
 cat >"$fixture/events" <<'EOF'
 #!/usr/bin/env bash
@@ -55,6 +56,8 @@ printf 'event\t1\trun-settled\tsucceeded\t2\t2\n'
 EOF
 chmod +x "$fixture/events"
 TERM=xterm "$fixture/dotfiles-tui" run -- "$fixture/events" >"$fixture/run"
+grep -Fq '[RUN]' "$fixture/run"
+grep -Fq 'Ensure · Leave · Remove · Force' "$fixture/run"
 grep -Fq '2/2 settled' "$fixture/run"
 grep -Fq 'One — succeeded' "$fixture/run"
 grep -Fq 'Run settled successfully' "$fixture/run"
