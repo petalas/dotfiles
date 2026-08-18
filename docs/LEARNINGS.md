@@ -30,6 +30,17 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Aggregate custody cannot authorize an exact removal method
+
+- An application can have several possible providers (for example APT plus a direct installer). Reporting only `custody=managed` loses which mechanism actually established custody and can make preparation remove every candidate package identity.
+- Inspection artifacts therefore include one aggregate `observation` plus exact `mechanism` rows. Prepared Exact Remove operations come only from those mechanism rows; Force removal alone expands the broader cleanup recipe.
+- A direct-install receipt may be created only when the command was absent before a successful installer run or when an existing valid receipt is being refreshed. A successful no-op installer over a pre-existing unreceipted command must not claim custody.
+
+## Bubble Tea execution completion must follow both output scanners
+
+- The progress helper reads engine events from stdout and diagnostic output from stderr concurrently. Sending the completion message as soon as `cmd.Wait()` returns can overtake queued scanner messages, leaving the final view at `0/N` even though execution settled.
+- Wait for both scanner goroutines to finish sending before sending the Bubble Tea completion message. The deterministic TUI test uses a fast command intentionally so this ordering regression remains visible.
+
 ## Brewfile environment gates are not a selection interface
 
 - `brew bundle` evaluates the Brewfile as Ruby, but Homebrew sanitises arbitrary environment variables before evaluation. This made historical `SKIP_*` gates unreliable unless wrappers translated them to `HOMEBREW_*` names.

@@ -8,7 +8,7 @@ Personal dotfiles and machine setup for macOS and Linux (Ubuntu / Debian / Arch)
 curl -fsSL https://raw.githubusercontent.com/petalas/dotfiles/main/bootstrap.sh | bash
 ```
 
-Installs Git if missing, clones this repo to `~/git/dotfiles` (override with `$DOTFILES_DIR`), then opens the visual installation-plan selector. Use the two-pane selector to toggle steps or dependency groups, move into a group's applications with Tab/→, and review with Enter. Once confirmed, execution is fully unattended.
+Installs Git if missing, clones this repo to `~/git/dotfiles` (override with `$DOTFILES_DIR`), inspects application state, then opens the state-aware visual installation plan. Applications appear in **Ensure present**, **Leave unchanged**, **Remove**, and **Force removal** lanes. Use arrows to navigate, `[`/`]` to filter groups, and `e`/`u`/`r`/`f` to choose an outcome. Enter opens the prepared-run review. Once its differentiated confirmation succeeds, execution is fully unattended and shows overall plus active-operation progress.
 
 For an unattended full installation with every available item selected:
 
@@ -44,9 +44,13 @@ git pull --ff-only
 
 The linker is local-only, idempotent, and preserves any replaced file, directory, or symlink as `<path>.old`. To restore generated repositories, plugins, and caches separately, run `./setup-tools.sh`.
 
-## Per-machine subsetting
+## Per-machine intent and safe removal
 
-The selector exposes the same dependency groups on every supported OS and marks platform-unavailable groups instead of hiding them. Toggle a group from the left pane, or customize its individual applications in the right pane. Foundation and the Bun, Node, and Rust applications are required and cannot be disabled. Deselection skips future installation and reconciliation; it never uninstalls existing software.
+The selector exposes the same dependency groups on every supported OS and reports each application's presence, installation custody, and removal capabilities. Foundation and the Bun, Node, and Rust applications are required and cannot be removed. Groups filter and initialize applications but never initiate destructive work.
+
+**Exact Remove** is enabled only for a package-manager registration or matching installation receipt. **Force removal** is a separately confirmed, best-effort cleanup through catalog-reviewed package identities and bounded paths. Retained dependents block prerequisite removal; package-manager dependency checks are never bypassed. Neither mode removes package-manager orphans, shared prerequisites, projects, profiles, vaults, sessions, editor configuration, browser data, Docker data, or other user data. Changed support files are retained rather than deleted.
+
+Only wanted/not-wanted defaults are saved in `${XDG_STATE_HOME:-~/.local/state}/dotfiles/installation-plan`; Remove and Force removal never persist or replay. The latest permission-restricted, non-replayable result is written to `${XDG_STATE_HOME:-~/.local/state}/dotfiles/latest-run-report`.
 
 ## Run a single installer
 
@@ -76,7 +80,8 @@ It fast-forwards this repository, resolves the saved installation plan, reconcil
 - Setup requires `sudo -n` for ordinary Linux users before selection starts. Linux root runs avoid sudo; macOS setup must run as the target non-root user because Homebrew refuses root installs. Provision administrator access and macOS Command Line Tools outside the script. After visual confirmation, child processes receive closed stdin and non-interactive package-manager settings.
 - Linux software comes from distro repositories whenever available. Debian/Ubuntu install `apt-fast` from its signed PPA, preconfigure it for 8 parallel downloads, and fall back to Nala or `apt-get`. Arch configures pacman for 8 parallel downloads. Official vendor APT repositories, `.deb` files, or native release binaries are fallbacks for applications absent from distro repositories. Flatpak is not used.
 - Debian selects and caches its fastest archive mirror with `netselect-apt`; Arch ranks current HTTPS mirrors with Reflector (or `rankmirrors` on Arch ARM). Original source/mirror files are retained as `.dotfiles` backups. Set `DOTFILES_REFRESH_MIRRORS=1` for one setup run to rerank them.
-- `catalog/` is the canonical inventory for installation steps, dependency groups, applications, prerequisites, and platform adapters. `Brewfile` is a generated full compatibility artifact; regenerate it with `./tools/generate-brewfile >Brewfile`. Dependencies otherwise come from current Homebrew, npm, Cargo, GitHub releases, and official installer endpoints. There is no repository-maintained version lockfile.
+- `catalog/` is the canonical inventory for installation steps, dependency groups, applications, prerequisites, platform adapters, and bounded cleanup recipes. `Brewfile` is a generated full compatibility artifact; regenerate it with `./tools/generate-brewfile >Brewfile`. Dependencies otherwise come from current Homebrew, npm, Cargo, GitHub releases, and official installer endpoints. There is no repository-maintained application version lockfile.
+- Visual mode uses the repository-owned Bubble Tea/Bubbles/Lip Gloss helper. `tools/run-install-tui` downloads a pinned release binary only after matching its SHA-256 manifest entry. If acquisition fails, it builds from source only when a compatible Go toolchain already exists; it never installs Go. Set `DOTFILES_TUI_DISPLAY=rich|plain|ascii` to force an accessibility fallback; `NO_COLOR` selects plain rendering and `TERM=dumb` selects ASCII.
 - Package lists are installed in batches. After bounded retries, a failed batch is retried one package at a time so an unavailable package does not block unrelated packages. Required failures stop setup after all entries have been attempted; individual applications and language add-ons are best effort.
 - The required Foundation group configures `en_US.UTF-8` during dependency installation; `./install locale` is only needed for a manual repair.
 - Linux writes Ghostty's `xdg-terminal-exec` preference under `XDG_CONFIG_HOME`; macOS leaves the default-terminal choice to the user.

@@ -12,9 +12,14 @@ tests=(
     tests/test-git-sync.sh
     tests/test-homebrew.sh
     tests/test-install-catalog.sh
+    tests/test-install-observation.sh
     tests/test-install-plan.sh
     tests/test-install-plan-apply.sh
+    tests/test-install-progress.sh
+    tests/test-install-removal.sh
     tests/test-install-selector.sh
+    tests/test-install-tui-bootstrap.sh
+    tests/test-install-tui.sh
     tests/test-language-deps.sh
     tests/test-link-path.sh
     tests/test-link-dotfiles.sh

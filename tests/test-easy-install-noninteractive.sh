@@ -4,7 +4,7 @@ set -euo pipefail
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 fixture_dir=$(mktemp -d /tmp/dotfiles-easy-install.XXXXXX)
 trap 'rm -rf "$fixture_dir"' EXIT
-mkdir -p "$fixture_dir/bin" "$fixture_dir/home" "$fixture_dir/lib"
+mkdir -p "$fixture_dir/bin" "$fixture_dir/home" "$fixture_dir/lib" "$fixture_dir/tools"
 cp "$repo_dir/easy-install.sh" "$fixture_dir/easy-install.sh"
 cp "$repo_dir/lib/platform.sh" "$fixture_dir/lib/platform.sh"
 
@@ -24,6 +24,12 @@ command=$1
 shift
 printf '%s %s\n' "$command" "$*" >>"$TEST_STEPS"
 case "$command" in
+    inspect)
+        while (($#)); do
+            if [[ "$1" == --output ]]; then printf 'format\t1\nos\tmacos\n' >"$2"; break; fi
+            shift
+        done
+        ;;
     prepare)
         [[ "${NONINTERACTIVE:-0}" == 0 ]]
         [[ "${TEST_SCENARIO:-}" != prepare_failure ]] || exit 1
@@ -32,7 +38,7 @@ case "$command" in
             shift
         done
         ;;
-    apply)
+    execute|apply)
         [[ "${NONINTERACTIVE:-}" == 1 ]]
         [[ "${DOTFILES_NONINTERACTIVE:-}" == 1 ]]
         if IFS= read -r _; then echo 'apply stdin was open' >&2; exit 1; fi
@@ -40,7 +46,12 @@ case "$command" in
         ;;
 esac
 EOF
-chmod +x "$fixture_dir/bin"/* "$fixture_dir/lib/install-plan" "$fixture_dir/easy-install.sh"
+cat >"$fixture_dir/tools/run-install-tui" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$1" == run && "$2" == -- ]]; then shift 2; exec "$@"; fi
+exit 1
+EOF
+chmod +x "$fixture_dir/bin"/* "$fixture_dir/lib/install-plan" "$fixture_dir/tools/run-install-tui" "$fixture_dir/easy-install.sh"
 
 steps="$fixture_dir/steps"
 run_install() {
@@ -54,8 +65,9 @@ run_install() {
 }
 
 run_install visual
-[[ "$(sed -n '1p' "$steps")" == prepare*'--mode visual'* ]]
-[[ "$(sed -n '2p' "$steps")" == apply*'--operation install'* ]]
+[[ "$(sed -n '1p' "$steps")" == inspect*'--os '* ]]
+[[ "$(sed -n '2p' "$steps")" == prepare*'--mode visual'* ]]
+[[ "$(sed -n '3p' "$steps")" == execute*'--operation install'* ]]
 
 run_install unattended --unattended
 grep -Fq 'prepare --mode full' "$steps"

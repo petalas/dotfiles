@@ -53,8 +53,15 @@ for command_name in curl git; do
 done
 
 resolved_plan=$(mktemp "${TMPDIR:-/tmp}/dotfiles-resolved-plan.XXXXXX")
-trap 'rm -f "$resolved_plan"' EXIT
+approval=$(mktemp "${TMPDIR:-/tmp}/dotfiles-plan-approval.XXXXXX")
+observations=$(mktemp "${TMPDIR:-/tmp}/dotfiles-observations.XXXXXX")
+rm -f "$approval"
+trap 'rm -f "$resolved_plan" "$approval" "$observations"' EXIT
 prepare_args=(prepare --mode "$mode" --os "$os" --output "$resolved_plan")
+if [[ "$mode" == visual ]]; then
+    "$root_dir/tools/run-install-tui" run -- "$root_dir/lib/install-plan" inspect --os "$os" --output "$observations"
+    prepare_args+=(--approval "$approval" --observations "$observations")
+fi
 if [[ "$mode" == record ]]; then
     prepare_args+=(--record "$record")
 fi
@@ -66,5 +73,14 @@ export NONINTERACTIVE=1 HOMEBREW_NO_ASK=1 DOTFILES_NONINTERACTIVE=1
 export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a GIT_TERMINAL_PROMPT=0
 exec </dev/null
 
-"$root_dir/lib/install-plan" apply --operation install --plan "$resolved_plan"
+report_dir=${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles
+mkdir -p "$report_dir"
+run_report=$report_dir/latest-run-report
+execute_args=(execute --operation install --plan "$resolved_plan" --report "$run_report")
+if [[ "$mode" == visual ]]; then
+    execute_args+=(--approval "$approval")
+    "$root_dir/tools/run-install-tui" run -- "$root_dir/lib/install-plan" "${execute_args[@]}"
+else
+    "$root_dir/lib/install-plan" "${execute_args[@]}"
+fi
 echo "Setup complete. Log out and back in if the login shell changed."

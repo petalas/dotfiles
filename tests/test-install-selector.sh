@@ -27,24 +27,39 @@ languages.python	brew-formula	python
 gaming.steam	brew-cask	steam
 EOF
 
-cat >"$fixture/select" <<'EOF'
+cat >"$fixture/tui" <<'EOF'
 #!/usr/bin/env bash
-input=$2
-output=$3
-awk '{ if ($0 == "group.gaming=on") print "group.gaming=off"; else print }' "$input" >"$output"
-printf '%s\n' 'app.languages.node=off' >>"$output"
+set -euo pipefail
+command=$1; shift
+case "$command" in
+    choose)
+        while (($#)); do case "$1" in --selection) input=$2; shift 2 ;; --output) output=$2; shift 2 ;; *) shift ;; esac; done
+        awk -F '\t' 'BEGIN {OFS="\t"} $1=="outcome" && $2=="gaming.steam" {$3="leave"} {print}' "$input" >"$output"
+        ;;
+    confirm)
+        while (($#)); do case "$1" in --plan) plan=$2; shift 2 ;; --output) output=$2; shift 2 ;; *) shift ;; esac; done
+        if command -v sha256sum >/dev/null; then digest=$(sha256sum "$plan" | awk '{print $1}'); else digest=$(shasum -a 256 "$plan" | awk '{print $1}'); fi
+        printf 'format\t1\ndigest\t%s\n' "$digest" >"$output"
+        ;;
+    *) exit 2 ;;
+esac
 EOF
-chmod +x "$fixture/select"
+chmod +x "$fixture/tui"
+cat >"$fixture/inspect" <<'EOF'
+#!/usr/bin/env bash
+printf 'present\tmanaged\t%s is registered\n' "$2"
+EOF
+chmod +x "$fixture/inspect"
 
-DOTFILES_CATALOG_DIR="$catalog" XDG_STATE_HOME="$fixture/state" \
-DOTFILES_INSTALL_PLAN_SELECTOR="$fixture/select" \
+DOTFILES_CATALOG_DIR="$catalog" XDG_STATE_HOME="$fixture/state" DOTFILES_INSTALL_TUI="$fixture/tui" \
+DOTFILES_INSTALL_PLAN_INSPECTOR="$fixture/inspect" \
     "$repo_dir/lib/install-plan" prepare --mode visual --os macos \
-    --output "$fixture/visual.plan" >"$fixture/visual.out"
+    --output "$fixture/visual.plan" --approval "$fixture/approval" >"$fixture/visual.out"
 record="$fixture/state/dotfiles/installation-plan"
-[[ -f "$record" ]]
-grep -Fxq 'group.gaming=off' "$record"
-grep -Fxq $'app\tlanguages.node\ton\trequired\tlanguages\tNode' "$fixture/visual.plan"
-grep -Fxq $'app\tgaming.steam\toff\toptional\tgaming\tSteam' "$fixture/visual.plan"
+[[ -f "$record" && -f "$fixture/approval" ]]
+grep -Fxq 'app.gaming.steam=off' "$record"
+grep -Fxq $'app\tlanguages.node\tensure\trequired\tlanguages\tNode\tpresent\tmanaged' "$fixture/visual.plan"
+grep -Fxq $'app\tgaming.steam\tleave\toptional\tgaming\tSteam\tpresent\tmanaged' "$fixture/visual.plan"
 
 cat >"$fixture/cancel" <<'EOF'
 #!/usr/bin/env bash
@@ -52,10 +67,10 @@ exit 1
 EOF
 chmod +x "$fixture/cancel"
 cp "$record" "$fixture/before"
-if DOTFILES_CATALOG_DIR="$catalog" XDG_STATE_HOME="$fixture/state" \
-    DOTFILES_INSTALL_PLAN_SELECTOR="$fixture/cancel" \
+if DOTFILES_CATALOG_DIR="$catalog" XDG_STATE_HOME="$fixture/state" DOTFILES_INSTALL_TUI="$fixture/cancel" \
+    DOTFILES_INSTALL_PLAN_INSPECTOR="$fixture/inspect" \
     "$repo_dir/lib/install-plan" prepare --mode visual --os macos \
-    --output "$fixture/cancel.plan" >/dev/null 2>&1; then
+    --output "$fixture/cancel.plan" --approval "$fixture/cancel.approval" >/dev/null 2>&1; then
     echo "Expected selector cancellation to stop preparation" >&2
     exit 1
 fi
@@ -73,13 +88,5 @@ if DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare \
     echo 'Expected malformed explicit record to fail' >&2
     exit 1
 fi
-
-if DOTFILES_CATALOG_DIR="$catalog" DOTFILES_INSTALL_PLAN_TTY="$fixture/missing-tty" \
-    "$repo_dir/lib/install-plan" prepare --mode visual --os macos \
-    --output "$fixture/no-tty.plan" >/dev/null 2>"$fixture/no-tty.err"; then
-    echo 'Expected visual mode without a TTY to fail' >&2
-    exit 1
-fi
-grep -Fq 'use --unattended' "$fixture/no-tty.err"
 
 printf 'Installation selector persistence tests passed.\n'

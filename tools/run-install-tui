@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# Launch a verified prebuilt visual installer, or build it only with an existing Go toolchain.
+set -euo pipefail
+
+root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+manifest=${DOTFILES_TUI_MANIFEST:-$root_dir/catalog/tui-releases.tsv}
+cache_home=${XDG_CACHE_HOME:-$HOME/.cache}
+
+fail() { echo "dotfiles-tui launcher: $*" >&2; exit 1; }
+
+if [[ -n "${DOTFILES_INSTALL_TUI:-}" ]]; then
+    [[ -x "$DOTFILES_INSTALL_TUI" ]] || fail "DOTFILES_INSTALL_TUI is not executable"
+    exec "$DOTFILES_INSTALL_TUI" "$@"
+fi
+
+case "$(uname -s)" in Darwin) platform=macos ;; Linux) platform=linux ;; *) fail "unsupported platform" ;; esac
+case "$(uname -m)" in x86_64|amd64) architecture=amd64 ;; arm64|aarch64) architecture=arm64 ;; *) fail "unsupported architecture" ;; esac
+
+[[ -r "$manifest" ]] || fail "missing release manifest: $manifest"
+format='' version='' artifact_sha='' artifact_url=''
+while IFS=$'\t' read -r kind first second third fourth extra; do
+    case "$kind" in
+        format) [[ "$first" == 1 && -z "$format" && -z "${second:-}" ]] || fail "invalid manifest format"; format=1 ;;
+        version) [[ -z "$version" && -n "$first" && -z "${second:-}" ]] || fail "invalid manifest version"; version=$first ;;
+        artifact)
+            [[ -z "${extra:-}" ]] || fail "malformed artifact record"
+            if [[ "$first" == "$platform" && "$second" == "$architecture" ]]; then artifact_sha=$third; artifact_url=$fourth; fi ;;
+        '') ;;
+        *) fail "unknown manifest record: $kind" ;;
+    esac
+done <"$manifest"
+[[ "$format" == 1 && -n "$version" ]] || fail "incomplete release manifest"
+[[ "$artifact_sha" =~ ^[0-9a-f]{64}$ && -n "$artifact_url" ]] || fail "no verified artifact for $platform/$architecture"
+
+install_dir="$cache_home/dotfiles/tui/$version/$platform-$architecture"
+binary="$install_dir/dotfiles-tui"
+source_binary="$install_dir/dotfiles-tui-source"
+verify() {
+    local path=$1 actual
+    if command -v sha256sum >/dev/null 2>&1; then actual=$(sha256sum "$path" | awk '{print $1}')
+    elif command -v shasum >/dev/null 2>&1; then actual=$(shasum -a 256 "$path" | awk '{print $1}')
+    else fail "SHA-256 verification requires sha256sum or shasum"; fi
+    [[ "$actual" == "$artifact_sha" ]]
+}
+if [[ -x "$binary" ]] && verify "$binary"; then exec "$binary" "$@"; fi
+rm -f "$binary"
+mkdir -p "$install_dir"
+temporary=$(mktemp "$install_dir/.dotfiles-tui.XXXXXX")
+trap 'rm -f "$temporary"' EXIT
+if curl -fsSL --retry 3 --connect-timeout 10 --max-time 120 "$artifact_url" -o "$temporary" && verify "$temporary"; then
+    chmod 755 "$temporary"
+    mv -f "$temporary" "$binary"
+    trap - EXIT
+    exec "$binary" "$@"
+fi
+rm -f "$temporary"
+
+if [[ -x "$source_binary" ]]; then exec "$source_binary" "$@"; fi
+if command -v go >/dev/null 2>&1; then
+    echo "Warning: verified TUI artifact unavailable; building with the existing Go toolchain." >&2
+    temporary=$(mktemp "$install_dir/.dotfiles-tui.XXXXXX")
+    if (cd "$root_dir" && CGO_ENABLED=0 go build -trimpath -o "$temporary" ./cmd/dotfiles-tui) && [[ -s "$temporary" ]]; then
+        chmod 755 "$temporary"
+        mv -f "$temporary" "$source_binary"
+        trap - EXIT
+        exec "$source_binary" "$@"
+    fi
+fi
+fail "verified TUI artifact unavailable and no compatible existing Go build succeeded; use --unattended"

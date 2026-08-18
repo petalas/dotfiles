@@ -11,7 +11,7 @@ bash_files=()
 zsh_files=()
 while IFS= read -r file; do
     case "$file" in
-        *.sh|install|lib/install-plan|tools/generate-brewfile|.githooks/pre-commit) bash_files+=("$file") ;;
+        *.sh|install|lib/install-plan|tools/generate-brewfile|tools/run-install-tui|.githooks/pre-commit) bash_files+=("$file") ;;
         dot/zshrc|*.zsh|update-dotfiles) zsh_files+=("$file") ;;
     esac
 done < <(git diff --cached --name-only --diff-filter=ACM)

@@ -1,6 +1,6 @@
 # Use a catalog engine for installation plans
 
-The visual installer and Zsh updater need one canonical view of steps, groups, applications, prerequisites, defaults, and platform adapters before optional dependencies are available. We will keep that information as strict declarative catalog data and place plan resolution and adapter dispatch behind a Bash subprocess with `prepare` and `apply` operations, avoiding shared Bash/Zsh source code and duplicated package ownership.
+The visual installer and Zsh updater need one canonical view of steps, groups, applications, prerequisites, defaults, and platform adapters before optional dependencies are available. We will keep that information as strict declarative catalog data and place observation, plan resolution, and adapter dispatch behind a Bash subprocess with `inspect`, `prepare`, and `execute` operations, avoiding shared Bash/Zsh source code and duplicated package ownership. See [ADR-0002](0002-use-a-state-aware-visual-run.md) for the compiled visual frontend and removal boundary added later.
 
 ## Considered options
 

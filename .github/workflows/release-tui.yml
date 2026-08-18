@@ -1,0 +1,37 @@
+name: Release visual installer
+
+on:
+  push:
+    tags: ["tui-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.6"
+          cache: true
+      - name: Test helper
+        run: go test ./...
+      - name: Build reproducible artifacts
+        run: |
+          set -euo pipefail
+          mkdir dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+            os=${target%/*}
+            arch=${target#*/}
+            name_os=$os
+            [[ "$os" != darwin ]] || name_os=macos
+            CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath \
+              -ldflags='-s -w -buildid=' -o "dist/dotfiles-tui-${name_os}-${arch}" ./cmd/dotfiles-tui
+          done
+          (cd dist && sha256sum dotfiles-tui-* >checksums.txt)
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "$GITHUB_REF_NAME" --notes "Pinned state-aware visual installer helper."
