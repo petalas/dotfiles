@@ -626,6 +626,15 @@ app_has_force_recipe() {
     return 1
 }
 
+record_inspection_mechanism() {
+    local kind=$1 target=$2 option=$3 index
+    for index in "${!mechanism_kinds[@]}"; do
+        if [[ "${mechanism_kinds[$index]}" == "$kind" && "${mechanism_targets[$index]}" == "$target" &&
+              "${mechanism_options[$index]}" == "$option" ]]; then return 0; fi
+    done
+    mechanism_kinds+=("$kind"); mechanism_targets+=("$target"); mechanism_options+=("$option")
+}
+
 inspect_app() {
     local os=$1 app_index=$2 id action_index=0 result presence custody evidence receipt_target
     local -a mechanism_kinds=() mechanism_targets=() mechanism_options=()
@@ -645,10 +654,9 @@ inspect_app() {
             if [[ "$presence" == present && "$custody" == unverified && "${action_kinds[$action_index]}" == installer ]] &&
                 receipt_target=$(validated_receipt_target "$os" "$id" "${action_values[$action_index]}"); then
                 custody=managed; evidence="validated installation receipt for $receipt_target"
-                mechanism_kinds+=(receipt); mechanism_targets+=("$receipt_target"); mechanism_options+=("${action_values[$action_index]}")
+                record_inspection_mechanism receipt "$receipt_target" "${action_values[$action_index]}"
             elif [[ "$presence" == present && "$custody" == managed ]]; then
-                mechanism_kinds+=("${action_kinds[$action_index]}"); mechanism_targets+=("${action_values[$action_index]}")
-                mechanism_options+=("${action_options[$action_index]}")
+                record_inspection_mechanism "${action_kinds[$action_index]}" "${action_values[$action_index]}" "${action_options[$action_index]}"
             fi
             case "$custody" in managed) managed_count=$((managed_count + 1)) ;; provided) provided_count=$((provided_count + 1)) ;; *) unverified_count=$((unverified_count + 1)) ;; esac
             if [[ "$presence" == present ]]; then
@@ -675,8 +683,7 @@ inspect_app() {
                     if [[ "$custody" == managed ]]; then
                         managed_count=$((managed_count + 1))
                         [[ "$presence" != present ]] || present_managed=$((present_managed + 1))
-                        mechanism_kinds+=("${removal_methods[$action_index]}"); mechanism_targets+=("${removal_targets[$action_index]}")
-                        mechanism_options+=("${removal_options[$action_index]}")
+                        record_inspection_mechanism "${removal_methods[$action_index]}" "${removal_targets[$action_index]}" "${removal_options[$action_index]}"
                     fi
                     if [[ -z "$first_evidence" || "$presence" == present ]]; then first_evidence=$evidence; fi ;;
             esac
@@ -1140,7 +1147,7 @@ run_real_adapter() {
         fi
         case "$kind" in
             apt-package) "${privilege[@]}" apt-get remove -y -- "$value"; return ;;
-            pacman-package) "${privilege[@]}" pacman -R --noconfirm -- "$value"; return ;;
+            pacman-package) "${privilege[@]}" pacman -R --noconfirm "$value"; return ;;
             brew-formula) brew uninstall --formula "$value"; return ;;
             brew-cask) brew uninstall --cask "$value"; return ;;
             npm-package) npm uninstall --global "$value" </dev/null; return ;;

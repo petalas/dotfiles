@@ -30,6 +30,11 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Pacman removal does not accept the APT-style `--` separator
+
+- The catalog already validates package names and invokes pacman without a shell, so an option separator is unnecessary. `pacman -R --noconfirm -- package` was interpreted incorrectly and reported the installed package as an unavailable target in the disposable Arch adapter smoke.
+- Use `pacman -R --noconfirm package`. Keep the scheduled Arch container smoke because fake adapters cannot catch package-manager CLI grammar differences.
+
 ## Platform catalog schema changes must include language-addon readers
 
 - `lib/install-plan` is not the only reader of `catalog/platforms/*.tsv`: `installers/install_node_deps.sh` and `installers/install_rust_deps.sh` read those rows directly to restore npm and Cargo add-ons.
@@ -38,7 +43,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 ## Aggregate custody cannot authorize an exact removal method
 
 - An application can have several possible providers (for example APT plus a direct installer). Reporting only `custody=managed` loses which mechanism actually established custody and can make preparation remove every candidate package identity.
-- Inspection artifacts therefore include one aggregate `observation` plus exact `mechanism` rows. Prepared Exact Remove operations come only from those mechanism rows; Force removal alone expands the broader cleanup recipe.
+- Inspection artifacts therefore include one aggregate `observation` plus exact `mechanism` rows. Prepared Exact Remove operations come only from those mechanism rows; Force removal alone expands the broader cleanup recipe. Deduplicate mechanism rows: a package identity often appears in both the install action and cleanup recipe, and executing the duplicate removes it once then falsely fails on the second attempt.
 - A direct-install receipt may be created only when the command was absent before a successful installer run or when an existing valid receipt is being refreshed. A successful no-op installer over a pre-existing unreceipted command must not claim custody.
 
 ## Release helper hashes must disable Go VCS stamping

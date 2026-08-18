@@ -1,0 +1,42 @@
+name: Live removal adapter smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 7 * * 1"
+
+jobs:
+  apt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exercise APT inspection, preview, removal, and reinspection
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" debian:bookworm bash -ceu '
+            apt-get update
+            apt-get install -y sl
+            /repo/tests/live/test-removal-adapter.sh debian apt-package sl
+          '
+
+  pacman:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exercise pacman inspection, removal, and reinspection
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" archlinux:latest bash -ceu '
+            pacman -Syu --noconfirm tree
+            /repo/tests/live/test-removal-adapter.sh arch pacman-package tree
+          '
+
+  homebrew:
+    runs-on: macos-14
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exercise Homebrew inspection, removal, and reinspection
+        run: |
+          brew install hello
+          ./tests/live/test-removal-adapter.sh macos brew-formula hello
