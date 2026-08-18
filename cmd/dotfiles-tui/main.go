@@ -9,10 +9,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 
 	"charm.land/bubbles/v2/progress"
 	tea "charm.land/bubbletea/v2"
@@ -31,9 +33,14 @@ const (
 var lanes = []outcome{ensure, leave, remove, force}
 var laneTitles = map[outcome]string{ensure: "ENSURE PRESENT", leave: "LEAVE UNCHANGED", remove: "REMOVE", force: "FORCE REMOVAL"}
 
+type planStep struct {
+	id, label string
+	enabled   bool
+}
+
 type application struct {
-	id, group, label, presence, custody, policy, exact, force, evidence string
-	outcome                                                             outcome
+	id, group, label, availability, presence, custody, policy, exact, force, evidence string
+	outcome                                                                           outcome
 }
 
 type displayMode string
@@ -46,10 +53,15 @@ const (
 
 type model struct {
 	apps                 []application
+	steps                []planStep
+	dependencies         map[string][]string
+	reviewDetails        []string
 	width, lane, cursor  int
 	groupFilter          int
 	display              displayMode
-	stage, input         string
+	stage, input, notice string
+	stepMode             bool
+	stepCursor           int
 	arm                  int
 	output               string
 	confirmed, cancelled bool
@@ -57,20 +69,32 @@ type model struct {
 	confirmOnly          bool
 }
 
-func parseInputs(observationsPath, selectionPath string) ([]application, error) {
+func parseInputs(observationsPath, selectionPath string) ([]application, []planStep, map[string][]string, error) {
 	selected := map[string]outcome{}
+	steps := []planStep{}
+	dependencies := map[string][]string{}
 	if err := scanTSV(selectionPath, func(fields []string) error {
-		if len(fields) == 3 && fields[0] == "outcome" {
+		switch {
+		case len(fields) == 3 && fields[0] == "outcome":
 			switch outcome(fields[2]) {
 			case ensure, leave, remove, force:
 				selected[fields[1]] = outcome(fields[2])
 			default:
 				return fmt.Errorf("invalid desired outcome for %s", fields[1])
 			}
+		case len(fields) == 4 && fields[0] == "step":
+			if fields[2] != "on" && fields[2] != "off" {
+				return fmt.Errorf("invalid step state for %s", fields[1])
+			}
+			steps = append(steps, planStep{id: fields[1], label: fields[3], enabled: fields[2] == "on"})
+		case len(fields) == 3 && fields[0] == "dependency":
+			dependencies[fields[1]] = append(dependencies[fields[1]], fields[2])
+		default:
+			return fmt.Errorf("unknown selection record %q", fields[0])
 		}
 		return nil
 	}); err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	apps := []application{}
 	err := scanTSV(observationsPath, func(fields []string) error {
@@ -80,20 +104,27 @@ func parseInputs(observationsPath, selectionPath string) ([]application, error) 
 				wanted = leave
 			}
 			apps = append(apps, application{
-				id: fields[1], presence: fields[3], custody: fields[4], policy: fields[5],
+				id: fields[1], availability: fields[2], presence: fields[3], custody: fields[4], policy: fields[5],
 				exact: fields[6], force: fields[7], group: fields[8], label: fields[9],
 				evidence: fields[10], outcome: wanted,
 			})
+			return nil
 		}
-		return nil
+		if len(fields) == 2 && fields[0] == "os" {
+			return nil
+		}
+		if len(fields) == 5 && fields[0] == "mechanism" {
+			return nil
+		}
+		return fmt.Errorf("unknown observation record %q", fields[0])
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	if len(apps) == 0 {
-		return nil, errors.New("observation artifact contains no applications")
+		return nil, nil, nil, errors.New("observation artifact contains no applications")
 	}
-	return apps, nil
+	return apps, steps, dependencies, nil
 }
 
 func scanTSV(path string, visit func([]string) error) error {
@@ -134,12 +165,33 @@ func (m model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 	case tea.KeyPressMsg:
 		key := msg.String()
-		if key == "ctrl+c" || key == "q" && (m.stage == "select" || m.confirmOnly) {
+		if key == "ctrl+c" || key == "q" && (m.stage == "select" || (m.confirmOnly && m.stage == "review")) {
 			m.cancelled = true
 			return m, tea.Quit
 		}
 		if m.stage == "confirm" {
 			return m.updateConfirmation(key)
+		}
+		if key == "tab" && len(m.steps) > 0 {
+			m.stepMode = !m.stepMode
+			return m, nil
+		}
+		if m.stepMode {
+			switch key {
+			case "up", "k":
+				if m.stepCursor > 0 {
+					m.stepCursor--
+				}
+			case "down", "j":
+				if m.stepCursor+1 < len(m.steps) {
+					m.stepCursor++
+				}
+			case "space":
+				m.steps[m.stepCursor].enabled = !m.steps[m.stepCursor].enabled
+			case "enter":
+				m.stage = "review"
+			}
+			return m, nil
 		}
 		switch key {
 		case "left", "h":
@@ -214,9 +266,8 @@ func (m model) updateConfirmation(key string) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.input = ""
-		forces := m.appsWithOutcome(force)
-		if m.arm < len(forces) {
-			m.arm++
+		m.arm++
+		if m.arm < m.confirmationStepCount() {
 			return m, nil
 		}
 		m.confirmed = true
@@ -236,17 +287,36 @@ func (m *model) beginConfirmation() {
 	m.stage, m.input, m.arm = "confirm", "", 0
 }
 
+func (m model) confirmationStepCount() int {
+	forces, exact := len(m.appsWithOutcome(force)), len(m.appsWithOutcome(remove))
+	count := forces
+	if exact > 0 {
+		count++
+	}
+	if forces > 0 {
+		count++
+	}
+	if count == 0 {
+		count = 1
+	}
+	return count
+}
 func (m model) expectedPhrase() string {
 	forces := m.appsWithOutcome(force)
-	if m.arm < len(forces) {
-		return forces[m.arm].label
+	position := m.arm
+	if position < len(forces) {
+		return forces[position].label
 	}
-	if len(forces) > 0 {
+	position -= len(forces)
+	exact := len(m.appsWithOutcome(remove))
+	if exact > 0 {
+		if position == 0 {
+			return fmt.Sprintf("REMOVE %d", exact)
+		}
+		position--
+	}
+	if len(forces) > 0 && position == 0 {
 		return fmt.Sprintf("FORCE REMOVE %d", len(forces))
-	}
-	removals := len(m.appsWithOutcome(remove))
-	if removals > 0 {
-		return fmt.Sprintf("REMOVE %d", removals)
 	}
 	return "START"
 }
@@ -261,20 +331,78 @@ func (m *model) setSelectedOutcome(next outcome) {
 		if m.apps[i].id != id {
 			continue
 		}
+		if m.apps[i].availability == "unavailable" && next != leave {
+			m.notice = "Unavailable on this platform"
+			return
+		}
 		if m.apps[i].policy == "required" && next != ensure {
+			m.notice = "Removal disabled: required application"
+			return
+		}
+		if (next == remove || next == force) && m.retainedDependent(id) != "" {
+			m.notice = "Removal disabled: retained dependent " + m.retainedDependent(id)
 			return
 		}
 		if next == remove && m.apps[i].exact != "enabled" {
+			m.notice = "Exact removal disabled: managed custody is required"
 			return
 		}
 		if next == force && m.apps[i].force != "enabled" {
+			m.notice = "Force removal disabled: no cleanup recipe"
 			return
 		}
 		m.apps[i].outcome = next
+		m.notice = ""
+		if next == ensure {
+			for _, prerequisite := range m.dependencies[id] {
+				m.setOutcomeByID(prerequisite, ensure)
+			}
+		} else if next == leave {
+			for _, prerequisite := range m.dependencies[id] {
+				if current := m.appByID(prerequisite); current != nil && (current.outcome == remove || current.outcome == force) {
+					m.setOutcomeByID(prerequisite, leave)
+				}
+			}
+		}
 		m.lane = laneIndex(next)
 		m.cursor = len(m.appsInLane(next)) - 1
 		return
 	}
+}
+
+func (m *model) setOutcomeByID(id string, wanted outcome) {
+	for i := range m.apps {
+		if m.apps[i].id == id {
+			m.apps[i].outcome = wanted
+			return
+		}
+	}
+}
+func (m model) appByID(id string) *application {
+	for i := range m.apps {
+		if m.apps[i].id == id {
+			app := m.apps[i]
+			return &app
+		}
+	}
+	return nil
+}
+func (m model) retainedDependent(prerequisite string) string {
+	for dependent, prerequisites := range m.dependencies {
+		for _, candidate := range prerequisites {
+			if candidate != prerequisite {
+				continue
+			}
+			app := m.appByID(dependent)
+			if app == nil {
+				continue
+			}
+			if app.outcome != remove && app.outcome != force && app.presence != "absent" {
+				return app.label
+			}
+		}
+	}
+	return ""
 }
 
 func laneIndex(wanted outcome) int {
@@ -349,7 +477,25 @@ func (m model) renderLanes() string {
 			warnings++
 		}
 	}
-	header := fmt.Sprintf("DOTFILES  PLAN  |  %d applications  |  group: %s  |  arrows move · [/] filter · e/u/r/f choose · enter review\nmanaged %d · reconcile %d · custody warnings %d · exact removals %d · Force removals %d\n", len(m.apps), group, managed, reconcile, warnings, len(m.appsWithOutcome(remove)), len(m.appsWithOutcome(force)))
+	header := fmt.Sprintf("DOTFILES  PLAN  |  %d applications  |  group: %s  |  arrows move · tab steps · [/] filter · e/u/r/f choose · enter review\nmanaged %d · reconcile %d · custody warnings %d · exact removals %d · Force removals %d\n", len(m.apps), group, managed, reconcile, warnings, len(m.appsWithOutcome(remove)), len(m.appsWithOutcome(force)))
+	if m.notice != "" {
+		header += "! " + m.notice + "\n"
+	}
+	if len(m.steps) > 0 {
+		header += "STEPS"
+		for i, step := range m.steps {
+			mark := " "
+			if step.enabled {
+				mark = "x"
+			}
+			cursor := " "
+			if m.stepMode && i == m.stepCursor {
+				cursor = ">"
+			}
+			header += fmt.Sprintf("  %s[%s] %s", cursor, mark, step.label)
+		}
+		header += "\n"
+	}
 	if width < 90 {
 		return header + fmt.Sprintf("Lane %d/4\n", m.lane+1) + m.renderLane(lanes[m.lane], width-2, true) + "\n"
 	}
@@ -375,7 +521,11 @@ func (m model) renderLane(wanted outcome, width int, active bool) string {
 		lines = append(lines, fit(cursor+m.marker(app)+" "+app.label, width))
 		lines = append(lines, fit("  "+app.group+" · "+app.custody, width))
 		lines = append(lines, fit("  "+app.evidence, width))
-		if app.policy == "required" {
+		if app.availability == "unavailable" {
+			lines = append(lines, fit("  unavailable on this platform", width))
+		} else if dependent := m.retainedDependent(app.id); dependent != "" {
+			lines = append(lines, fit("  removal disabled · retained by "+dependent, width))
+		} else if app.policy == "required" {
 			lines = append(lines, fit("  removal disabled · required", width))
 		} else if app.exact != "enabled" && app.force != "enabled" {
 			lines = append(lines, fit("  removal disabled · no safe method", width))
@@ -430,12 +580,26 @@ func (m model) marker(app application) string {
 
 func (m model) renderReview() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "REVIEW PREPARED RUN\n\n")
+	fmt.Fprintf(&b, "REVIEW PREPARED RUN\n\nSTEPS\n")
+	for _, step := range m.steps {
+		state := "off"
+		if step.enabled {
+			state = "on"
+		}
+		fmt.Fprintf(&b, "  [%s] %s\n", state, step.label)
+	}
+	fmt.Fprintln(&b)
 	for _, wanted := range lanes {
 		apps := m.appsWithOutcome(wanted)
 		fmt.Fprintf(&b, "%s (%d)\n", laneTitles[wanted], len(apps))
 		for _, app := range apps {
 			fmt.Fprintf(&b, "  %s %s — %s\n", m.marker(app), app.label, app.evidence)
+		}
+	}
+	if len(m.reviewDetails) > 0 {
+		fmt.Fprintln(&b, "\nMETHODS AND BLOCKERS")
+		for _, detail := range m.reviewDetails {
+			fmt.Fprintf(&b, "  %s\n", detail)
 		}
 	}
 	if m.stage == "confirm" {
@@ -483,22 +647,41 @@ func fit(value string, width int) string {
 	return value + strings.Repeat(" ", width-len(runes))
 }
 
-func parsePrepared(path string) ([]application, error) {
+func parsePrepared(path string) ([]application, []planStep, []string, error) {
 	apps := []application{}
+	steps := []planStep{}
+	details := []string{}
 	err := scanPrepared(path, func(fields []string) error {
 		if len(fields) == 8 && fields[0] == "app" {
 			apps = append(apps, application{id: fields[1], outcome: outcome(fields[2]), policy: fields[3],
 				group: fields[4], label: fields[5], presence: fields[6], custody: fields[7], evidence: fields[6] + " · " + fields[7]})
+			return nil
 		}
-		return nil
+		if len(fields) == 5 && fields[0] == "step" {
+			steps = append(steps, planStep{id: fields[1], enabled: fields[2] == "on", label: fields[4]})
+			return nil
+		}
+		if len(fields) == 6 && fields[0] == "removal" {
+			details = append(details, fmt.Sprintf("%s: %s %s (%s)", fields[2], fields[3], fields[4], fields[1]))
+			return nil
+		}
+		if len(fields) == 4 && fields[0] == "blocker" {
+			details = append(details, fmt.Sprintf("blocked %s: %s %s", fields[1], fields[2], fields[3]))
+			return nil
+		}
+		switch fields[0] {
+		case "os", "dependency", "action", "step-action":
+			return nil
+		}
+		return fmt.Errorf("unknown prepared-run record %q", fields[0])
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	if len(apps) == 0 {
-		return nil, errors.New("prepared run contains no applications")
+		return nil, nil, nil, errors.New("prepared run contains no applications")
 	}
-	return apps, nil
+	return apps, steps, details, nil
 }
 
 func scanPrepared(path string, visit func([]string) error) error {
@@ -531,7 +714,7 @@ func scanPrepared(path string, visit func([]string) error) error {
 	return nil
 }
 
-func writeSelection(path string, apps []application) error {
+func writeSelection(path string, apps []application, steps []planStep) error {
 	if path == "" {
 		return errors.New("select requires --output")
 	}
@@ -545,6 +728,16 @@ func writeSelection(path string, apps []application) error {
 	name := file.Name()
 	defer os.Remove(name)
 	if _, err = fmt.Fprintln(file, "format\t1"); err == nil {
+		for _, step := range steps {
+			state := "off"
+			if step.enabled {
+				state = "on"
+			}
+			_, err = fmt.Fprintf(file, "step\t%s\t%s\n", step.id, state)
+			if err != nil {
+				break
+			}
+		}
 		for _, app := range apps {
 			_, err = fmt.Fprintf(file, "outcome\t%s\t%s\n", app.id, app.outcome)
 			if err != nil {
@@ -613,7 +806,7 @@ func defaultDisplay() string {
 	return "rich"
 }
 
-func parseCommon(args []string) ([]application, int, displayMode, string, error) {
+func parseCommon(args []string) ([]application, []planStep, map[string][]string, int, displayMode, string, error) {
 	flags := flag.NewFlagSet("dotfiles-tui", flag.ContinueOnError)
 	observations := flags.String("observations", "", "inspection artifact")
 	selection := flags.String("selection", "", "desired-outcome artifact")
@@ -621,17 +814,17 @@ func parseCommon(args []string) ([]application, int, displayMode, string, error)
 	display := flags.String("display", defaultDisplay(), "rich, ascii, or plain")
 	output := flags.String("output", "", "confirmed selection output")
 	if err := flags.Parse(args); err != nil {
-		return nil, 0, "", "", err
+		return nil, nil, nil, 0, "", "", err
 	}
 	if *observations == "" || *selection == "" {
-		return nil, 0, "", "", errors.New("--observations and --selection are required")
+		return nil, nil, nil, 0, "", "", errors.New("--observations and --selection are required")
 	}
 	mode := displayMode(*display)
 	if mode != rich && mode != ascii && mode != plain {
-		return nil, 0, "", "", errors.New("invalid display mode")
+		return nil, nil, nil, 0, "", "", errors.New("invalid display mode")
 	}
-	apps, err := parseInputs(*observations, *selection)
-	return apps, *width, mode, *output, err
+	apps, steps, dependencies, err := parseInputs(*observations, *selection)
+	return apps, steps, dependencies, *width, mode, *output, err
 }
 
 type executionEvent struct{ fields []string }
@@ -658,6 +851,15 @@ func (m progressModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.bar.SetWidth(max(20, msg.Width-12))
 	case executionEvent:
 		fields := msg.fields
+		if len(fields) < 3 || fields[0] != "event" || fields[1] != "1" ||
+			(fields[2] == "run-start" && len(fields) != 4) ||
+			(fields[2] == "operation-start" && len(fields) != 6) ||
+			(fields[2] == "operation-settled" && len(fields) != 7) ||
+			(fields[2] == "run-settled" && len(fields) != 6) ||
+			(fields[2] != "run-start" && fields[2] != "operation-start" && fields[2] != "operation-settled" && fields[2] != "run-settled") {
+			m.err = fmt.Errorf("malformed execution event")
+			return m, nil
+		}
 		switch fields[2] {
 		case "run-start":
 			if len(fields) == 4 {
@@ -684,7 +886,10 @@ func (m progressModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case executionDone:
-		m.done, m.err = true, msg.err
+		m.done = true
+		if m.err == nil {
+			m.err = msg.err
+		}
 		return m, tea.Quit
 	}
 	return m, nil
@@ -742,10 +947,20 @@ func runExecution(command []string) error {
 	if err != nil {
 		return err
 	}
-	program := tea.NewProgram(newProgressModel(), tea.WithInput(nil))
+	program := tea.NewProgram(newProgressModel(), tea.WithInput(nil), tea.WithoutSignalHandler())
 	if err = cmd.Start(); err != nil {
 		return err
 	}
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(signals)
+	go func() {
+		for received := range signals {
+			if cmd.Process != nil {
+				_ = cmd.Process.Signal(received)
+			}
+		}
+	}()
 	var scanners sync.WaitGroup
 	scanners.Add(2)
 	scan := func(scanner *bufio.Scanner) {
@@ -753,7 +968,7 @@ func runExecution(command []string) error {
 		for scanner.Scan() {
 			line := scanner.Text()
 			fields := strings.Split(line, "\t")
-			if len(fields) >= 3 && fields[0] == "event" && fields[1] == "1" {
+			if len(fields) > 0 && fields[0] == "event" {
 				program.Send(executionEvent{fields})
 			} else {
 				program.Send(executionLog(line))
@@ -765,6 +980,9 @@ func runExecution(command []string) error {
 	go func() { commandErr := cmd.Wait(); scanners.Wait(); program.Send(executionDone{commandErr}) }()
 	final, runErr := program.Run()
 	if runErr != nil {
+		if cmd.Process != nil {
+			_ = cmd.Process.Signal(syscall.SIGTERM)
+		}
 		return runErr
 	}
 	result := final.(progressModel)
@@ -792,11 +1010,11 @@ func run(args []string) error {
 		if err := flags.Parse(args[1:]); err != nil {
 			return err
 		}
-		apps, err := parsePrepared(*plan)
+		apps, steps, details, err := parsePrepared(*plan)
 		if err != nil {
 			return err
 		}
-		m := model{apps: apps, width: *width, display: displayMode(*display), stage: "review", confirmOnly: true}
+		m := model{apps: apps, steps: steps, reviewDetails: details, width: *width, display: displayMode(*display), stage: "review", confirmOnly: true}
 		final, err := tea.NewProgram(m).Run()
 		if err != nil {
 			return err
@@ -807,11 +1025,11 @@ func run(args []string) error {
 		}
 		return writeApproval(*output, *plan)
 	}
-	apps, width, display, output, err := parseCommon(args[1:])
+	apps, steps, dependencies, width, display, output, err := parseCommon(args[1:])
 	if err != nil {
 		return err
 	}
-	m := model{apps: apps, width: width, display: display, stage: "select", output: output, chooseOnly: args[0] == "choose"}
+	m := model{apps: apps, steps: steps, dependencies: dependencies, width: width, display: display, stage: "select", output: output, chooseOnly: args[0] == "choose"}
 	switch args[0] {
 	case "render":
 		fmt.Print(m.render())
@@ -825,7 +1043,7 @@ func run(args []string) error {
 		if result.cancelled || !result.confirmed {
 			return errors.New("selection cancelled")
 		}
-		return writeSelection(output, result.apps)
+		return writeSelection(output, result.apps, result.steps)
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}

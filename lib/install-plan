@@ -405,29 +405,45 @@ save_default_record() {
 
 write_observation_snapshot() {
     local os=$1 output=$2 index=0 total=0 settled=0
-    for index in "${!app_ids[@]}"; do app_is_available "${app_ids[$index]}" && total=$((total + 1)); done
+    total=${#app_ids[@]}
     emit_event run-start "$total"
     { printf 'format\t1\n'; printf 'os\t%s\n' "$os"; } >"$output"
     index=0
     while ((index < ${#app_ids[@]})); do
+        emit_event operation-start "inspect:${app_ids[$index]}" "${app_labels[$index]}" indeterminate
         if app_is_available "${app_ids[$index]}"; then
-            emit_event operation-start "inspect:${app_ids[$index]}" "${app_labels[$index]}" indeterminate
             inspect_app "$os" "$index" >>"$output"
-            settled=$((settled + 1))
-            emit_event operation-settled "inspect:${app_ids[$index]}" succeeded "$settled" "$total"
+        else
+            if [[ "${app_states[$index]}" == required ]]; then policy=required; else policy=optional; fi
+            printf 'observation\t%s\tunavailable\tunknown\tunverified\t%s\tdisabled\tdisabled\t%s\t%s\tno provider on %s\n' \
+                "${app_ids[$index]}" "$policy" "${app_groups[$index]}" "${app_labels[$index]}" "$os" >>"$output"
         fi
+        settled=$((settled + 1))
+        emit_event operation-settled "inspect:${app_ids[$index]}" succeeded "$settled" "$total"
         index=$((index + 1))
     done
     emit_event run-settled succeeded "$settled" "$total"
 }
 
 write_outcome_selection_draft() {
-    local output=$1 index=0
+    local output=$1 index=0 prerequisite old_ifs
     printf 'format\t1\n' >"$output"
+    while ((index < ${#step_ids[@]})); do
+        printf 'step\t%s\t%s\t%s\n' "${step_ids[$index]}" "${step_selection[$index]}" "${step_labels[$index]}" >>"$output"
+        index=$((index + 1))
+    done
+    index=0
     while ((index < ${#app_ids[@]})); do
         if app_is_available "${app_ids[$index]}"; then
             if [[ "${app_selection[$index]}" == on ]]; then outcome=ensure; else outcome=leave; fi
             printf 'outcome\t%s\t%s\n' "${app_ids[$index]}" "$outcome" >>"$output"
+        fi
+        if app_is_available "${app_ids[$index]}"; then
+            old_ifs=$IFS; IFS=','
+            for prerequisite in ${app_prerequisites[$index]}; do
+                [[ -z "$prerequisite" ]] || printf 'dependency\t%s\t%s\n' "${app_ids[$index]}" "$prerequisite" >>"$output"
+            done
+            IFS=$old_ifs
         fi
         index=$((index + 1))
     done
@@ -583,6 +599,7 @@ inspect_app() {
     local -a mechanism_kinds=() mechanism_targets=() mechanism_options=()
     id=${app_ids[$app_index]}
     local present_count=0 partial_count=0 absent_count=0 unknown_count=0 managed_count=0 provided_count=0 unverified_count=0 exact_method=0
+    local present_managed=0 present_provided=0 present_unverified=0
     local first_evidence='' app_presence app_custody policy exact_capability=disabled force_capability=disabled mechanism_index recipe_index
     while ((action_index < ${#action_apps[@]})); do
         if [[ "${action_apps[$action_index]}" == "$id" &&
@@ -604,6 +621,9 @@ inspect_app() {
                 mechanism_options+=("${action_options[$action_index]}")
             fi
             case "$custody" in managed) managed_count=$((managed_count + 1)) ;; provided) provided_count=$((provided_count + 1)) ;; *) unverified_count=$((unverified_count + 1)) ;; esac
+            if [[ "$presence" == present ]]; then
+                case "$custody" in managed) present_managed=$((present_managed + 1)) ;; provided) present_provided=$((present_provided + 1)) ;; *) present_unverified=$((present_unverified + 1)) ;; esac
+            fi
             if [[ -z "$first_evidence" ]]; then
                 first_evidence=$evidence
             elif [[ "$presence" == present ]]; then
@@ -624,6 +644,7 @@ inspect_app() {
                     case "$presence" in present) present_count=$((present_count + 1)) ;; partial) partial_count=$((partial_count + 1)) ;; absent) absent_count=$((absent_count + 1)) ;; *) unknown_count=$((unknown_count + 1)) ;; esac
                     if [[ "$custody" == managed ]]; then
                         managed_count=$((managed_count + 1))
+                        [[ "$presence" != present ]] || present_managed=$((present_managed + 1))
                         mechanism_kinds+=("${removal_methods[$action_index]}"); mechanism_targets+=("${removal_targets[$action_index]}")
                         mechanism_options+=("${removal_options[$action_index]}")
                     fi
@@ -636,8 +657,9 @@ inspect_app() {
     elif ((partial_count > 0)); then app_presence=partial
     elif ((unknown_count > 0)); then app_presence=unknown
     else app_presence=absent; fi
-    if ((managed_count > 0)); then app_custody=managed
-    elif ((provided_count > 0 && unverified_count == 0)); then app_custody=provided
+    if ((present_managed > 0 && (present_unverified > 0 || present_provided > 0))); then app_custody=mixed
+    elif ((present_managed > 0)); then app_custody=managed
+    elif ((present_provided > 0 && present_unverified == 0)); then app_custody=provided
     else app_custody=unverified; fi
     if [[ "${app_states[$app_index]}" == required ]]; then policy=required; else policy=optional; fi
     for mechanism_index in "${!mechanism_kinds[@]}"; do
@@ -713,6 +735,10 @@ parse_outcome_selection() {
     while IFS=$'\t' read -r type id value extra; do
         case "$type" in
             format) [[ "$id" == 1 && "$format_seen" == 0 ]] || fail "unsupported outcome selection format"; format_seen=1 ;;
+            step)
+                index=$(find_value_index "$id" "${step_ids[@]}") || fail "unknown selected step: $id"
+                [[ "$value" == on || "$value" == off ]] || fail "invalid selected step state for $id"
+                step_selection[$index]=$value ;;
             outcome)
                 [[ -z "${extra:-}" ]] || fail "malformed outcome selection for $id"
                 index=$(find_value_index "$id" "${app_ids[@]}") || fail "unknown outcome application: $id"

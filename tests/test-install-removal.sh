@@ -26,16 +26,16 @@ tools.client	brew-formula	client
 tools.loose	installer	loose
 EOF
 cat >"$catalog/removals.tsv" <<'EOF'
-macos	tools.loose	path	~/.local/bin/loose	
+macos	tools.loose	path	~/.local/bin/loose
 EOF
 cat >"$fixture/observations.tsv" <<'EOF'
 format	1
 os	macos
 observation	foundation.git	available	present	provided	required	disabled	disabled	foundation	Git	provided
 observation	tools.runtime	available	present	managed	optional	enabled	disabled	tools	Runtime	registered
-mechanism	tools.runtime	brew-formula	runtime	
+mechanism	tools.runtime	brew-formula	runtime
 observation	tools.client	available	present	managed	optional	enabled	disabled	tools	Client	registered
-mechanism	tools.client	brew-formula	client	
+mechanism	tools.client	brew-formula	client
 observation	tools.loose	available	present	unverified	optional	disabled	enabled	tools	Loose	found
 EOF
 cat >"$fixture/blocked-selection.tsv" <<'EOF'
@@ -96,5 +96,36 @@ if DOTFILES_CATALOG_DIR="$catalog" DOTFILES_INSTALL_PLAN_ADAPTER="$fixture/adapt
     exit 1
 fi
 grep -Fq 'prepared removal is absent from catalog' "$fixture/tampered.err"
+
+cat >"$catalog/platforms/ubuntu.tsv" <<'EOF'
+foundation.git	provided	git
+tools.runtime	apt-package	runtime
+tools.client	apt-package	client
+tools.loose	installer	loose
+EOF
+sed 's/^os\tmacos$/os\tubuntu/; s/brew-formula/apt-package/g' "$fixture/observations.tsv" >"$fixture/ubuntu-observations.tsv"
+sed $'s/outcome\ttools.loose\tforce/outcome\ttools.loose\tleave/' "$fixture/removal-selection.tsv" >"$fixture/apt-selection.tsv"
+DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare --mode outcomes --os ubuntu \
+    --selection "$fixture/apt-selection.tsv" --observations "$fixture/ubuntu-observations.tsv" \
+    --output "$fixture/apt.plan" >/dev/null
+mkdir -p "$fixture/bin"
+cat >"$fixture/bin/apt-get" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$1" == -s ]]; then
+    printf 'Remv %s\nRemv retained-dependent\n' "${@: -1}"
+    exit 0
+fi
+printf 'unexpected execution\n' >>"$INSTALL_PLAN_TEST_LOG"
+EOF
+chmod +x "$fixture/bin/apt-get"
+if PATH="$fixture/bin:$PATH" INSTALL_PLAN_TEST_LOG="$fixture/apt-actions" \
+    DOTFILES_CATALOG_DIR="$catalog" DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN=1 \
+    "$repo_dir/lib/install-plan" execute --operation install --plan "$fixture/apt.plan" \
+    >/dev/null 2>"$fixture/apt.err"; then
+    echo 'Expected an unexpected APT preview target to block removal' >&2
+    exit 1
+fi
+grep -Fq 'Removal preview includes unexpected package: retained-dependent' "$fixture/apt.err"
+[[ ! -e "$fixture/apt-actions" ]]
 
 printf 'Dependency-safe removal tests passed.\n'

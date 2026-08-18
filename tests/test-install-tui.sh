@@ -18,6 +18,8 @@ observation	gaming.steam	available	absent	unverified	optional	disabled	disabled	
 EOF
 cat >"$fixture/selection.tsv" <<'EOF'
 format	1
+step	dependencies	on	Install dependencies
+dependency	editors.neovim	foundation.git
 outcome	foundation.git	ensure
 outcome	editors.neovim	remove
 outcome	communication.discord	force
@@ -34,6 +36,7 @@ grep -Fq 'FORCE REMOVAL' "$fixture/rich"
 grep -Fq 'Discord' "$fixture/rich"
 grep -Fq 'unverified' "$fixture/rich"
 grep -Fq '4 applications' "$fixture/rich"
+grep -Fq 'Install dependencies' "$fixture/rich"
 
 "$fixture/dotfiles-tui" render --observations "$fixture/observations.tsv" \
     --selection "$fixture/selection.tsv" --width 70 --display ascii >"$fixture/ascii"

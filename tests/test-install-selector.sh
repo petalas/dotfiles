@@ -34,7 +34,7 @@ command=$1; shift
 case "$command" in
     choose)
         while (($#)); do case "$1" in --selection) input=$2; shift 2 ;; --output) output=$2; shift 2 ;; *) shift ;; esac; done
-        awk -F '\t' 'BEGIN {OFS="\t"} $1=="outcome" && $2=="gaming.steam" {$3="leave"} {print}' "$input" >"$output"
+        awk -F '\t' 'BEGIN {OFS="\t"} $1=="outcome" && $2=="gaming.steam" {$3="leave"} $1=="format" || $1=="step" || $1=="outcome" {print}' "$input" >"$output"
         ;;
     confirm)
         while (($#)); do case "$1" in --plan) plan=$2; shift 2 ;; --output) output=$2; shift 2 ;; *) shift ;; esac; done
@@ -88,5 +88,13 @@ if DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare \
     echo 'Expected malformed explicit record to fail' >&2
     exit 1
 fi
+
+if DOTFILES_CATALOG_DIR="$catalog" DOTFILES_INSTALL_PLAN_TTY="$fixture/missing-tty" \
+    "$repo_dir/lib/install-plan" prepare --mode visual --os macos --output "$fixture/no-tty.plan" \
+    --approval "$fixture/no-tty.approval" >/dev/null 2>"$fixture/no-tty.err"; then
+    echo 'Expected visual mode without a TTY to fail' >&2
+    exit 1
+fi
+grep -Fq 'use --unattended' "$fixture/no-tty.err"
 
 printf 'Installation selector persistence tests passed.\n'
