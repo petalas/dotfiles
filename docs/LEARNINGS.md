@@ -30,6 +30,11 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Platform catalog schema changes must include language-addon readers
+
+- `lib/install-plan` is not the only reader of `catalog/platforms/*.tsv`: `installers/install_node_deps.sh` and `installers/install_rust_deps.sh` read those rows directly to restore npm and Cargo add-ons.
+- When provider and action-role columns were added, catalog parity and plan tests still passed while both addon installers silently selected zero packages. Keep `tests/test-language-deps.sh` in the full migration gate and search for direct platform-catalog readers before changing columns.
+
 ## Aggregate custody cannot authorize an exact removal method
 
 - An application can have several possible providers (for example APT plus a direct installer). Reporting only `custody=managed` loses which mechanism actually established custody and can make preparation remove every candidate package identity.

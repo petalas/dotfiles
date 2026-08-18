@@ -36,7 +36,7 @@ find_value_index() {
 
 load_catalog() {
     local os=$1 order id label default adapter argument group state prerequisites
-    local action_provider action_role action_kind action_value action_option
+    local action_provider action_role action_kind action_value action_option removal_index
     step_orders=(); step_ids=(); step_labels=(); step_defaults=(); step_adapters=(); step_arguments=()
     group_orders=(); group_ids=(); group_labels=(); group_defaults=()
     app_ids=(); app_groups=(); app_labels=(); app_states=(); app_prerequisites=()
@@ -111,16 +111,22 @@ load_catalog() {
             case "$removal_os" in macos|ubuntu|debian|arch) ;; *) fail "invalid removal platform: $removal_os" ;; esac
             find_value_index "$id" "${app_ids[@]}" >/dev/null 2>&1 || fail "unknown removal application: $id"
             case "$removal_method" in
-                apt-package|pacman-package|brew-formula|brew-cask|npm-package|cargo-package|path|payload-tree|service|managed-file|retain) ;;
+                apt-package|pacman-package|brew-formula|brew-cask|npm-package|cargo-package|path|payload-tree|service|managed-file|alias|retain|retain-effect) ;;
                 *) fail "unsupported removal method $removal_method for $id" ;;
             esac
-            if [[ "$removal_method" == path || "$removal_method" == payload-tree || "$removal_method" == managed-file || "$removal_method" == retain ]]; then
+            if [[ "$removal_method" == path || "$removal_method" == payload-tree || "$removal_method" == managed-file || "$removal_method" == alias || "$removal_method" == retain ]]; then
                 case "$removal_target" in
                     /*|\~/*) ;;
                     *) fail "removal target must be absolute or home-relative for $id" ;;
                 esac
                 case "$removal_target" in *'..'*|*'*'*|*'?'*|*'['*) fail "unsafe removal target for $id" ;; esac
             fi
+            for removal_index in "${!removal_apps[@]}"; do
+                if [[ "${removal_oses[$removal_index]}" == "$removal_os" && "${removal_apps[$removal_index]}" == "$id" &&
+                      "${removal_methods[$removal_index]}" == "$removal_method" && "${removal_targets[$removal_index]}" == "$removal_target" ]]; then
+                    fail "duplicate removal target for $id: $removal_method $removal_target"
+                fi
+            done
             removal_oses+=("$removal_os"); removal_apps+=("$id"); removal_methods+=("$removal_method")
             removal_targets+=("$removal_target"); removal_options+=("${removal_option:-}")
         done <"$catalog_dir/removals.tsv"
@@ -613,7 +619,8 @@ inspect_action() {
 app_has_force_recipe() {
     local os=$1 id=$2 index=0
     while ((index < ${#removal_apps[@]})); do
-        if [[ "${removal_oses[$index]}" == "$os" && "${removal_apps[$index]}" == "$id" && "${removal_methods[$index]}" != retain ]]; then return 0; fi
+        if [[ "${removal_oses[$index]}" == "$os" && "${removal_apps[$index]}" == "$id" &&
+              "${removal_methods[$index]}" != retain && "${removal_methods[$index]}" != retain-effect ]]; then return 0; fi
         index=$((index + 1))
     done
     return 1
@@ -1073,15 +1080,26 @@ cargo_package_binary() {
 }
 
 run_real_adapter() {
-    local operation=$1 kind=$2 value=$3 option=$4 function_name binary result presence preview preview_target privilege=()
+    local operation=$1 kind=$2 value=$3 option=$4 function_name binary result presence preview preview_target alias_target privilege=()
     if ((EUID != 0)); then privilege=(sudo -n); fi
-    if [[ "$operation" == force && "$kind" == retain ]]; then
+    if [[ "$operation" == force && ( "$kind" == retain || "$kind" == retain-effect ) ]]; then
         DOTFILES_ADAPTER_METHOD_STATUS=retained
         return 0
     fi
     if [[ "$operation" == force && "$kind" == service ]]; then
         command -v systemctl >/dev/null 2>&1 || return 0
         "${privilege[@]}" systemctl disable --now "$value.service" "$value.socket" 2>/dev/null || true
+        return 0
+    fi
+    if [[ "$operation" == force && "$kind" == alias ]]; then
+        case "$value" in \~/*) value="$HOME/${value#\~/}" ;; esac
+        if [[ -L "$value" ]]; then
+            alias_target=$(readlink "$value")
+            if [[ "${alias_target##*/}" == "$option" ]]; then rm -f -- "$value"
+            else DOTFILES_ADAPTER_METHOD_STATUS=retained; echo "Retaining changed command alias: $value" >&2; fi
+        elif [[ -e "$value" ]]; then
+            DOTFILES_ADAPTER_METHOD_STATUS=retained; echo "Retaining non-symlink command alias: $value" >&2
+        fi
         return 0
     fi
     if [[ "$operation" == force && "$kind" == managed-file ]]; then
@@ -1323,7 +1341,7 @@ execute_plan_removal() {
         if [[ "${apply_removal_apps[$removal_index]}" == "$id" ]]; then
             if [[ "${apply_removal_modes[$removal_index]}" == exact ]]; then operation=remove; else operation=force; fi
             method_status=succeeded; DOTFILES_ADAPTER_METHOD_STATUS=succeeded
-            if [[ "${apply_removal_kinds[$removal_index]}" == retain ]]; then
+            if [[ "${apply_removal_kinds[$removal_index]}" == retain || "${apply_removal_kinds[$removal_index]}" == retain-effect ]]; then
                 method_status=retained
             elif ! run_plan_adapter "$operation" "${apply_removal_kinds[$removal_index]}" \
                 "${apply_removal_targets[$removal_index]}" "${apply_removal_options[$removal_index]}"; then

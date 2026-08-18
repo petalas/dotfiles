@@ -9,13 +9,13 @@ _install_scriptless_npm_batch() {
 }
 
 install_node_deps() {
-    local install_failed=0 os root platform_file _app adapter package option
+    local install_failed=0 os root platform_file _app _provider _role adapter package option
     local -a main_packages=() scriptless_packages=()
     root=${DOTFILES_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
     os=$(dotfiles_os) || return 1
     platform_file="$root/catalog/platforms/$os.tsv"
     command -v npm >/dev/null 2>&1 || return 1
-    while IFS=$'\t' read -r _app adapter package option; do
+    while IFS=$'\t' read -r _app _provider _role adapter package option; do
         [[ "$adapter" == npm-package ]] || continue
         if [[ "$option" == ignore-scripts ]]; then scriptless_packages+=("$package")
         else main_packages+=("$package")

@@ -375,3 +375,14 @@ arch	ai.herdr	retain	~/.config/herdr	user-data
 arch	containers.lazydocker	retain	~/.config/lazydocker	user-data
 arch	cli.yazi	retain	~/.config/yazi	user-data
 arch	cli.yazi	retain	~/.local/share/yazi	user-data
+ubuntu	cli.bat	alias	~/.local/bin/bat	batcat
+ubuntu	cli.fd	alias	~/.local/bin/fd	fdfind
+ubuntu	communication.chrome	retain	/usr/share/keyrings/google-chrome.gpg	support-key-without-receipt
+ubuntu	editors.code	retain	/etc/apt/keyrings/packages.microsoft.gpg	support-key-without-receipt
+ubuntu	containers.docker	retain-effect	docker-group-membership	requires-effect-receipt
+debian	cli.bat	alias	~/.local/bin/bat	batcat
+debian	cli.fd	alias	~/.local/bin/fd	fdfind
+debian	communication.chrome	retain	/usr/share/keyrings/google-chrome.gpg	support-key-without-receipt
+debian	editors.code	retain	/etc/apt/keyrings/packages.microsoft.gpg	support-key-without-receipt
+debian	containers.docker	retain-effect	docker-group-membership	requires-effect-receipt
+arch	containers.docker	retain-effect	docker-group-membership	requires-effect-receipt

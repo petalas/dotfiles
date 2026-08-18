@@ -20,6 +20,7 @@ tests=(
     tests/test-install-selector.sh
     tests/test-install-tui-bootstrap.sh
     tests/test-install-tui.sh
+    tests/test-tui-release-manifest.sh
     tests/test-language-deps.sh
     tests/test-link-path.sh
     tests/test-link-dotfiles.sh
