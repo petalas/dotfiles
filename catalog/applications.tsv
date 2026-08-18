@@ -1,0 +1,116 @@
+foundation.bootstrap	foundation	Package manager and certificates	required
+foundation.build	foundation	Build substrate	required
+foundation.curl	foundation	curl	required
+foundation.git	foundation	Git	required
+foundation.gnupg	foundation	GnuPG	required
+foundation.jq	foundation	jq	required
+foundation.locale	foundation	Locale support	required
+foundation.rsync	foundation	rsync	required
+foundation.archives	foundation	Archive tools	required
+foundation.wget	foundation	wget	required
+terminal.bash	terminal	Bash	on
+terminal.zsh	terminal	Zsh	on
+terminal.tmux	terminal	tmux	on
+terminal.ghostty	terminal	Ghostty	on
+terminal.mosh	terminal	Mosh	on
+cli.aria2	cli	aria2	on
+cli.bat	cli	bat	on
+cli.bc	cli	bc	on
+cli.bind	cli	DNS tools	on
+cli.bottom	cli	bottom	on
+cli.btop	cli	btop	on
+cli.dust	cli	dust	on
+cli.eza	cli	eza	on
+cli.fastfetch	cli	fastfetch	on
+cli.fd	cli	fd	on
+cli.fzf	cli	fzf	on
+cli.htop	cli	htop	on
+cli.iperf3	cli	iperf3	on
+cli.mtr	cli	mtr	on
+cli.nmap	cli	nmap	on
+cli.sevenzip	cli	7-Zip	on
+cli.procs	cli	procs	on
+cli.ripgrep	cli	ripgrep	on
+cli.tealdeer	cli	tealdeer	on	languages.rust
+cli.watch	cli	watch	on
+cli.xclip	cli	xclip	on
+cli.xh	cli	xh	on
+cli.yazi	cli	Yazi	on	languages.rust
+development.gh	development	GitHub CLI	on
+development.glab	development	GitLab CLI	on
+development.git-delta	development	git-delta	on
+development.hyperfine	development	hyperfine	on
+development.lazygit	development	Lazygit	on
+development.shellcheck	development	ShellCheck	on
+development.sshpass	development	sshpass	on
+development.tree-sitter	development	tree-sitter CLI	on	languages.rust
+development.cargo-edit	development	cargo-edit	on	languages.rust
+development.wasm-bindgen	development	wasm-bindgen CLI	on	languages.rust
+development.watchexec	development	watchexec	on	languages.rust
+languages.bun	languages	Bun	required
+languages.node	languages	Node and npm	required
+languages.rust	languages	Rust and Cargo	required
+languages.elixir	languages	Elixir	on
+languages.gradle	languages	Gradle	on	languages.java
+languages.kotlin	languages	Kotlin	on	languages.java
+languages.java	languages	Java	on
+languages.luarocks	languages	LuaRocks	on
+languages.python	languages	Python	on
+languages.uv	languages	uv	on	languages.python
+languages.typescript	languages	TypeScript and language server	on	languages.node
+editors.neovim	editors	Neovim	on
+editors.dbeaver	editors	DBeaver	on
+editors.sublime	editors	Sublime Text	on
+editors.t3-code	editors	T3 Code	on
+editors.code	editors	Visual Studio Code	on
+editors.zed	editors	Zed	on
+containers.docker	containers	Docker	on
+containers.lazydocker	containers	Lazydocker	on
+communication.chrome	communication	Chrome or Chromium	on
+communication.discord	communication	Discord	on
+communication.slack	communication	Slack	on
+communication.whatsapp	communication	WhatsApp	on
+productivity.bitwarden	productivity	Bitwarden	on
+productivity.obsidian	productivity	Obsidian	on
+productivity.pass	productivity	pass	on
+productivity.pia	productivity	Private Internet Access	on
+productivity.syncthing	productivity	Syncthing	on
+productivity.tailscale	productivity	Tailscale	on
+media.ffmpeg	media-tooling	FFmpeg	on
+media.imagemagick	media-tooling	ImageMagick	on
+media.info	media-tooling	MediaInfo	on
+media.poppler	media-tooling	Poppler	on
+media.yt-dlp	media-tooling	yt-dlp	on
+creative.capcut	creative	CapCut	on
+creative.gimp	creative	Gimp	on
+creative.qbittorrent	creative	qBittorrent	on
+creative.spotify	creative	Spotify	on
+creative.vlc	creative	VLC	on
+desktop.grandperspective	desktop	GrandPerspective	on
+desktop.ice	desktop	Ice	on
+desktop.keepingyouawake	desktop	KeepingYouAwake	on
+desktop.keka	desktop	Keka	on
+desktop.mas	desktop	Mac App Store CLI	on
+desktop.raycast	desktop	Raycast	on
+desktop.rectangle	desktop	Rectangle	on
+desktop.shottr	desktop	Shottr	on
+desktop.stats	desktop	Stats	on
+desktop.integration	desktop	Desktop integration helpers	on
+ai.claude-code	ai	Claude Code	on
+ai.codex-cli	ai	Codex CLI	on	languages.node
+ai.codex-app	ai	Codex app	on
+ai.herdr	ai	Herdr	on
+ai.lm-studio	ai	LM Studio	on
+ai.pi	ai	Pi	on	languages.node
+mobile.applesimutils	mobile	Apple simulator utilities	on
+mobile.bundletool	mobile	Bundletool	on	languages.java
+mobile.cocoapods	mobile	CocoaPods	on
+mobile.fastlane	mobile	Fastlane	on
+mobile.maestro	mobile	Maestro	on	languages.java
+mobile.android-tools	mobile	Android command-line and platform tools	on	languages.java
+mobile.android-studio	mobile	Android Studio	on	languages.java
+mobile.java17	mobile	Temurin 17	on
+cad.bambu-studio	cad	Bambu Studio	on
+cad.openscad	cad	OpenSCAD	on
+gaming.parsec	gaming	Parsec	on
+gaming.steam	gaming	Steam	on

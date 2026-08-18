@@ -1,0 +1,6 @@
+10	dependencies	Install selected dependencies	on	dependencies
+20	zsh-plugins	Configure Zsh plugins	on	command	./configure-zsh.sh
+30	links	Link dotfiles	on	command	./link-dotfiles.sh
+40	tool-state	Restore generated tool state	on	command	./setup-tools.sh
+50	fonts	Install fonts	on	command	./setup-fonts.sh
+60	login-shell	Set the login shell	on	installer	zsh

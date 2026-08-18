@@ -5,26 +5,15 @@ _install_cargo_batch() {
 }
 
 install_rust_deps() {
-    local entry binary package
-    local -a missing_packages=()
-    local -a packages=(
-        tree-sitter:tree-sitter-cli
-        rg:ripgrep
-        wasm-bindgen:wasm-bindgen-cli
-        cargo-add:cargo-edit
-        tldr:tealdeer
-        bat:bat
-        watchexec:watchexec-cli
-    )
-
+    local os root platform_file _app adapter package _option
+    local -a packages=()
+    root=${DOTFILES_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
+    os=$(dotfiles_os) || return 1
+    platform_file="$root/catalog/platforms/$os.tsv"
     command -v cargo >/dev/null 2>&1 || return 1
-    for entry in "${packages[@]}"; do
-        binary=${entry%%:*}
-        package=${entry#*:}
-        if [[ "${DOTFILES_INSTALL_ALL_LANGUAGE_DEPS:-0}" == 1 ]] ||
-            ! command -v "$binary" >/dev/null 2>&1; then
-            missing_packages+=("$package")
-        fi
-    done
-    run_resilient_batch 'Cargo packages' _install_cargo_batch "${missing_packages[@]}"
+    while IFS=$'\t' read -r _app adapter package _option; do
+        [[ "$adapter" == cargo-package ]] || continue
+        packages+=("$package")
+    done <"$platform_file"
+    ((${#packages[@]} == 0)) || run_resilient_batch 'Cargo packages' _install_cargo_batch "${packages[@]}"
 }

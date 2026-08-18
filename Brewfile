@@ -1,16 +1,9 @@
-# Brewfile — consumed by `brew bundle` from brew-deps.sh.
+# GENERATED FILE — DO NOT EDIT.
+# Canonical declarations live in catalog/. Regenerate with:
+#   ./tools/generate-brewfile >Brewfile
 #
-# Per-machine subsetting (via brew-deps.sh):
-#   SKIP_GAMING=1 SKIP_CAD=1 SKIP_MOBILE=1 ./brew-deps.sh
-# (brew-deps.sh re-exports these as HOMEBREW_SKIP_* because Homebrew
-#  sanitises non-HOMEBREW_ env vars before the Brewfile is evaluated.
-#  If you invoke `brew bundle` directly, use HOMEBREW_SKIP_* here.)
-#
-# Skip individual entries by commenting out the line.
-# Find drift (installed but not declared here):
-#   brew bundle cleanup --file=Brewfile
-
-# --- Core CLI ---
+# This full artifact supports direct Homebrew inspection and cleanup. Normal
+# installation and reconciliation materialize only the selected declarations.
 brew "aria2"
 brew "bash"
 brew "bat"
@@ -28,8 +21,6 @@ brew "rsync"
 brew "tmux"
 brew "watch"
 brew "wget"
-
-# --- Modern CLI ---
 brew "bottom"
 brew "dust"
 brew "eza"
@@ -39,8 +30,6 @@ brew "jq"
 brew "procs"
 brew "sevenzip"
 brew "xh"
-
-# --- Dev tools ---
 brew "cmake"
 brew "gh"
 brew "git-delta"
@@ -53,8 +42,6 @@ brew "luarocks"
 brew "mas"
 brew "neovim"
 brew "shellcheck"
-
-# --- Languages ---
 brew "elixir"
 brew "gradle"
 brew "kotlin"
@@ -64,24 +51,16 @@ brew "python@3.14"
 brew "python-setuptools"
 brew "rust"
 brew "uv"
-
-# --- Media tooling ---
 brew "ffmpeg"
 brew "imagemagick"
 brew "media-info"
 brew "poppler"
 brew "yt-dlp"
-
-# --- Terminal ---
 cask "ghostty"
-
-# --- Browsers / comms ---
 cask "discord"
 cask "google-chrome"
 cask "slack"
 cask "whatsapp"
-
-# --- macOS utilities ---
 cask "grandperspective"
 cask "jordanbaird-ice"
 cask "keepingyouawake"
@@ -90,62 +69,38 @@ cask "raycast"
 cask "rectangle"
 cask "shottr"
 cask "stats"
-
-# --- Productivity / password / VPN / sync ---
 cask "bitwarden"
 cask "obsidian"
 cask "private-internet-access"
 cask "syncthing-app"
 brew "tailscale"
 cask "tailscale-app"
-
-# --- Creative / media apps ---
 cask "capcut"
 cask "gimp"
 cask "qbittorrent"
 cask "spotify"
 cask "vlc"
-
-# --- Editors / IDEs / DB tools ---
 cask "codex-app"
 cask "dbeaver-community"
 cask "sublime-text"
 cask "t3-code"
 cask "visual-studio-code"
 cask "zed"
-
-# --- Containers ---
 cask "docker-desktop"
-
-# --- AI ---
 brew "herdr"
 cask "claude-code"
 cask "lm-studio"
-
-# --- Mobile dev (fastlane, maestro, Java runtime) ---
-unless ENV["HOMEBREW_SKIP_MOBILE"]
-  tap "mobile-dev-inc/tap"
-  # Homebrew 6 requires explicit trust for third-party formulae. Scope trust to
-  # this formula rather than allowing every current and future item in the tap.
-  brew "wix-incubator/brew/applesimutils", trusted: true
-  brew "bundletool"
-  brew "cocoapods"
-  brew "fastlane"
-  brew "mobile-dev-inc/tap/maestro", trusted: true
-  cask "android-commandlinetools"
-  cask "android-platform-tools"
-  cask "android-studio"
-  cask "temurin@17"
-end
-
-# --- 3D printing / CAD ---
-unless ENV["HOMEBREW_SKIP_CAD"]
-  cask "bambu-studio"
-  cask "openscad@snapshot"
-end
-
-# --- Gaming / streaming ---
-unless ENV["HOMEBREW_SKIP_GAMING"]
-  cask "parsec"
-  cask "steam"
-end
+tap "mobile-dev-inc/tap"
+brew "wix-incubator/brew/applesimutils", trusted: true
+brew "bundletool"
+brew "cocoapods"
+brew "fastlane"
+brew "mobile-dev-inc/tap/maestro", trusted: true
+cask "android-commandlinetools"
+cask "android-platform-tools"
+cask "android-studio"
+cask "temurin@17"
+cask "bambu-studio"
+cask "openscad@snapshot"
+cask "parsec"
+cask "steam"

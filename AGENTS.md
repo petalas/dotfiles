@@ -48,7 +48,7 @@ Before modifying code, find the matching file pattern and **read the linked doc 
 | `*.sh` (root) | README.md for sudoers note; check script dependencies |
 | `update-dotfiles` | README.md update contract and [LEARNINGS.md](docs/LEARNINGS.md); preserve Zsh compatibility |
 | `installers/*.sh` | Existing installers for patterns (apt vs brew detection) |
-| `Brewfile`, `brew-deps.sh` | [LEARNINGS.md](docs/LEARNINGS.md) — Homebrew env, trust, and failure-boundary gotchas |
+| `catalog/**`, `Brewfile`, `brew-deps.sh`, `tools/generate-brewfile` | [ADR-0001](docs/adr/0001-use-a-catalog-engine-for-installation-plans.md) and [LEARNINGS.md](docs/LEARNINGS.md) — catalog ownership, Homebrew trust, and failure-boundary gotchas |
 | `dot/zshrc` | Current aliases/functions before adding duplicates |
 | `dot/*.zsh` | Existing shell theme files and [LEARNINGS.md](docs/LEARNINGS.md) |
 | `lib/*.sh` | Callers and [LEARNINGS.md](docs/LEARNINGS.md); preserve advertised Bash/Zsh compatibility |

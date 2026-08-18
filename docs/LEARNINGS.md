@@ -30,12 +30,11 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
-## Brewfile env-var gates must be prefixed `HOMEBREW_`
+## Brewfile environment gates are not a selection interface
 
-- `brew bundle` evaluates the Brewfile as Ruby, so `unless ENV["..."]` conditionals *do* work — but only for env vars Homebrew lets through.
-- Homebrew sanitises the environment before running the Brewfile. Arbitrary vars like `SKIP_GAMING` are stripped; only `HOMEBREW_*` (plus a small allow-list) survive.
-- Symptom: a gate like `unless ENV["SKIP_GAMING"]` never fires, regardless of whether you set `SKIP_GAMING=1`. Confusing because `if false` in the same Brewfile *does* work — ruling out "Ruby isn't evaluated."
-- Fix: either use `HOMEBREW_SKIP_GAMING` directly in the Brewfile, or translate in the wrapper script before invoking `brew bundle`. `brew-deps.sh` does the translation so the user-facing API stays as plain `SKIP_*`. The `upd` shell function does not run that translation, so persistent per-machine skips used by both paths must use the `HOMEBREW_SKIP_*` names.
+- `brew bundle` evaluates the Brewfile as Ruby, but Homebrew sanitises arbitrary environment variables before evaluation. This made historical `SKIP_*` gates unreliable unless wrappers translated them to `HOMEBREW_*` names.
+- Installation-plan records now own group and application selection on every platform. `Brewfile` is a generated full compatibility artifact, while catalog reconciliation materializes a selected temporary Brewfile.
+- Do not reintroduce environment-variable selection gates in `Brewfile`; they create a second ownership surface and do not apply consistently to direct and wrapped Homebrew runs.
 
 ---
 
@@ -156,6 +155,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Mirror ranking is cached because rerating on every idempotent setup is slow and can create needless source drift. Use `DOTFILES_REFRESH_MIRRORS=1` to force a new Debian `netselect-apt` or Arch Reflector/rankmirrors run.
 - The package helper is shared with zsh. Keep it compatible with both Bash and Zsh, and avoid readonly zsh parameter names such as `status`.
 - Package-manager tests must use local fake executables. Clean-container installs measure the current mirror and network conditions, not deterministic package-management behavior.
+- Tests for root setup entry points must inject a fake catalog engine or run a copied fixture. Never invoke `setup-deps.sh` from a test before its execution seam is substituted: it immediately performs live package reconciliation on the host.
 
 ---
 

@@ -1,6 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+usage() {
+    echo "Usage: bootstrap.sh [--unattended | --plan FILE]"
+}
+
+case "$#" in
+    0) ;;
+    1)
+        case "$1" in
+            --unattended) ;;
+            --help|-h) usage; exit 0 ;;
+            *) usage >&2; exit 2 ;;
+        esac
+        ;;
+    2) [[ "$1" == --plan ]] || { usage >&2; exit 2; } ;;
+    *) usage >&2; exit 2 ;;
+esac
+installer_args=("$@")
+
 TARGET="${DOTFILES_DIR:-$HOME/git/dotfiles}"
 REPO_URL="${DOTFILES_REPO_URL:-https://github.com/petalas/dotfiles.git}"
 REPO_BRANCH="${DOTFILES_BRANCH:-main}"
@@ -87,4 +105,4 @@ else
 fi
 
 cd "$TARGET"
-exec ./easy-install.sh
+exec ./easy-install.sh "${installer_args[@]}"

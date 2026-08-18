@@ -10,7 +10,6 @@ export LANGUAGE_DEPS_LOG="$log"
 export HOME="$fixture/home"
 export PATH="$fixture/bin:/usr/bin:/bin"
 export DOTFILES_BATCH_RETRIES=1 DOTFILES_BATCH_RETRY_DELAY_SECONDS=0
-export DOTFILES_INSTALL_ALL_LANGUAGE_DEPS=1
 
 cat >"$fixture/bin/npm" <<'EOF'
 #!/usr/bin/env bash
@@ -36,7 +35,9 @@ source "$repo_dir/installers/install_rust_deps.sh"
 
 : >"$log"
 install_node_deps <<<"interactive input"
-grep -Fq '@openai/codex typescript typescript-language-server' "$log"
+for package in @openai/codex typescript typescript-language-server; do
+    grep -Fq "$package" "$log"
+done
 grep -Fq '@earendil-works/pi-coding-agent' "$log"
 ! grep -Fq 'stdin:' "$log"
 
@@ -49,9 +50,9 @@ grep -Fq '@earendil-works/pi-coding-agent' "$log"
 
 : >"$log"
 install_rust_deps
-grep -Fxq \
-    'cargo install --locked tree-sitter-cli ripgrep wasm-bindgen-cli cargo-edit tealdeer bat watchexec-cli' \
-    "$log"
+for package in tree-sitter-cli ripgrep wasm-bindgen-cli cargo-edit tealdeer bat watchexec-cli; do
+    grep -Fq "$package" "$log"
+done
 
 : >"$log"
 if FAIL_CARGO=1 install_rust_deps; then

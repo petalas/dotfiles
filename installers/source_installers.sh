@@ -15,15 +15,14 @@ for script in "$SCRIPT_DIR"/install_*.sh "$SCRIPT_DIR"/setup_*.sh; do
 done
 
 list_installers() {
-    printf '%s\n' \
-        'Available installers:' \
-        '  Applications:' \
-        '    bitwarden  chrome       code       discord   docker' \
-        '    ghostty    herdr        lazydocker lazygit   neovim' \
-        '    obsidian   yazi' \
-        '  Toolchains and add-ons:' \
-        '    bun         node         node_deps  rust      rust_deps' \
-        '    claude_code' \
-        '  System setup:' \
-        '    audio       locale       ssh_keys   zsh'
+    local category name previous=
+    echo 'Available installers:'
+    while IFS=$'\t' read -r category name; do
+        [[ -n "$category$name" ]] || continue
+        if [[ "$category" != "$previous" ]]; then
+            printf '  %s:\n' "$category"
+            previous=$category
+        fi
+        printf '    %s\n' "$name"
+    done <"$DOTFILES_ROOT/catalog/installers.tsv"
 }

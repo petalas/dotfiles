@@ -1,0 +1,1076 @@
+#!/usr/bin/env bash
+# Resolve and execute installation plans from the canonical catalog.
+set -euo pipefail
+
+root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+catalog_dir=${DOTFILES_CATALOG_DIR:-$root_dir/catalog}
+state_home=${XDG_STATE_HOME:-$HOME/.local/state}
+default_record=${DOTFILES_PLAN_RECORD:-$state_home/dotfiles/installation-plan}
+
+fail() {
+    echo "install-plan: $*" >&2
+    exit 1
+}
+
+warn() {
+    echo "Warning: $*"
+}
+
+valid_id() {
+    [[ "$1" =~ ^[a-z0-9][a-z0-9.-]*$ ]]
+}
+
+find_value_index() {
+    local needle=$1
+    shift
+    local index=0 value
+    for value in "$@"; do
+        if [[ "$value" == "$needle" ]]; then
+            printf '%s\n' "$index"
+            return 0
+        fi
+        index=$((index + 1))
+    done
+    return 1
+}
+
+load_catalog() {
+    local os=$1 order id label default adapter argument group state prerequisites
+    local action_kind action_value action_option
+    step_orders=(); step_ids=(); step_labels=(); step_defaults=(); step_adapters=(); step_arguments=()
+    group_orders=(); group_ids=(); group_labels=(); group_defaults=()
+    app_ids=(); app_groups=(); app_labels=(); app_states=(); app_prerequisites=()
+    action_apps=(); action_kinds=(); action_values=(); action_options=()
+
+    [[ -r "$catalog_dir/steps.tsv" ]] || fail "missing catalog file: $catalog_dir/steps.tsv"
+    while IFS=$'\t' read -r order id label default adapter argument; do
+        [[ -n "$order$id$label$default$adapter${argument:-}" ]] || continue
+        [[ "$order" =~ ^[0-9]+$ ]] || fail "invalid step order: $order"
+        valid_id "$id" || fail "invalid step id: $id"
+        find_value_index "$id" "${step_ids[@]}" >/dev/null 2>&1 && fail "duplicate step id: $id"
+        find_value_index "$order" "${step_orders[@]}" >/dev/null 2>&1 && fail "duplicate step order: $order"
+        [[ "$default" == on || "$default" == off ]] || fail "invalid step default for $id: $default"
+        [[ "$adapter" == dependencies || "$adapter" == command || "$adapter" == installer ]] ||
+            fail "invalid step adapter for $id: $adapter"
+        step_orders+=("$order"); step_ids+=("$id"); step_labels+=("$label")
+        step_defaults+=("$default"); step_adapters+=("$adapter"); step_arguments+=("${argument:-}")
+    done <"$catalog_dir/steps.tsv"
+
+    [[ -r "$catalog_dir/groups.tsv" ]] || fail "missing catalog file: $catalog_dir/groups.tsv"
+    while IFS=$'\t' read -r order id label default; do
+        [[ -n "$order$id$label$default" ]] || continue
+        [[ "$order" =~ ^[0-9]+$ ]] || fail "invalid group order: $order"
+        valid_id "$id" || fail "invalid group id: $id"
+        find_value_index "$id" "${group_ids[@]}" >/dev/null 2>&1 && fail "duplicate group id: $id"
+        find_value_index "$order" "${group_orders[@]}" >/dev/null 2>&1 && fail "duplicate group order: $order"
+        [[ "$default" == on || "$default" == off ]] || fail "invalid group default for $id: $default"
+        group_orders+=("$order"); group_ids+=("$id"); group_labels+=("$label"); group_defaults+=("$default")
+    done <"$catalog_dir/groups.tsv"
+
+    [[ -r "$catalog_dir/applications.tsv" ]] || fail "missing catalog file: $catalog_dir/applications.tsv"
+    while IFS=$'\t' read -r id group label state prerequisites; do
+        [[ -n "$id$group$label$state${prerequisites:-}" ]] || continue
+        valid_id "$id" || fail "invalid application id: $id"
+        find_value_index "$id" "${app_ids[@]}" >/dev/null 2>&1 && fail "duplicate application id: $id"
+        find_value_index "$group" "${group_ids[@]}" >/dev/null 2>&1 || fail "unknown group $group for application $id"
+        [[ "$state" == on || "$state" == off || "$state" == required ]] ||
+            fail "invalid application state for $id: $state"
+        app_ids+=("$id"); app_groups+=("$group"); app_labels+=("$label")
+        app_states+=("$state"); app_prerequisites+=("${prerequisites:-}")
+    done <"$catalog_dir/applications.tsv"
+
+    [[ -r "$catalog_dir/platforms/$os.tsv" ]] || fail "unsupported catalog platform: $os"
+    while IFS=$'\t' read -r id action_kind action_value action_option; do
+        [[ -n "$id$action_kind$action_value${action_option:-}" ]] || continue
+        find_value_index "$id" "${app_ids[@]}" >/dev/null 2>&1 || fail "unknown application in $os adapter catalog: $id"
+        case "$action_kind" in
+            provided|apt-package|pacman-package|brew-cask|brew-tap|installer|command-alias)
+                [[ -z "${action_option:-}" ]] || fail "invalid option for $action_kind on $id: $action_option" ;;
+            brew-formula)
+                [[ -z "${action_option:-}" || "$action_option" == trusted=true ]] ||
+                    fail "invalid option for $action_kind on $id: $action_option" ;;
+            npm-package)
+                [[ -z "${action_option:-}" || "$action_option" == ignore-scripts ]] ||
+                    fail "invalid option for $action_kind on $id: $action_option" ;;
+            cargo-package)
+                [[ -z "${action_option:-}" || "$action_option" == missing-only ]] ||
+                    fail "invalid option for $action_kind on $id: $action_option" ;;
+            *) fail "unsupported adapter $action_kind for $id" ;;
+        esac
+        action_apps+=("$id"); action_kinds+=("$action_kind"); action_values+=("$action_value")
+        action_options+=("${action_option:-}")
+    done <"$catalog_dir/platforms/$os.tsv"
+
+    validate_references_and_cycles
+    validate_required_coverage
+}
+
+validate_references_and_cycles() {
+    local index prerequisites prerequisite
+    index=0
+    while ((index < ${#app_ids[@]})); do
+        prerequisites=${app_prerequisites[$index]}
+        if [[ -n "$prerequisites" ]]; then
+            local old_ifs=$IFS
+            IFS=','
+            for prerequisite in $prerequisites; do
+                find_value_index "$prerequisite" "${app_ids[@]}" >/dev/null 2>&1 ||
+                    fail "unknown prerequisite $prerequisite for ${app_ids[$index]}"
+            done
+            IFS=$old_ifs
+        fi
+        check_dependency_cycle "${app_ids[$index]}" ""
+        index=$((index + 1))
+    done
+}
+
+check_dependency_cycle() {
+    local id=$1 path=$2 index prerequisites prerequisite old_ifs
+    case "$path" in
+        *"|$id|"*) fail "dependency cycle involving $id" ;;
+    esac
+    index=$(find_value_index "$id" "${app_ids[@]}") || return 1
+    prerequisites=${app_prerequisites[$index]}
+    [[ -n "$prerequisites" ]] || return 0
+    old_ifs=$IFS
+    IFS=','
+    for prerequisite in $prerequisites; do
+        check_dependency_cycle "$prerequisite" "$path|$id|"
+    done
+    IFS=$old_ifs
+}
+
+app_is_available() {
+    local id=$1 action_app
+    for action_app in "${action_apps[@]}"; do
+        [[ "$action_app" == "$id" ]] && return 0
+    done
+    return 1
+}
+
+validate_required_coverage() {
+    local index=0
+    while ((index < ${#app_ids[@]})); do
+        if [[ "${app_states[$index]}" == required ]] && ! app_is_available "${app_ids[$index]}"; then
+            fail "required application ${app_ids[$index]} has no platform adapter"
+        fi
+        index=$((index + 1))
+    done
+}
+
+initialize_selection() {
+    local mode=$1 index=0
+    step_selection=(); group_selection=(); app_overrides=()
+    while ((index < ${#step_ids[@]})); do
+        if [[ "$mode" == full ]]; then step_selection+=(on); else step_selection+=("${step_defaults[$index]}"); fi
+        index=$((index + 1))
+    done
+    index=0
+    while ((index < ${#group_ids[@]})); do
+        if [[ "$mode" == full ]]; then group_selection+=(on); else group_selection+=("${group_defaults[$index]}"); fi
+        index=$((index + 1))
+    done
+    index=0
+    while ((index < ${#app_ids[@]})); do app_overrides+=(""); index=$((index + 1)); done
+}
+
+parse_record() {
+    local path=$1 strict=$2 line key value line_number=0 format_seen=0 kind identifier index
+    local -a seen_record_keys=()
+    [[ -r "$path" ]] || { [[ "$strict" == true ]] && fail "cannot read plan record: $path"; return 1; }
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line_number=$((line_number + 1))
+        [[ -n "$line" ]] || continue
+        case "$line" in
+            *=*) key=${line%%=*}; value=${line#*=} ;;
+            *) [[ "$strict" == true ]] && fail "malformed plan record line $line_number"; return 1 ;;
+        esac
+        if find_value_index "$key" "${seen_record_keys[@]}" >/dev/null 2>&1; then
+            [[ "$strict" == true ]] && fail "duplicate plan record key: $key"
+            return 1
+        fi
+        seen_record_keys+=("$key")
+        if [[ "$key" == format ]]; then
+            [[ "$value" == 1 && "$format_seen" == 0 ]] || {
+                [[ "$strict" == true ]] && fail "unsupported or duplicate plan record format"; return 1;
+            }
+            format_seen=1
+            continue
+        fi
+        [[ "$value" == on || "$value" == off ]] || {
+            [[ "$strict" == true ]] && fail "invalid plan record value on line $line_number"; return 1;
+        }
+        kind=${key%%.*}; identifier=${key#*.}
+        [[ "$identifier" != "$key" ]] || { [[ "$strict" == true ]] && fail "invalid plan record key: $key"; return 1; }
+        case "$kind" in
+            step)
+                if index=$(find_value_index "$identifier" "${step_ids[@]}"); then step_selection[$index]=$value
+                else warn "ignoring stale step $identifier"; fi ;;
+            group)
+                if index=$(find_value_index "$identifier" "${group_ids[@]}"); then
+                    if [[ "$identifier" == foundation && "$value" == off ]]; then
+                        warn "Foundation group cannot be disabled"
+                        group_selection[$index]=on
+                    else
+                        group_selection[$index]=$value
+                    fi
+                else warn "ignoring stale group $identifier"; fi ;;
+            app)
+                if index=$(find_value_index "$identifier" "${app_ids[@]}"); then
+                    if [[ "${app_states[$index]}" == required && "$value" == off ]]; then
+                        warn "required application $identifier cannot be disabled"
+                        app_overrides[$index]=on
+                    else
+                        app_overrides[$index]=$value
+                    fi
+                else warn "ignoring stale application $identifier"; fi ;;
+            *) [[ "$strict" == true ]] && fail "invalid plan record key: $key"; return 1 ;;
+        esac
+    done <"$path"
+    [[ "$format_seen" == 1 ]] || { [[ "$strict" == true ]] && fail "plan record format is missing"; return 1; }
+}
+
+resolve_app_selection() {
+    local index=0 group_index selected
+    app_selection=()
+    while ((index < ${#app_ids[@]})); do
+        if ! app_is_available "${app_ids[$index]}"; then
+            selected=off
+        elif [[ "${app_states[$index]}" == required ]]; then
+            selected=on
+        elif [[ -n "${app_overrides[$index]}" ]]; then
+            selected=${app_overrides[$index]}
+        else
+            group_index=$(find_value_index "${app_groups[$index]}" "${group_ids[@]}")
+            selected=${group_selection[$group_index]}
+            [[ "${app_states[$index]}" != off ]] || selected=off
+        fi
+        app_selection+=("$selected")
+        index=$((index + 1))
+    done
+    index=0
+    while ((index < ${#app_ids[@]})); do
+        [[ "${app_selection[$index]}" != on ]] || select_prerequisites "${app_ids[$index]}"
+        index=$((index + 1))
+    done
+}
+
+select_prerequisites() {
+    local id=$1 index prerequisites prerequisite old_ifs prerequisite_index
+    index=$(find_value_index "$id" "${app_ids[@]}") || return 1
+    prerequisites=${app_prerequisites[$index]}
+    [[ -n "$prerequisites" ]] || return 0
+    old_ifs=$IFS
+    IFS=','
+    for prerequisite in $prerequisites; do
+        prerequisite_index=$(find_value_index "$prerequisite" "${app_ids[@]}") || continue
+        if ! app_is_available "$prerequisite"; then fail "selected application $id requires unavailable $prerequisite"; fi
+        app_selection[$prerequisite_index]=on
+        select_prerequisites "$prerequisite"
+    done
+    IFS=$old_ifs
+}
+
+write_resolved_plan() {
+    local os=$1 output=$2 index=0 group_index availability action_index
+    mkdir -p "$(dirname "$output")"
+    : >"$output"
+    printf 'format\t1\n' >>"$output"
+    printf 'os\t%s\n' "$os" >>"$output"
+    while ((index < ${#step_ids[@]})); do
+        printf 'step\t%s\t%s\t%s\t%s\n' "${step_ids[$index]}" "${step_selection[$index]}" \
+            "${step_orders[$index]}" "${step_labels[$index]}" >>"$output"
+        index=$((index + 1))
+    done
+    index=0
+    while ((index < ${#group_ids[@]})); do
+        availability=unavailable
+        for group_index in "${!app_ids[@]}"; do
+            if [[ "${app_groups[$group_index]}" == "${group_ids[$index]}" ]] && app_is_available "${app_ids[$group_index]}"; then
+                availability=available
+                break
+            fi
+        done
+        printf 'group\t%s\t%s\t%s\t%s\t%s\n' "${group_ids[$index]}" "${group_selection[$index]}" \
+            "${group_orders[$index]}" "${group_labels[$index]}" "$availability" >>"$output"
+        index=$((index + 1))
+    done
+    index=0
+    while ((index < ${#app_ids[@]})); do
+        if app_is_available "${app_ids[$index]}"; then
+            if [[ "${app_states[$index]}" == required ]]; then availability=required; else availability=optional; fi
+            printf 'app\t%s\t%s\t%s\t%s\t%s\n' "${app_ids[$index]}" "${app_selection[$index]}" \
+                "$availability" "${app_groups[$index]}" "${app_labels[$index]}" >>"$output"
+        fi
+        index=$((index + 1))
+    done
+    index=0
+    while ((index < ${#app_ids[@]})); do
+        if [[ "${app_selection[$index]}" == on && -n "${app_prerequisites[$index]}" ]]; then
+            local prerequisite old_ifs=$IFS
+            IFS=','
+            for prerequisite in ${app_prerequisites[$index]}; do
+                printf 'dependency\t%s\t%s\n' "${app_ids[$index]}" "$prerequisite" >>"$output"
+            done
+            IFS=$old_ifs
+        fi
+        index=$((index + 1))
+    done
+    action_index=0
+    while ((action_index < ${#action_apps[@]})); do
+        index=$(find_value_index "${action_apps[$action_index]}" "${app_ids[@]}")
+        if [[ "${app_selection[$index]}" == on ]]; then
+            printf 'action\t%s\t%s\t%s\t%s\n' "${action_apps[$action_index]}" \
+                "${action_kinds[$action_index]}" "${action_values[$action_index]}" \
+                "${action_options[$action_index]}" >>"$output"
+        fi
+        action_index=$((action_index + 1))
+    done
+    index=0
+    while ((index < ${#step_ids[@]})); do
+        if [[ "${step_selection[$index]}" == on && "${step_adapters[$index]}" != dependencies ]]; then
+            printf 'step-action\t%s\t%s\t%s\t\n' "${step_ids[$index]}" \
+                "${step_adapters[$index]}" "${step_arguments[$index]}" >>"$output"
+        fi
+        index=$((index + 1))
+    done
+}
+
+render_review() {
+    local output=$1 type id selected order label rest
+    echo 'Resolved installation plan:'
+    while IFS=$'\t' read -r type id selected order label rest; do
+        case "$type" in
+            step) printf '  %s. [%s] %s\n' "$order" "$selected" "$label" ;;
+            group) [[ "$selected" == on ]] && printf '       [group] %s\n' "$label" ;;
+            app) [[ "$selected" == on ]] && printf '           [app] %s\n' "$rest" ;;
+        esac
+    done <"$output"
+}
+
+write_plan_record() {
+    local output=$1 index=0
+    {
+        echo 'format=1'
+        while ((index < ${#step_ids[@]})); do
+            printf 'step.%s=%s\n' "${step_ids[$index]}" "${step_selection[$index]}"
+            index=$((index + 1))
+        done
+        index=0
+        while ((index < ${#group_ids[@]})); do
+            printf 'group.%s=%s\n' "${group_ids[$index]}" "${group_selection[$index]}"
+            index=$((index + 1))
+        done
+        index=0
+        while ((index < ${#app_ids[@]})); do
+            if [[ -n "${app_overrides[$index]}" ]]; then
+                printf 'app.%s=%s\n' "${app_ids[$index]}" "${app_overrides[$index]}"
+            fi
+            index=$((index + 1))
+        done
+    } >"$output"
+}
+
+save_default_record() {
+    local source=$1 directory temporary
+    directory=$(dirname "$default_record")
+    mkdir -p "$directory"
+    temporary=$(mktemp "$directory/.installation-plan.XXXXXX")
+    chmod 600 "$temporary"
+    cp "$source" "$temporary"
+    mv -f "$temporary" "$default_record"
+}
+
+current_app_state() {
+    local index=$1 group_index
+    if [[ "${app_states[$index]}" == required ]]; then echo on
+    elif [[ -n "${app_overrides[$index]}" ]]; then echo "${app_overrides[$index]}"
+    else
+        group_index=$(find_value_index "${app_groups[$index]}" "${group_ids[@]}")
+        echo "${group_selection[$group_index]}"
+    fi
+}
+
+render_selector() {
+    local fd=$1 pane=$2 row=$3 app_row=$4 index marker state group_id group_index app_count=0
+    local selected_count available_count app_state_index group_display
+    printf '\033[2J\033[H' >&$fd
+    printf 'Dotfiles installation plan — arrows/tab move, space toggles, enter reviews, q cancels\n\n' >&$fd
+    printf '%-48s | %s\n' 'STEPS AND DEPENDENCY GROUPS' 'APPLICATIONS IN ACTIVE GROUP' >&$fd
+    printf '%-48s-+-%s\n' '------------------------------------------------' '----------------------------------------' >&$fd
+    index=0
+    while ((index < ${#step_ids[@]})); do
+        marker='  '; [[ "$pane" == left && "$row" == "$index" ]] && marker='> '
+        state=' '; [[ "${step_selection[$index]}" == on ]] && state=x
+        printf '%-48s |\n' "${marker}[$state] Step: ${step_labels[$index]}" >&$fd
+        index=$((index + 1))
+    done
+    group_index=0
+    while ((group_index < ${#group_ids[@]})); do
+        marker='  '; [[ "$pane" == left && "$row" == $((group_index + ${#step_ids[@]})) ]] && marker='> '
+        selected_count=0; available_count=0
+        for app_state_index in "${!app_ids[@]}"; do
+            if [[ "${app_groups[$app_state_index]}" == "${group_ids[$group_index]}" ]] && app_is_available "${app_ids[$app_state_index]}"; then
+                available_count=$((available_count + 1))
+                [[ $(current_app_state "$app_state_index") != on ]] || selected_count=$((selected_count + 1))
+            fi
+        done
+        state=' '
+        if ((available_count > 0 && selected_count == available_count)); then state=x
+        elif ((selected_count > 0)); then state='-'; fi
+        [[ "${group_ids[$group_index]}" != foundation ]] || state='!'
+        if ((available_count > 0)); then group_display="${group_labels[$group_index]} ($selected_count/$available_count)"
+        else group_display="${group_labels[$group_index]} (unavailable)"; fi
+        printf '%-48s |' "${marker}[$state] $group_display" >&$fd
+        if [[ $((group_index + ${#step_ids[@]})) == "$row" ]]; then
+            group_id=${group_ids[$group_index]}
+            app_count=0
+            for index in "${!app_ids[@]}"; do
+                if [[ "${app_groups[$index]}" == "$group_id" ]] && app_is_available "${app_ids[$index]}"; then
+                    marker='  '; [[ "$pane" == right && "$app_row" == "$app_count" ]] && marker='> '
+                    state=' '; [[ $(current_app_state "$index") == on ]] && state=x
+                    [[ "${app_states[$index]}" != required ]] || state='!'
+                    if ((app_count == 0)); then printf ' %s[%s] %s' "$marker" "$state" "${app_labels[$index]}" >&$fd
+                    else printf '\n%-49s| %s[%s] %s' '' "$marker" "$state" "${app_labels[$index]}" >&$fd
+                    fi
+                    app_count=$((app_count + 1))
+                fi
+            done
+            ((app_count > 0)) || printf ' unavailable on this platform' >&$fd
+        fi
+        printf '\n' >&$fd
+        group_index=$((group_index + 1))
+    done
+    printf '\nRequired items use [!]. Deselecting skips reconciliation and never uninstalls.\n' >&$fd
+}
+
+selector_group_app_index() {
+    local row=$1 wanted=$2 index count=0 group_index
+    group_index=$((row - ${#step_ids[@]}))
+    ((group_index >= 0 && group_index < ${#group_ids[@]})) || return 1
+    for index in "${!app_ids[@]}"; do
+        if [[ "${app_groups[$index]}" == "${group_ids[$group_index]}" ]] && app_is_available "${app_ids[$index]}"; then
+            if ((count == wanted)); then echo "$index"; return 0; fi
+            count=$((count + 1))
+        fi
+    done
+    return 1
+}
+
+run_visual_selector() {
+    local output=$1 tty=${DOTFILES_INSTALL_PLAN_TTY:-/dev/tty} pane=left row=0 app_row=0 key rest
+    local total_rows=$(( ${#step_ids[@]} + ${#group_ids[@]} )) index group_index next app_index
+    local selected_count available_count app_state_index
+    [[ -r "$tty" && -w "$tty" ]] || fail "visual selection requires a terminal; use --unattended"
+    exec 9<>"$tty" || fail "cannot open terminal; use --unattended"
+    printf '\033[?25l' >&9
+    while true; do
+        render_selector 9 "$pane" "$row" "$app_row"
+        IFS= read -rsn1 key <&9 || { printf '\033[?25h\n' >&9; exec 9>&-; return 1; }
+        if [[ "$key" == $'\033' ]]; then
+            IFS= read -rsn2 -t 0.1 rest <&9 || rest=
+            key="$key$rest"
+        fi
+        case "$key" in
+            q|Q) printf '\033[?25h\033[2J\033[H' >&9; exec 9>&-; return 1 ;;
+            $'\033[A')
+                if [[ "$pane" == left ]]; then row=$(( (row + total_rows - 1) % total_rows )); app_row=0
+                elif ((app_row > 0)); then app_row=$((app_row - 1)); fi ;;
+            $'\033[B')
+                if [[ "$pane" == left ]]; then row=$(( (row + 1) % total_rows )); app_row=0
+                elif selector_group_app_index "$row" $((app_row + 1)) >/dev/null; then app_row=$((app_row + 1)); fi ;;
+            $'\033[C'|$'\t') if ((row >= ${#step_ids[@]})); then pane=right; fi ;;
+            $'\033[D') pane=left ;;
+            ' ')
+                if [[ "$pane" == left ]]; then
+                    if ((row < ${#step_ids[@]})); then
+                        [[ "${step_selection[$row]}" == on ]] && step_selection[$row]=off || step_selection[$row]=on
+                    else
+                        group_index=$((row - ${#step_ids[@]}))
+                        if [[ "${group_ids[$group_index]}" != foundation ]]; then
+                            [[ "${group_selection[$group_index]}" == on ]] && next=off || next=on
+                            group_selection[$group_index]=$next
+                            for index in "${!app_ids[@]}"; do
+                                [[ "${app_groups[$index]}" != "${group_ids[$group_index]}" ]] || app_overrides[$index]=
+                            done
+                        fi
+                    fi
+                elif app_index=$(selector_group_app_index "$row" "$app_row"); then
+                    if [[ "${app_states[$app_index]}" != required ]]; then
+                        [[ $(current_app_state "$app_index") == on ]] && app_overrides[$app_index]=off || app_overrides[$app_index]=on
+                    fi
+                fi ;;
+            ''|$'\n'|$'\r')
+                printf '\033[2J\033[HReview installation plan\n\n' >&9
+                for index in "${!step_ids[@]}"; do
+                    [[ "${step_selection[$index]}" != on ]] || printf '  %s. %s\n' "${step_orders[$index]}" "${step_labels[$index]}" >&9
+                    if [[ "${step_ids[$index]}" == dependencies && "${step_selection[$index]}" == on ]]; then
+                        for group_index in "${!group_ids[@]}"; do
+                            selected_count=0; available_count=0
+                            for app_state_index in "${!app_ids[@]}"; do
+                                if [[ "${app_groups[$app_state_index]}" == "${group_ids[$group_index]}" ]] && app_is_available "${app_ids[$app_state_index]}"; then
+                                    available_count=$((available_count + 1))
+                                    [[ $(current_app_state "$app_state_index") != on ]] || selected_count=$((selected_count + 1))
+                                fi
+                            done
+                            if ((available_count > 0)); then
+                                printf '       %s (%s/%s)\n' "${group_labels[$group_index]}" "$selected_count" "$available_count" >&9
+                            else
+                                printf '       %s (unavailable)\n' "${group_labels[$group_index]}" >&9
+                            fi
+                        done
+                    fi
+                done
+                printf '\nAfter confirmation, execution accepts no further input.\nConfirm and start? [y/N] ' >&9
+                IFS= read -rsn1 key <&9 || key=n
+                if [[ "$key" == y || "$key" == Y ]]; then
+                    write_plan_record "$output"
+                    printf '\033[?25h\033[2J\033[H' >&9
+                    exec 9>&-
+                    return 0
+                fi ;;
+        esac
+    done
+}
+
+prepare_visual_selection() {
+    local os=$1 selection_file=$2 draft_file
+    draft_file=$(mktemp "${TMPDIR:-/tmp}/dotfiles-selection-draft.XXXXXX")
+    write_plan_record "$draft_file"
+    if [[ -n "${DOTFILES_INSTALL_PLAN_SELECTOR:-}" ]]; then
+        "$DOTFILES_INSTALL_PLAN_SELECTOR" "$os" "$draft_file" "$selection_file" || {
+            rm -f "$draft_file"; return 1;
+        }
+    else
+        run_visual_selector "$selection_file" || { rm -f "$draft_file"; return 1; }
+    fi
+    rm -f "$draft_file"
+}
+
+prepare_plan() {
+    local mode='' os='' output='' record=''
+    shift
+    while (($#)); do
+        case "$1" in
+            --mode) (($# >= 2)) || fail "--mode requires a value"; mode=$2; shift 2 ;;
+            --os) (($# >= 2)) || fail "--os requires a value"; os=$2; shift 2 ;;
+            --output) (($# >= 2)) || fail "--output requires a path"; output=$2; shift 2 ;;
+            --record) (($# >= 2)) || fail "--record requires a path"; record=$2; shift 2 ;;
+            *) fail "unknown prepare argument: $1" ;;
+        esac
+    done
+    case "$mode" in visual|defaults|full|record) ;; *) fail "invalid prepare mode: $mode" ;; esac
+    case "$os" in macos|ubuntu|debian|arch) ;; *) fail "invalid operating system: $os" ;; esac
+    [[ -n "$output" ]] || fail "prepare requires --output"
+    [[ "$mode" != record || -n "$record" ]] || fail "record mode requires --record"
+
+    load_catalog "$os"
+    initialize_selection "$mode"
+    case "$mode" in
+        record) parse_record "$record" true ;;
+        defaults|visual)
+            if [[ -e "$default_record" ]] && ! parse_record "$default_record" false; then
+                warn "default plan record is invalid; using repository defaults"
+                initialize_selection defaults
+            fi
+            ;;
+    esac
+    if [[ "$mode" == visual ]]; then
+        local selection_file
+        selection_file=$(mktemp "${TMPDIR:-/tmp}/dotfiles-selection.XXXXXX")
+        prepare_visual_selection "$os" "$selection_file" || { rm -f "$selection_file"; return 1; }
+        initialize_selection defaults
+        parse_record "$selection_file" true
+        resolve_app_selection
+        write_plan_record "$selection_file"
+        save_default_record "$selection_file"
+        rm -f "$selection_file"
+    else
+        resolve_app_selection
+    fi
+    write_resolved_plan "$os" "$output"
+    render_review "$output"
+}
+
+load_resolved_plan() {
+    local path=$1 type first second third fourth fifth _extra format_seen=0
+    apply_step_ids=(); apply_step_states=(); apply_step_labels=()
+    apply_app_ids=(); apply_app_states=(); apply_app_labels=(); apply_app_statuses=()
+    apply_dependency_apps=(); apply_dependency_requirements=()
+    apply_action_apps=(); apply_action_kinds=(); apply_action_values=(); apply_action_options=(); apply_action_done=()
+    apply_step_action_ids=(); apply_step_action_kinds=(); apply_step_action_values=(); apply_step_action_options=()
+    [[ -r "$path" ]] || fail "cannot read resolved plan: $path"
+    while IFS=$'\t' read -r type first second third fourth fifth _extra; do
+        case "$type" in
+            format) [[ "$first" == 1 && "$format_seen" == 0 ]] || fail "unsupported resolved plan format"; format_seen=1 ;;
+            os) case "$first" in macos|ubuntu|debian|arch) apply_os=$first ;; *) fail "invalid resolved plan OS" ;; esac ;;
+            step)
+                [[ "$second" == on || "$second" == off ]] || fail "invalid resolved step state"
+                apply_step_ids+=("$first"); apply_step_states+=("$second"); apply_step_labels+=("$fourth") ;;
+            group) ;;
+            app)
+                [[ "$second" == on || "$second" == off ]] || fail "invalid resolved application state"
+                apply_app_ids+=("$first"); apply_app_states+=("$second"); apply_app_labels+=("$fifth")
+                if [[ "$second" == on ]]; then apply_app_statuses+=(pending); else apply_app_statuses+=(skipped); fi ;;
+            dependency)
+                apply_dependency_apps+=("$first"); apply_dependency_requirements+=("$second") ;;
+            action)
+                apply_action_apps+=("$first"); apply_action_kinds+=("$second")
+                apply_action_values+=("$third"); apply_action_options+=("$fourth"); apply_action_done+=(0) ;;
+            step-action)
+                apply_step_action_ids+=("$first"); apply_step_action_kinds+=("$second")
+                apply_step_action_values+=("$third"); apply_step_action_options+=("$fourth") ;;
+            '') ;;
+            *) fail "unknown resolved plan record: $type" ;;
+        esac
+    done <"$path"
+    [[ "$format_seen" == 1 && -n "${apply_os:-}" ]] || fail "incomplete resolved plan"
+}
+
+run_brew_action() {
+    local kind=$1 value=$2 option=$3 declaration work_file
+    command -v brew >/dev/null 2>&1 || {
+        # shellcheck source=download.sh
+        source "$root_dir/lib/download.sh"
+        # shellcheck source=../setup-brew.sh
+        source "$root_dir/setup-brew.sh"
+        setup_homebrew
+    }
+    case "$kind" in
+        brew-tap) brew tap "$value" ;;
+        brew-formula|brew-cask)
+            work_file=$(mktemp "${TMPDIR:-/tmp}/dotfiles-selected.XXXXXX.Brewfile")
+            if [[ "$kind" == brew-cask ]]; then
+                declaration="cask \"$value\""
+            elif [[ "$option" == trusted=true ]]; then
+                declaration="brew \"$value\", trusted: true"
+            else
+                declaration="brew \"$value\""
+            fi
+            printf '%s\n' "$declaration" >"$work_file"
+            # shellcheck source=homebrew.sh
+            source "$root_dir/lib/homebrew.sh"
+            homebrew_bundle_install_resilient "$work_file"
+            local brew_result=$?
+            rm -f "$work_file"
+            return "$brew_result"
+            ;;
+    esac
+}
+
+ensure_catalog_command_alias() {
+    local value=$1 command_name=${1%%:*} packaged_name=${1#*:} packaged_path target
+    [[ "$command_name" != "$packaged_name" ]] || return 1
+    command -v "$command_name" >/dev/null 2>&1 && return 0
+    packaged_path=$(command -v "$packaged_name" 2>/dev/null) || return 0
+    target="$HOME/.local/bin/$command_name"
+    mkdir -p "${target%/*}"
+    if [[ -L "$target" ]]; then
+        [[ $(readlink "$target") == "$packaged_path" ]] && return 0
+        rm -f "$target"
+    elif [[ -e "$target" ]]; then
+        echo "Cannot manage command alias over existing file: $target" >&2
+        return 1
+    fi
+    ln -s "$packaged_path" "$target"
+}
+
+cargo_package_binary() {
+    case "$1" in
+        tealdeer) echo tldr ;;
+        ripgrep) echo rg ;;
+        tree-sitter-cli) echo tree-sitter ;;
+        cargo-edit) echo cargo-add ;;
+        wasm-bindgen-cli) echo wasm-bindgen ;;
+        watchexec-cli) echo watchexec ;;
+        *) echo "$1" ;;
+    esac
+}
+
+run_real_adapter() {
+    local operation=$1 kind=$2 value=$3 option=$4 function_name binary
+    case "$kind" in
+        provided) return 0 ;;
+        command-alias) ensure_catalog_command_alias "$value" ;;
+        apt-package|pacman-package)
+            # shellcheck source=packages.sh
+            source "$root_dir/lib/packages.sh"
+            linux_packages_install "$value"
+            ;;
+        brew-formula|brew-cask|brew-tap) run_brew_action "$kind" "$value" "$option" ;;
+        npm-package)
+            if [[ "$option" == ignore-scripts ]]; then
+                npm install --global --ignore-scripts "$value" </dev/null
+            else
+                npm install --global "$value" </dev/null
+            fi
+            ;;
+        cargo-package)
+            binary=$(cargo_package_binary "$value")
+            [[ "$option" != missing-only ]] || ! command -v "$binary" >/dev/null 2>&1 || return 0
+            cargo install --locked "$value" </dev/null
+            ;;
+        installer)
+            # shellcheck source=../installers/source_installers.sh
+            source "$root_dir/installers/source_installers.sh" >/dev/null
+            if [[ $(type -t "install_$value") == function ]]; then function_name="install_$value"
+            elif [[ $(type -t "setup_$value") == function ]]; then function_name="setup_$value"
+            else echo "Unknown installer adapter: $value" >&2; return 1
+            fi
+            "$function_name"
+            ;;
+        command) (cd "$root_dir" && "$value") ;;
+        *) echo "Unsupported execution adapter: $kind" >&2; return 1 ;;
+    esac
+}
+
+run_plan_adapter() {
+    local operation=$1 kind=$2 value=$3 option=$4
+    if [[ -n "${DOTFILES_INSTALL_PLAN_ADAPTER:-}" ]]; then
+        "$DOTFILES_INSTALL_PLAN_ADAPTER" "$operation" "$kind" "$value" "$option"
+    else
+        run_real_adapter "$operation" "$kind" "$value" "$option"
+    fi
+}
+
+run_real_batch() {
+    local operation=$1 kind=$2 entries=$3 _app value option brewfile result=0
+    local -a values=() normal=() scriptless=()
+    case "$kind" in
+        apt-package|pacman-package)
+            while IFS=$'\t' read -r _app value option; do values+=("$value"); done <"$entries"
+            source "$root_dir/lib/packages.sh"
+            linux_packages_optimize_mirrors || echo 'Warning: mirror optimization failed; continuing.' >&2
+            linux_packages_refresh
+            linux_packages_install "${values[@]}"
+            ;;
+        brew-formula|brew-cask|brew-tap)
+            command -v brew >/dev/null 2>&1 || {
+                source "$root_dir/lib/download.sh"
+                source "$root_dir/setup-brew.sh"
+                setup_homebrew
+            }
+            if [[ "${_INSTALL_PLAN_BREW_PREPARED:-0}" != 1 ]]; then
+                brew update || echo 'Warning: Homebrew update failed; continuing.' >&2
+                _INSTALL_PLAN_BREW_PREPARED=1
+            fi
+            brewfile=$(mktemp "${TMPDIR:-/tmp}/dotfiles-selected.XXXXXX.Brewfile")
+            while IFS=$'\t' read -r _app value option; do
+                case "$kind" in
+                    brew-tap) printf 'tap "%s"\n' "$value" ;;
+                    brew-cask) printf 'cask "%s"\n' "$value" ;;
+                    brew-formula)
+                        if [[ "$option" == trusted=true ]]; then printf 'brew "%s", trusted: true\n' "$value"
+                        else printf 'brew "%s"\n' "$value"; fi ;;
+                esac
+            done <"$entries" >"$brewfile"
+            source "$root_dir/lib/homebrew.sh"
+            homebrew_bundle_install_resilient "$brewfile" || result=$?
+            rm -f "$brewfile"
+            return "$result"
+            ;;
+        npm-package)
+            while IFS=$'\t' read -r _app value option; do
+                if [[ "$option" == ignore-scripts ]]; then scriptless+=("$value"); else normal+=("$value"); fi
+            done <"$entries"
+            ((${#normal[@]} == 0)) || npm install --global "${normal[@]}" </dev/null || result=1
+            ((${#scriptless[@]} == 0)) || npm install --global --ignore-scripts "${scriptless[@]}" </dev/null || result=1
+            return "$result"
+            ;;
+        cargo-package)
+            while IFS=$'\t' read -r _app value option; do
+                if [[ "$option" != missing-only ]] || ! command -v "$(cargo_package_binary "$value")" >/dev/null 2>&1; then
+                    values+=("$value")
+                fi
+            done <"$entries"
+            ((${#values[@]} == 0)) || cargo install --locked "${values[@]}" </dev/null
+            ;;
+    esac
+}
+
+execute_action_batches() {
+    local operation=$1 kind index entries batch_result prerequisite_batch_failed=0
+    [[ -z "${DOTFILES_INSTALL_PLAN_ADAPTER:-}" || -n "${DOTFILES_INSTALL_PLAN_BATCH_ADAPTER:-}" ]] || return 0
+    for kind in apt-package pacman-package brew-tap brew-formula brew-cask npm-package cargo-package; do
+        if [[ "$prerequisite_batch_failed" == 1 && ( "$kind" == npm-package || "$kind" == cargo-package ) ]]; then
+            continue
+        fi
+        entries=$(mktemp "${TMPDIR:-/tmp}/dotfiles-action-batch.XXXXXX")
+        index=0
+        while ((index < ${#apply_action_apps[@]})); do
+            if [[ "${apply_action_kinds[$index]}" == "$kind" ]]; then
+                printf '%s\t%s\t%s\n' "${apply_action_apps[$index]}" \
+                    "${apply_action_values[$index]}" "${apply_action_options[$index]}" >>"$entries"
+            fi
+            index=$((index + 1))
+        done
+        if [[ ! -s "$entries" ]]; then rm -f "$entries"; continue; fi
+        batch_result=0
+        if [[ -n "${DOTFILES_INSTALL_PLAN_BATCH_ADAPTER:-}" ]]; then
+            "$DOTFILES_INSTALL_PLAN_BATCH_ADAPTER" "$operation" "$kind" "$entries" || batch_result=$?
+        else
+            run_real_batch "$operation" "$kind" "$entries" || batch_result=$?
+        fi
+        rm -f "$entries"
+        if [[ "$batch_result" == 0 ]]; then
+            index=0
+            while ((index < ${#apply_action_apps[@]})); do
+                [[ "${apply_action_kinds[$index]}" != "$kind" ]] || apply_action_done[$index]=1
+                index=$((index + 1))
+            done
+        elif [[ "$kind" == apt-package || "$kind" == pacman-package ||
+                "$kind" == brew-tap || "$kind" == brew-formula || "$kind" == brew-cask ]]; then
+            prerequisite_batch_failed=1
+        fi
+    done
+}
+
+execute_plan_app() {
+    local id=$1 operation=$2 path=${3:-} index status dependency_index prerequisite prerequisite_index
+    local action_index had_failure=0
+    index=$(find_value_index "$id" "${apply_app_ids[@]}") || return 1
+    status=${apply_app_statuses[$index]}
+    case "$status" in succeeded) return 0 ;; failed|blocked) return 1 ;; running) return 1 ;; esac
+    case "$path" in *"|$id|"*) apply_app_statuses[$index]=failed; return 1 ;; esac
+    apply_app_statuses[$index]=running
+    dependency_index=0
+    while ((dependency_index < ${#apply_dependency_apps[@]})); do
+        if [[ "${apply_dependency_apps[$dependency_index]}" == "$id" ]]; then
+            prerequisite=${apply_dependency_requirements[$dependency_index]}
+            prerequisite_index=$(find_value_index "$prerequisite" "${apply_app_ids[@]}") || {
+                apply_app_statuses[$index]=blocked; return 1;
+            }
+            if ! execute_plan_app "$prerequisite" "$operation" "$path|$id|"; then
+                apply_app_statuses[$index]=blocked
+                return 1
+            fi
+        fi
+        dependency_index=$((dependency_index + 1))
+    done
+    action_index=0
+    while ((action_index < ${#apply_action_apps[@]})); do
+        if [[ "${apply_action_apps[$action_index]}" == "$id" && "${apply_action_done[$action_index]}" != 1 ]]; then
+            if ! run_plan_adapter "$operation" "${apply_action_kinds[$action_index]}" \
+                "${apply_action_values[$action_index]}" "${apply_action_options[$action_index]}"; then
+                had_failure=1
+            fi
+        fi
+        action_index=$((action_index + 1))
+    done
+    if [[ "$had_failure" == 1 ]]; then apply_app_statuses[$index]=failed; return 1; fi
+    apply_app_statuses[$index]=succeeded
+}
+
+catalog_has_action() {
+    local expected_app=$1 expected_kind=$2 expected_value=$3 expected_option=$4 index=0
+    while ((index < ${#action_apps[@]})); do
+        if [[ "${action_apps[$index]}" == "$expected_app" &&
+              "${action_kinds[$index]}" == "$expected_kind" &&
+              "${action_values[$index]}" == "$expected_value" &&
+              "${action_options[$index]}" == "$expected_option" ]]; then
+            return 0
+        fi
+        index=$((index + 1))
+    done
+    return 1
+}
+
+resolved_plan_has_action() {
+    local expected_app=$1 expected_kind=$2 expected_value=$3 expected_option=$4 index=0
+    while ((index < ${#apply_action_apps[@]})); do
+        if [[ "${apply_action_apps[$index]}" == "$expected_app" &&
+              "${apply_action_kinds[$index]}" == "$expected_kind" &&
+              "${apply_action_values[$index]}" == "$expected_value" &&
+              "${apply_action_options[$index]}" == "$expected_option" ]]; then
+            return 0
+        fi
+        index=$((index + 1))
+    done
+    return 1
+}
+
+resolved_plan_has_dependency() {
+    local expected_app=$1 expected_requirement=$2 index=0
+    while ((index < ${#apply_dependency_apps[@]})); do
+        if [[ "${apply_dependency_apps[$index]}" == "$expected_app" &&
+              "${apply_dependency_requirements[$index]}" == "$expected_requirement" ]]; then
+            return 0
+        fi
+        index=$((index + 1))
+    done
+    return 1
+}
+
+validate_resolved_plan_against_catalog() {
+    local index=0 catalog_index app_index selected step_index prerequisites prerequisite old_ifs
+    local found_step_action action_scan
+    load_catalog "$apply_os"
+    while ((index < ${#apply_app_ids[@]})); do
+        app_index=$(find_value_index "${apply_app_ids[$index]}" "${app_ids[@]}") ||
+            fail "resolved plan application is absent from catalog: ${apply_app_ids[$index]}"
+        if ! app_is_available "${apply_app_ids[$index]}"; then
+            fail "resolved plan application is unavailable: ${apply_app_ids[$index]}"
+        fi
+        if [[ "${app_states[$app_index]}" == required && "${apply_app_states[$index]}" != on ]]; then
+            fail "resolved plan disabled required application: ${apply_app_ids[$index]}"
+        fi
+        index=$((index + 1))
+    done
+    catalog_index=0
+    while ((catalog_index < ${#app_ids[@]})); do
+        if app_is_available "${app_ids[$catalog_index]}"; then
+            find_value_index "${app_ids[$catalog_index]}" "${apply_app_ids[@]}" >/dev/null 2>&1 ||
+                fail "resolved plan omitted available application: ${app_ids[$catalog_index]}"
+        fi
+        catalog_index=$((catalog_index + 1))
+    done
+    index=0
+    while ((index < ${#apply_action_apps[@]})); do
+        catalog_has_action "${apply_action_apps[$index]}" "${apply_action_kinds[$index]}" \
+            "${apply_action_values[$index]}" "${apply_action_options[$index]}" ||
+            fail "resolved plan action is absent from catalog: ${apply_action_apps[$index]} ${apply_action_kinds[$index]}"
+        app_index=$(find_value_index "${apply_action_apps[$index]}" "${apply_app_ids[@]}") ||
+            fail "resolved plan action has no application: ${apply_action_apps[$index]}"
+        [[ "${apply_app_states[$app_index]}" == on ]] ||
+            fail "resolved plan contains an action for a disabled application: ${apply_action_apps[$index]}"
+        index=$((index + 1))
+    done
+    catalog_index=0
+    while ((catalog_index < ${#action_apps[@]})); do
+        if app_index=$(find_value_index "${action_apps[$catalog_index]}" "${apply_app_ids[@]}"); then
+            selected=${apply_app_states[$app_index]}
+            if [[ "$selected" == on ]]; then
+                resolved_plan_has_action "${action_apps[$catalog_index]}" "${action_kinds[$catalog_index]}" \
+                    "${action_values[$catalog_index]}" "${action_options[$catalog_index]}" ||
+                    fail "resolved plan omitted catalog action: ${action_apps[$catalog_index]} ${action_kinds[$catalog_index]}"
+            fi
+        fi
+        catalog_index=$((catalog_index + 1))
+    done
+    index=0
+    while ((index < ${#apply_dependency_apps[@]})); do
+        app_index=$(find_value_index "${apply_dependency_apps[$index]}" "${app_ids[@]}") ||
+            fail "resolved plan dependency has unknown application: ${apply_dependency_apps[$index]}"
+        prerequisites=${app_prerequisites[$app_index]}
+        case ",$prerequisites," in
+            *",${apply_dependency_requirements[$index]},"*) ;;
+            *) fail "resolved plan dependency is absent from catalog: ${apply_dependency_apps[$index]}" ;;
+        esac
+        index=$((index + 1))
+    done
+    catalog_index=0
+    while ((catalog_index < ${#app_ids[@]})); do
+        if app_index=$(find_value_index "${app_ids[$catalog_index]}" "${apply_app_ids[@]}") &&
+            [[ "${apply_app_states[$app_index]}" == on && -n "${app_prerequisites[$catalog_index]}" ]]; then
+            prerequisites=${app_prerequisites[$catalog_index]}
+            old_ifs=$IFS; IFS=','
+            for prerequisite in $prerequisites; do
+                resolved_plan_has_dependency "${app_ids[$catalog_index]}" "$prerequisite" ||
+                    fail "resolved plan omitted prerequisite: ${app_ids[$catalog_index]} -> $prerequisite"
+            done
+            IFS=$old_ifs
+        fi
+        catalog_index=$((catalog_index + 1))
+    done
+    index=0
+    while ((index < ${#apply_step_ids[@]})); do
+        step_index=$(find_value_index "${apply_step_ids[$index]}" "${step_ids[@]}") ||
+            fail "resolved plan step is absent from catalog: ${apply_step_ids[$index]}"
+        if [[ "${apply_step_states[$index]}" == on && "${step_adapters[$step_index]}" != dependencies ]]; then
+            found_step_action=0; action_scan=0
+            while ((action_scan < ${#apply_step_action_ids[@]})); do
+                if [[ "${apply_step_action_ids[$action_scan]}" == "${apply_step_ids[$index]}" ]]; then found_step_action=1; break; fi
+                action_scan=$((action_scan + 1))
+            done
+            [[ "$found_step_action" == 1 ]] || fail "resolved plan omitted step action: ${apply_step_ids[$index]}"
+        fi
+        index=$((index + 1))
+    done
+    index=0
+    while ((index < ${#apply_step_action_ids[@]})); do
+        step_index=$(find_value_index "${apply_step_action_ids[$index]}" "${step_ids[@]}") ||
+            fail "resolved plan step action is absent from catalog: ${apply_step_action_ids[$index]}"
+        [[ "${step_adapters[$step_index]}" == "${apply_step_action_kinds[$index]}" &&
+           "${step_arguments[$step_index]}" == "${apply_step_action_values[$index]}" ]] ||
+            fail "resolved plan step action differs from catalog: ${apply_step_action_ids[$index]}"
+        index=$((index + 1))
+    done
+}
+
+apply_plan() {
+    local operation='' plan='' index step_id step_failed=0 app_index action_index interrupted=0
+    shift
+    while (($#)); do
+        case "$1" in
+            --operation) (($# >= 2)) || fail "--operation requires a value"; operation=$2; shift 2 ;;
+            --plan) (($# >= 2)) || fail "--plan requires a path"; plan=$2; shift 2 ;;
+            *) fail "unknown apply argument: $1" ;;
+        esac
+    done
+    case "$operation" in install|reconcile) ;; *) fail "invalid apply operation: $operation" ;; esac
+    [[ -n "$plan" ]] || fail "apply requires --plan"
+    load_resolved_plan "$plan"
+    [[ "${DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN:-0}" == 1 ]] || validate_resolved_plan_against_catalog
+    export NONINTERACTIVE=1 HOMEBREW_NO_ASK=1 DOTFILES_NONINTERACTIVE=1
+    export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a GIT_TERMINAL_PROMPT=0
+    exec </dev/null
+    trap 'interrupted=1' INT TERM
+
+    index=0
+    while ((index < ${#apply_step_ids[@]})); do
+        step_id=${apply_step_ids[$index]}
+        if [[ "${apply_step_states[$index]}" == off ]]; then
+            printf 'skipped: %s\n' "$step_id"
+            index=$((index + 1)); continue
+        fi
+        if [[ "$interrupted" == 1 ]]; then step_failed=1; break; fi
+        if [[ "$step_id" == dependencies ]]; then
+            execute_action_batches "$operation"
+            app_index=0
+            while ((app_index < ${#apply_app_ids[@]})); do
+                if [[ "${apply_app_states[$app_index]}" == on ]]; then
+                    execute_plan_app "${apply_app_ids[$app_index]}" "$operation" || true
+                fi
+                app_index=$((app_index + 1))
+            done
+        else
+            action_index=0
+            while ((action_index < ${#apply_step_action_ids[@]})); do
+                if [[ "${apply_step_action_ids[$action_index]}" == "$step_id" ]]; then
+                    run_plan_adapter "$operation" "${apply_step_action_kinds[$action_index]}" \
+                        "${apply_step_action_values[$action_index]}" "${apply_step_action_options[$action_index]}" || step_failed=1
+                fi
+                action_index=$((action_index + 1))
+            done
+        fi
+        index=$((index + 1))
+    done
+
+    app_index=0
+    while ((app_index < ${#apply_app_ids[@]})); do
+        case "${apply_app_statuses[$app_index]}" in
+            succeeded) printf 'succeeded: %s\n' "${apply_app_ids[$app_index]}" ;;
+            skipped) printf 'skipped: %s\n' "${apply_app_ids[$app_index]}" ;;
+            failed) printf 'failed: %s\n' "${apply_app_ids[$app_index]}" >&2; step_failed=1 ;;
+            blocked) printf 'blocked: %s\n' "${apply_app_ids[$app_index]}" >&2; step_failed=1 ;;
+        esac
+        app_index=$((app_index + 1))
+    done
+    [[ "$interrupted" == 0 ]] || { echo 'Installation interrupted.' >&2; return 130; }
+    return "$step_failed"
+}
+
+usage() {
+    cat <<'EOF'
+Usage:
+  lib/install-plan prepare --mode visual|defaults|full|record --os OS --output FILE [--record FILE]
+  lib/install-plan apply --operation install|reconcile --plan FILE
+EOF
+}
+
+case "${1:-}" in
+    prepare) prepare_plan "$@" ;;
+    apply) apply_plan "$@" ;;
+    --help|-h) usage ;;
+    *) usage >&2; exit 2 ;;
+esac

@@ -29,12 +29,12 @@ jobs:
       - name: ShellCheck Bash files
         run: |
           git ls-files -z '*.sh' | xargs -0 shellcheck --severity=warning --exclude=SC1090
-          shellcheck --severity=warning --exclude=SC1090 install .githooks/pre-commit
+          shellcheck --severity=warning --exclude=SC1090 install lib/install-plan tools/generate-brewfile .githooks/pre-commit
 
       - name: Shell syntax
         run: |
           while IFS= read -r -d '' file; do bash -n "$file"; done < <(git ls-files -z '*.sh')
-          bash -n install .githooks/pre-commit
+          bash -n install lib/install-plan tools/generate-brewfile .githooks/pre-commit
           zsh -n dot/zshrc dot/*.zsh update-dotfiles
 
       - name: Deterministic tests

@@ -58,11 +58,18 @@ update_skills() {
   bunx skills update --global
 }
 
-restore_dotfiles_state() {
-  "$DOTFILES_ROOT/link-dotfiles.sh" && "$DOTFILES_ROOT/setup-tools.sh"
-}
-
-run_step "dotfiles links + generated tool state" restore_dotfiles_state
+plan_engine=$DOTFILES_ROOT/lib/install-plan
+resolved_plan=$(mktemp "${TMPDIR:-/tmp}/dotfiles-update-plan.XXXXXX")
+trap 'rm -f -- "$resolved_plan"' EXIT
+if [[ -x $plan_engine ]]; then
+  if run_step "resolve installation plan" \
+    "$plan_engine" prepare --mode defaults --os "$(source "$DOTFILES_ROOT/lib/platform.sh" && dotfiles_os)" --output "$resolved_plan"; then
+    run_step "selected reconciliation" \
+      "$plan_engine" apply --operation reconcile --plan "$resolved_plan"
+  fi
+else
+  record_missing "installation plan engine" "$plan_engine"
+fi
 
 if [[ $OSTYPE == linux* ]]; then
   package_helpers=$DOTFILES_ROOT/lib/packages.sh
@@ -77,7 +84,6 @@ elif [[ $OSTYPE == darwin* ]] && (( $+commands[brew] )); then
   if [[ -r $brew_helpers ]]; then
     source "$brew_helpers"
     run_step "Homebrew metadata" brew update
-    run_step "Brewfile reconciliation" homebrew_bundle_install_resilient "$DOTFILES_ROOT/Brewfile"
     run_step "Homebrew upgrades" homebrew_upgrade_individually
   else
     record_missing "Homebrew helpers" "$brew_helpers"

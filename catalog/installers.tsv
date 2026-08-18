@@ -1,0 +1,22 @@
+Applications	bitwarden
+Applications	chrome
+Applications	code
+Applications	discord
+Applications	docker
+Applications	ghostty
+Applications	herdr
+Applications	lazydocker
+Applications	lazygit
+Applications	neovim
+Applications	obsidian
+Applications	yazi
+Toolchains and add-ons	bun
+Toolchains and add-ons	node
+Toolchains and add-ons	node_deps
+Toolchains and add-ons	rust
+Toolchains and add-ons	rust_deps
+Toolchains and add-ons	claude_code
+System setup	audio
+System setup	locale
+System setup	ssh_keys
+System setup	zsh

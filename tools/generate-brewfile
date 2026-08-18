@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Generate the full Homebrew compatibility artifact from the canonical catalog.
+set -euo pipefail
+
+root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+plan=$(mktemp "${TMPDIR:-/tmp}/dotfiles-brewfile-plan.XXXXXX")
+trap 'rm -f "$plan"' EXIT
+"$root_dir/lib/install-plan" prepare --mode full --os macos --output "$plan" >/dev/null
+
+cat <<'HEADER'
+# GENERATED FILE — DO NOT EDIT.
+# Canonical declarations live in catalog/. Regenerate with:
+#   ./tools/generate-brewfile >Brewfile
+#
+# This full artifact supports direct Homebrew inspection and cleanup. Normal
+# installation and reconciliation materialize only the selected declarations.
+HEADER
+
+while IFS=$'\t' read -r type _ adapter value option; do
+    [[ "$type" == action ]] || continue
+    case "$adapter" in
+        brew-formula)
+            if [[ "$option" == trusted=true ]]; then
+                printf 'brew "%s", trusted: true\n' "$value"
+            else
+                printf 'brew "%s"\n' "$value"
+            fi
+            ;;
+        brew-cask) printf 'cask "%s"\n' "$value" ;;
+        brew-tap) printf 'tap "%s"\n' "$value" ;;
+    esac
+done <"$plan"
