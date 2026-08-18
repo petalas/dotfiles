@@ -300,3 +300,78 @@ ubuntu	communication.chrome	managed-file	/etc/apt/sources.list.d/google-chrome.l
 ubuntu	editors.code	managed-file	/etc/apt/sources.list.d/vscode.list	deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main
 debian	communication.chrome	managed-file	/etc/apt/sources.list.d/google-chrome.list	deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main
 debian	editors.code	managed-file	/etc/apt/sources.list.d/vscode.list	deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main
+macos	productivity.bitwarden	retain	~/Library/Application Support/Bitwarden	user-data
+macos	communication.chrome	retain	~/Library/Application Support/Google/Chrome	user-data
+macos	editors.code	retain	~/Library/Application Support/Code	user-data
+macos	editors.code	retain	~/.vscode/extensions	user-data
+macos	communication.discord	retain	~/Library/Application Support/discord	user-data
+macos	containers.docker	retain	~/Library/Containers/com.docker.docker	user-data
+macos	containers.docker	retain	~/.docker	user-data
+macos	terminal.ghostty	retain	~/.config/ghostty	user-data
+macos	development.lazygit	retain	~/.config/lazygit	user-data
+macos	editors.neovim	retain	~/.config/nvim	user-data
+macos	editors.neovim	retain	~/.local/share/nvim	user-data
+macos	productivity.obsidian	retain	~/Library/Application Support/obsidian	user-data
+macos	ai.claude-code	retain	~/.claude	user-data
+macos	ai.claude-code	retain	~/.claude.json	user-data
+macos	ai.herdr	retain	~/.config/herdr	user-data
+macos	containers.lazydocker	retain	~/.config/lazydocker	user-data
+macos	cli.yazi	retain	~/.config/yazi	user-data
+macos	cli.yazi	retain	~/.local/share/yazi	user-data
+ubuntu	productivity.bitwarden	retain	~/.config/Bitwarden	user-data
+ubuntu	communication.chrome	retain	~/.config/google-chrome	user-data
+ubuntu	editors.code	retain	~/.config/Code	user-data
+ubuntu	editors.code	retain	~/.vscode/extensions	user-data
+ubuntu	communication.discord	retain	~/.config/discord	user-data
+ubuntu	containers.docker	retain	/var/lib/docker	user-data
+ubuntu	containers.docker	retain	/etc/docker	user-data
+ubuntu	containers.docker	retain	~/.docker	user-data
+ubuntu	terminal.ghostty	retain	~/.config/ghostty	user-data
+ubuntu	development.lazygit	retain	~/.config/lazygit	user-data
+ubuntu	editors.neovim	retain	~/.config/nvim	user-data
+ubuntu	editors.neovim	retain	~/.local/share/nvim	user-data
+ubuntu	productivity.obsidian	retain	~/.config/obsidian	user-data
+ubuntu	ai.claude-code	retain	~/.claude	user-data
+ubuntu	ai.claude-code	retain	~/.claude.json	user-data
+ubuntu	ai.herdr	retain	~/.config/herdr	user-data
+ubuntu	containers.lazydocker	retain	~/.config/lazydocker	user-data
+ubuntu	cli.yazi	retain	~/.config/yazi	user-data
+ubuntu	cli.yazi	retain	~/.local/share/yazi	user-data
+debian	productivity.bitwarden	retain	~/.config/Bitwarden	user-data
+debian	communication.chrome	retain	~/.config/google-chrome	user-data
+debian	editors.code	retain	~/.config/Code	user-data
+debian	editors.code	retain	~/.vscode/extensions	user-data
+debian	communication.discord	retain	~/.config/discord	user-data
+debian	containers.docker	retain	/var/lib/docker	user-data
+debian	containers.docker	retain	/etc/docker	user-data
+debian	containers.docker	retain	~/.docker	user-data
+debian	terminal.ghostty	retain	~/.config/ghostty	user-data
+debian	development.lazygit	retain	~/.config/lazygit	user-data
+debian	editors.neovim	retain	~/.config/nvim	user-data
+debian	editors.neovim	retain	~/.local/share/nvim	user-data
+debian	productivity.obsidian	retain	~/.config/obsidian	user-data
+debian	ai.claude-code	retain	~/.claude	user-data
+debian	ai.claude-code	retain	~/.claude.json	user-data
+debian	ai.herdr	retain	~/.config/herdr	user-data
+debian	containers.lazydocker	retain	~/.config/lazydocker	user-data
+debian	cli.yazi	retain	~/.config/yazi	user-data
+debian	cli.yazi	retain	~/.local/share/yazi	user-data
+arch	productivity.bitwarden	retain	~/.config/Bitwarden	user-data
+arch	communication.chrome	retain	~/.config/google-chrome	user-data
+arch	editors.code	retain	~/.config/Code	user-data
+arch	editors.code	retain	~/.vscode/extensions	user-data
+arch	communication.discord	retain	~/.config/discord	user-data
+arch	containers.docker	retain	/var/lib/docker	user-data
+arch	containers.docker	retain	/etc/docker	user-data
+arch	containers.docker	retain	~/.docker	user-data
+arch	terminal.ghostty	retain	~/.config/ghostty	user-data
+arch	development.lazygit	retain	~/.config/lazygit	user-data
+arch	editors.neovim	retain	~/.config/nvim	user-data
+arch	editors.neovim	retain	~/.local/share/nvim	user-data
+arch	productivity.obsidian	retain	~/.config/obsidian	user-data
+arch	ai.claude-code	retain	~/.claude	user-data
+arch	ai.claude-code	retain	~/.claude.json	user-data
+arch	ai.herdr	retain	~/.config/herdr	user-data
+arch	containers.lazydocker	retain	~/.config/lazydocker	user-data
+arch	cli.yazi	retain	~/.config/yazi	user-data
+arch	cli.yazi	retain	~/.local/share/yazi	user-data

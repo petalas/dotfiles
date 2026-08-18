@@ -59,4 +59,15 @@ grep -Fq '2/2 settled' "$fixture/run"
 grep -Fq 'One — succeeded' "$fixture/run"
 grep -Fq 'Run settled successfully' "$fixture/run"
 
+cat >"$fixture/bad-events" <<'EOF'
+#!/usr/bin/env bash
+printf 'event\t2\trun-start\t1\n'
+EOF
+chmod +x "$fixture/bad-events"
+if TERM=xterm "$fixture/dotfiles-tui" run -- "$fixture/bad-events" >"$fixture/bad-run" 2>&1; then
+    echo 'Expected malformed execution events to fail closed' >&2
+    exit 1
+fi
+grep -Fq 'malformed execution event' "$fixture/bad-run"
+
 printf 'Intent-lanes TUI and progress rendering tests passed.\n'

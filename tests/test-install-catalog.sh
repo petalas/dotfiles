@@ -15,17 +15,17 @@ for os in macos ubuntu debian arch; do
 done
 
 # Frozen pre-migration inventories independently protect package ownership.
-awk -F '\t' '$2 == "apt-package" {print $3}' "$repo_dir/catalog/platforms/debian.tsv" |
+awk -F '\t' '$4 == "apt-package" {print $5}' "$repo_dir/catalog/platforms/debian.tsv" |
     sort -u >"$fixture/debian-packages"
 cmp -s "$repo_dir/tests/fixtures/catalog/debian-packages" "$fixture/debian-packages"
-awk -F '\t' '$2 == "pacman-package" {print $3}' "$repo_dir/catalog/platforms/arch.tsv" |
+awk -F '\t' '$4 == "pacman-package" {print $5}' "$repo_dir/catalog/platforms/arch.tsv" |
     sort -u >"$fixture/arch-packages"
 cmp -s "$repo_dir/tests/fixtures/catalog/arch-packages" "$fixture/arch-packages"
 "$repo_dir/tools/generate-brewfile" |
     awk '/^(brew|cask|tap) / {print}' | sort >"$fixture/macos-brew.entries"
 cmp -s "$repo_dir/tests/fixtures/catalog/macos-brew.entries" "$fixture/macos-brew.entries"
 for os in macos debian arch; do
-    awk -F '\t' '$2 == "installer" || $2 == "npm-package" || $2 == "cargo-package" {print}' \
+    awk -F '\t' '$4 == "installer" || $4 == "npm-package" || $4 == "cargo-package" {print}' \
         "$repo_dir/catalog/platforms/$os.tsv" | sort >"$fixture/$os-addon-actions"
     cmp -s "$repo_dir/tests/fixtures/catalog/$os-addon-actions" "$fixture/$os-addon-actions"
 done

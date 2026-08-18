@@ -54,6 +54,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.6"
+          cache: true
+
+      - name: Test visual helper
+        run: go test ./...
 
       - name: Test Apple Bash compatibility
         run: /bin/bash ./tests/test-macos-arm.sh

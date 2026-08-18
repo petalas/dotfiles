@@ -36,11 +36,11 @@ find_value_index() {
 
 load_catalog() {
     local os=$1 order id label default adapter argument group state prerequisites
-    local action_kind action_value action_option
+    local action_provider action_role action_kind action_value action_option
     step_orders=(); step_ids=(); step_labels=(); step_defaults=(); step_adapters=(); step_arguments=()
     group_orders=(); group_ids=(); group_labels=(); group_defaults=()
     app_ids=(); app_groups=(); app_labels=(); app_states=(); app_prerequisites=()
-    action_apps=(); action_kinds=(); action_values=(); action_options=()
+    action_apps=(); action_providers=(); action_roles=(); action_kinds=(); action_values=(); action_options=()
     removal_oses=(); removal_apps=(); removal_methods=(); removal_targets=(); removal_options=()
 
     [[ -r "$catalog_dir/steps.tsv" ]] || fail "missing catalog file: $catalog_dir/steps.tsv"
@@ -81,9 +81,11 @@ load_catalog() {
     done <"$catalog_dir/applications.tsv"
 
     [[ -r "$catalog_dir/platforms/$os.tsv" ]] || fail "unsupported catalog platform: $os"
-    while IFS=$'\t' read -r id action_kind action_value action_option; do
-        [[ -n "$id$action_kind$action_value${action_option:-}" ]] || continue
+    while IFS=$'\t' read -r id action_provider action_role action_kind action_value action_option; do
+        [[ -n "$id$action_provider$action_role$action_kind$action_value${action_option:-}" ]] || continue
         find_value_index "$id" "${app_ids[@]}" >/dev/null 2>&1 || fail "unknown application in $os adapter catalog: $id"
+        valid_id "$action_provider" || fail "invalid provider $action_provider for $id"
+        case "$action_role" in payload|support|effect) ;; *) fail "invalid action role $action_role for $id" ;; esac
         case "$action_kind" in
             provided|apt-package|pacman-package|brew-cask|brew-tap|installer|command-alias)
                 [[ -z "${action_option:-}" ]] || fail "invalid option for $action_kind on $id: $action_option" ;;
@@ -98,7 +100,8 @@ load_catalog() {
                     fail "invalid option for $action_kind on $id: $action_option" ;;
             *) fail "unsupported adapter $action_kind for $id" ;;
         esac
-        action_apps+=("$id"); action_kinds+=("$action_kind"); action_values+=("$action_value")
+        action_apps+=("$id"); action_providers+=("$action_provider"); action_roles+=("$action_role")
+        action_kinds+=("$action_kind"); action_values+=("$action_value")
         action_options+=("${action_option:-}")
     done <"$catalog_dir/platforms/$os.tsv"
 
@@ -108,10 +111,10 @@ load_catalog() {
             case "$removal_os" in macos|ubuntu|debian|arch) ;; *) fail "invalid removal platform: $removal_os" ;; esac
             find_value_index "$id" "${app_ids[@]}" >/dev/null 2>&1 || fail "unknown removal application: $id"
             case "$removal_method" in
-                apt-package|pacman-package|brew-formula|brew-cask|npm-package|cargo-package|path|payload-tree|service|managed-file) ;;
+                apt-package|pacman-package|brew-formula|brew-cask|npm-package|cargo-package|path|payload-tree|service|managed-file|retain) ;;
                 *) fail "unsupported removal method $removal_method for $id" ;;
             esac
-            if [[ "$removal_method" == path || "$removal_method" == payload-tree || "$removal_method" == managed-file ]]; then
+            if [[ "$removal_method" == path || "$removal_method" == payload-tree || "$removal_method" == managed-file || "$removal_method" == retain ]]; then
                 case "$removal_target" in
                     /*|\~/*) ;;
                     *) fail "removal target must be absolute or home-relative for $id" ;;
@@ -124,6 +127,7 @@ load_catalog() {
     fi
 
     validate_references_and_cycles
+    validate_provider_completeness
     validate_required_coverage
 }
 
@@ -162,10 +166,27 @@ check_dependency_cycle() {
     IFS=$old_ifs
 }
 
+validate_provider_completeness() {
+    local index provider_index payload_found
+    for index in "${!action_apps[@]}"; do
+        case "${action_roles[$index]}:${action_kinds[$index]}" in
+            payload:brew-tap|payload:command-alias|support:installer|support:command-alias)
+                fail "invalid ${action_roles[$index]} action ${action_kinds[$index]} for ${action_apps[$index]}" ;;
+        esac
+        payload_found=0
+        for provider_index in "${!action_apps[@]}"; do
+            if [[ "${action_apps[$provider_index]}" == "${action_apps[$index]}" &&
+                  "${action_providers[$provider_index]}" == "${action_providers[$index]}" &&
+                  "${action_roles[$provider_index]}" == payload ]]; then payload_found=1; break; fi
+        done
+        [[ "$payload_found" == 1 ]] || fail "provider ${action_providers[$index]} for ${action_apps[$index]} has no payload"
+    done
+}
+
 app_is_available() {
-    local id=$1 action_app
-    for action_app in "${action_apps[@]}"; do
-        [[ "$action_app" == "$id" ]] && return 0
+    local id=$1 index
+    for index in "${!action_apps[@]}"; do
+        [[ "${action_apps[$index]}" == "$id" && "${action_roles[$index]}" == payload ]] && return 0
     done
     return 1
 }
@@ -542,7 +563,7 @@ receipt_path_for_app() {
 }
 
 validated_receipt_target() {
-    local os=$1 app=$2 installer=$3 receipt type first second extra format_seen=0 receipt_app='' receipt_installer='' target='' digest=''
+    local os=$1 app=$2 installer=$3 receipt type first second extra format_seen=0 receipt_app='' receipt_installer='' target='' digest='' version_seen=0 effect_seen=0
     receipt=$(receipt_path_for_app "$os" "$app")
     [[ -r "$receipt" ]] || return 1
     while IFS=$'\t' read -r type first second extra; do
@@ -552,26 +573,30 @@ validated_receipt_target() {
             installer) [[ -z "$receipt_installer" && -z "${second:-}" ]] || return 1; receipt_installer=$first ;;
             target) [[ -z "$target" && -z "${second:-}" ]] || return 1; target=$first ;;
             sha256) [[ -z "$digest" && "$first" =~ ^[0-9a-f]{64}$ && -z "${second:-}" ]] || return 1; digest=$first ;;
+            version) [[ "$version_seen" == 0 && -n "$first" && -z "${second:-}" ]] || return 1; version_seen=1 ;;
+            effect) [[ "$effect_seen" == 0 && "$first" == catalog-installer && -z "${second:-}" ]] || return 1; effect_seen=1 ;;
             *) return 1 ;;
         esac
     done <"$receipt"
-    [[ "$format_seen" == 1 && "$receipt_app" == "$app" && "$receipt_installer" == "$installer" && -f "$target" ]] || return 1
+    [[ "$format_seen" == 1 && "$version_seen" == 1 && "$effect_seen" == 1 && "$receipt_app" == "$app" && "$receipt_installer" == "$installer" && -f "$target" ]] || return 1
     [[ "$(sha256_file "$target")" == "$digest" ]] || return 1
     printf '%s\n' "$target"
 }
 
 write_installation_receipt() {
-    local os=$1 app=$2 installer=$3 binary target output temporary
+    local os=$1 app=$2 installer=$3 binary target output temporary version
     binary=$(installer_probe_command "$installer")
     target=$(command -v "$binary" 2>/dev/null) || return 0
     [[ -f "$target" ]] || return 0
+    version=$("$target" --version 2>/dev/null | head -n 1 | tr '\t' ' ' || true)
+    [[ -n "$version" ]] || version=unknown
     output=$(receipt_path_for_app "$os" "$app")
     mkdir -p "$(dirname "$output")"
     temporary=$(mktemp "$(dirname "$output")/.receipt.XXXXXX")
     chmod 600 "$temporary"
     {
-        printf 'format\t1\napp\t%s\ninstaller\t%s\ntarget\t%s\nsha256\t%s\n' \
-            "$app" "$installer" "$target" "$(sha256_file "$target")"
+        printf 'format\t1\napp\t%s\ninstaller\t%s\nversion\t%s\ntarget\t%s\nsha256\t%s\neffect\tcatalog-installer\n' \
+            "$app" "$installer" "$version" "$target" "$(sha256_file "$target")"
     } >"$temporary"
     mv -f "$temporary" "$output"
 }
@@ -588,7 +613,7 @@ inspect_action() {
 app_has_force_recipe() {
     local os=$1 id=$2 index=0
     while ((index < ${#removal_apps[@]})); do
-        [[ "${removal_oses[$index]}" != "$os" || "${removal_apps[$index]}" != "$id" ]] || return 0
+        if [[ "${removal_oses[$index]}" == "$os" && "${removal_apps[$index]}" == "$id" && "${removal_methods[$index]}" != retain ]]; then return 0; fi
         index=$((index + 1))
     done
     return 1
@@ -602,9 +627,7 @@ inspect_app() {
     local present_managed=0 present_provided=0 present_unverified=0
     local first_evidence='' app_presence app_custody policy exact_capability=disabled force_capability=disabled mechanism_index recipe_index
     while ((action_index < ${#action_apps[@]})); do
-        if [[ "${action_apps[$action_index]}" == "$id" &&
-              "${action_kinds[$action_index]}" != brew-tap &&
-              "${action_kinds[$action_index]}" != command-alias ]]; then
+        if [[ "${action_apps[$action_index]}" == "$id" && "${action_roles[$action_index]}" == payload ]]; then
             if result=$(inspect_action "${action_kinds[$action_index]}" "${action_values[$action_index]}" \
                 "${action_options[$action_index]}"); then
                 IFS=$'\t' read -r presence custody evidence <<<"$result"
@@ -931,7 +954,7 @@ prepare_plan() {
 }
 
 load_resolved_plan() {
-    local path=$1 type first second third fourth fifth _extra format_seen=0
+    local path=$1 type first second third fourth fifth sixth seventh eighth extra format_seen=0
     apply_step_ids=(); apply_step_states=(); apply_step_labels=(); apply_step_statuses=()
     apply_app_ids=(); apply_app_states=(); apply_app_outcomes=(); apply_app_labels=(); apply_app_statuses=()
     apply_dependency_apps=(); apply_dependency_requirements=()
@@ -939,38 +962,47 @@ load_resolved_plan() {
     apply_step_action_ids=(); apply_step_action_kinds=(); apply_step_action_values=(); apply_step_action_options=()
     apply_removal_apps=(); apply_removal_modes=(); apply_removal_kinds=(); apply_removal_targets=(); apply_removal_options=()
     [[ -r "$path" ]] || fail "cannot read resolved plan: $path"
-    while IFS=$'\t' read -r type first second third fourth fifth _extra; do
+    while IFS=$'\t' read -r type first second third fourth fifth sixth seventh eighth extra; do
         case "$type" in
             format)
-                [[ ( "$first" == 1 || "$first" == 2 ) && "$format_seen" == 0 ]] || fail "unsupported resolved plan format"
+                [[ ( "$first" == 1 || "$first" == 2 ) && "$format_seen" == 0 && -z "$second$third$fourth$fifth$sixth$seventh$eighth${extra:-}" ]] || fail "unsupported resolved plan format"
                 apply_format=$first; format_seen=1 ;;
-            os) case "$first" in macos|ubuntu|debian|arch) apply_os=$first ;; *) fail "invalid resolved plan OS" ;; esac ;;
+            os)
+                [[ -z "$second$third$fourth$fifth$sixth$seventh$eighth${extra:-}" ]] || fail "malformed resolved plan OS"
+                case "$first" in macos|ubuntu|debian|arch) apply_os=$first ;; *) fail "invalid resolved plan OS" ;; esac ;;
             step)
+                [[ -z "$fifth$sixth$seventh$eighth${extra:-}" ]] || fail "malformed resolved step"
                 [[ "$second" == on || "$second" == off ]] || fail "invalid resolved step state"
                 apply_step_ids+=("$first"); apply_step_states+=("$second"); apply_step_labels+=("$fourth")
                 if [[ "$second" == on ]]; then apply_step_statuses+=(pending); else apply_step_statuses+=(skipped); fi ;;
             group) ;;
             app)
                 if [[ "${apply_format:-1}" == 1 ]]; then
+                    [[ -z "$sixth$seventh$eighth${extra:-}" ]] || fail "malformed resolved application"
                     [[ "$second" == on || "$second" == off ]] || fail "invalid resolved application state"
                     if [[ "$second" == on ]]; then outcome=ensure; else outcome=leave; fi
                 else
+                    [[ -n "$sixth$seventh" && -z "$eighth${extra:-}" ]] || fail "malformed prepared application"
                     case "$second" in ensure|leave|remove|force) outcome=$second ;; *) fail "invalid desired outcome" ;; esac
                 fi
                 apply_app_ids+=("$first"); apply_app_outcomes+=("$outcome"); apply_app_labels+=("$fifth")
                 if [[ "$outcome" == ensure ]]; then apply_app_states+=(on); else apply_app_states+=(off); fi
                 if [[ "$outcome" == leave ]]; then apply_app_statuses+=(skipped); else apply_app_statuses+=(pending); fi ;;
             dependency)
+                [[ -z "$third$fourth$fifth$sixth$seventh$eighth${extra:-}" ]] || fail "malformed dependency"
                 apply_dependency_apps+=("$first"); apply_dependency_requirements+=("$second") ;;
             removal)
+                [[ -z "$sixth$seventh$eighth${extra:-}" ]] || fail "malformed prepared removal"
                 case "$second" in exact|force) ;; *) fail "invalid removal mode" ;; esac
                 apply_removal_apps+=("$first"); apply_removal_modes+=("$second"); apply_removal_kinds+=("$third")
                 apply_removal_targets+=("$fourth"); apply_removal_options+=("$fifth") ;;
-            blocker) ;;
+            blocker) [[ -z "$fourth$fifth$sixth$seventh$eighth${extra:-}" ]] || fail "malformed blocker" ;;
             action)
+                [[ -z "$fifth$sixth$seventh$eighth${extra:-}" ]] || fail "malformed resolved action"
                 apply_action_apps+=("$first"); apply_action_kinds+=("$second")
                 apply_action_values+=("$third"); apply_action_options+=("$fourth"); apply_action_done+=(0) ;;
             step-action)
+                [[ -z "$fifth$sixth$seventh$eighth${extra:-}" ]] || fail "malformed step action"
                 apply_step_action_ids+=("$first"); apply_step_action_kinds+=("$second")
                 apply_step_action_values+=("$third"); apply_step_action_options+=("$fourth") ;;
             '') ;;
@@ -1043,6 +1075,10 @@ cargo_package_binary() {
 run_real_adapter() {
     local operation=$1 kind=$2 value=$3 option=$4 function_name binary result presence preview preview_target privilege=()
     if ((EUID != 0)); then privilege=(sudo -n); fi
+    if [[ "$operation" == force && "$kind" == retain ]]; then
+        DOTFILES_ADAPTER_METHOD_STATUS=retained
+        return 0
+    fi
     if [[ "$operation" == force && "$kind" == service ]]; then
         command -v systemctl >/dev/null 2>&1 || return 0
         "${privilege[@]}" systemctl disable --now "$value.service" "$value.socket" 2>/dev/null || true
@@ -1051,8 +1087,8 @@ run_real_adapter() {
     if [[ "$operation" == force && "$kind" == managed-file ]]; then
         case "$value" in \~/*) value="$HOME/${value#\~/}" ;; esac
         if [[ -e "$value" ]]; then
-            [[ ! -L "$value" && -f "$value" ]] || { echo "Retaining unexpected managed file: $value" >&2; return 0; }
-            [[ "$(cat "$value")" == "$option" ]] || { echo "Retaining changed managed file: $value" >&2; return 0; }
+            [[ ! -L "$value" && -f "$value" ]] || { DOTFILES_ADAPTER_METHOD_STATUS=retained; echo "Retaining unexpected managed file: $value" >&2; return 0; }
+            [[ "$(cat "$value")" == "$option" ]] || { DOTFILES_ADAPTER_METHOD_STATUS=retained; echo "Retaining changed managed file: $value" >&2; return 0; }
             if [[ "$value" == "$HOME"/* ]]; then rm -f -- "$value"; else "${privilege[@]}" rm -f -- "$value"; fi
         fi
         return 0
@@ -1286,10 +1322,14 @@ execute_plan_removal() {
     while ((removal_index < ${#apply_removal_apps[@]})); do
         if [[ "${apply_removal_apps[$removal_index]}" == "$id" ]]; then
             if [[ "${apply_removal_modes[$removal_index]}" == exact ]]; then operation=remove; else operation=force; fi
-            method_status=succeeded
-            if ! run_plan_adapter "$operation" "${apply_removal_kinds[$removal_index]}" \
+            method_status=succeeded; DOTFILES_ADAPTER_METHOD_STATUS=succeeded
+            if [[ "${apply_removal_kinds[$removal_index]}" == retain ]]; then
+                method_status=retained
+            elif ! run_plan_adapter "$operation" "${apply_removal_kinds[$removal_index]}" \
                 "${apply_removal_targets[$removal_index]}" "${apply_removal_options[$removal_index]}"; then
                 method_status=failed; had_failure=1
+            elif [[ "${DOTFILES_ADAPTER_METHOD_STATUS:-succeeded}" == retained ]]; then
+                method_status=retained
             fi
             report_method_apps+=("$id"); report_method_modes+=("${apply_removal_modes[$removal_index]}")
             report_method_kinds+=("${apply_removal_kinds[$removal_index]}"); report_method_targets+=("${apply_removal_targets[$removal_index]}")

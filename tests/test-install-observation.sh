@@ -19,15 +19,16 @@ foundation.git	foundation	Git	required
 gaming.steam	gaming	Steam	on
 gaming.mystery	gaming	Mystery	on
 gaming.unknown	gaming	Unknown	on
+gaming.unavailable	gaming	Unavailable	on
 EOF
 cat >"$catalog/platforms/macos.tsv" <<'EOF'
-foundation.git	brew-formula	git
-gaming.steam	brew-cask	steam
-gaming.mystery	installer	mystery
-gaming.unknown	installer	unknown
+foundation.git	brew	payload	brew-formula	git
+gaming.steam	brew	payload	brew-cask	steam
+gaming.mystery	direct	payload	installer	mystery
+gaming.unknown	direct	payload	installer	unknown
 EOF
 cat >"$catalog/removals.tsv" <<'EOF'
-macos	gaming.mystery	path	~/.local/bin/mystery	
+macos	gaming.mystery	path	~/.local/bin/mystery
 EOF
 cat >"$fixture/inspect" <<'EOF'
 #!/usr/bin/env bash
@@ -48,12 +49,13 @@ grep -Fxq $'observation\tfoundation.git\tavailable\tpresent\tmanaged\trequired\t
 grep -Fxq $'observation\tgaming.steam\tavailable\tpresent\tmanaged\toptional\tenabled\tdisabled\tgaming\tSteam\tsteam is registered' "$fixture/observations.tsv"
 grep -Fxq $'observation\tgaming.mystery\tavailable\tpresent\tunverified\toptional\tdisabled\tenabled\tgaming\tMystery\tmystery found without a receipt' "$fixture/observations.tsv"
 grep -Fxq $'observation\tgaming.unknown\tavailable\tunknown\tunverified\toptional\tdisabled\tdisabled\tgaming\tUnknown\tinspection failed' "$fixture/observations.tsv"
+grep -Fxq $'observation\tgaming.unavailable\tunavailable\tunknown\tunverified\toptional\tdisabled\tdisabled\tgaming\tUnavailable\tno provider on macos' "$fixture/observations.tsv"
 
 mkdir -p "$fixture/bin" "$fixture/state/dotfiles/receipts/macos"
 printf '#!/bin/sh\nexit 0\n' >"$fixture/bin/mystery"
 chmod +x "$fixture/bin/mystery"
 if command -v sha256sum >/dev/null; then digest=$(sha256sum "$fixture/bin/mystery" | awk '{print $1}'); else digest=$(shasum -a 256 "$fixture/bin/mystery" | awk '{print $1}'); fi
-printf 'format\t1\napp\tgaming.mystery\ninstaller\tmystery\ntarget\t%s\nsha256\t%s\n' \
+printf 'format\t1\napp\tgaming.mystery\ninstaller\tmystery\nversion\t1.0\ntarget\t%s\nsha256\t%s\neffect\tcatalog-installer\n' \
     "$fixture/bin/mystery" "$digest" >"$fixture/state/dotfiles/receipts/macos/gaming.mystery.tsv"
 XDG_STATE_HOME="$fixture/state" DOTFILES_CATALOG_DIR="$catalog" DOTFILES_INSTALL_PLAN_INSPECTOR="$fixture/inspect" \
     "$repo_dir/lib/install-plan" inspect --os macos --output "$fixture/receipted.tsv"

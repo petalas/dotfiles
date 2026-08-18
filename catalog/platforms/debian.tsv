@@ -1,83 +1,83 @@
-foundation.bootstrap	apt-package	ca-certificates
-foundation.build	apt-package	build-essential
-foundation.build	apt-package	clang
-foundation.build	apt-package	cmake
-foundation.curl	apt-package	curl
-foundation.git	apt-package	git
-foundation.gnupg	apt-package	gnupg
-foundation.jq	apt-package	jq
-foundation.locale	apt-package	locales
-foundation.locale	installer	locale
-foundation.build	apt-package	make
-terminal.mosh	apt-package	mosh
-foundation.build	apt-package	pkg-config
-foundation.rsync	apt-package	rsync
-foundation.archives	apt-package	tar
-terminal.tmux	apt-package	tmux
-foundation.archives	apt-package	unzip
-foundation.wget	apt-package	wget
-foundation.archives	apt-package	zip
-terminal.zsh	apt-package	zsh
-terminal.bash	provided	bash
-cli.aria2	apt-package	aria2
-cli.bat	apt-package	bat
-cli.bat	command-alias	bat:batcat
-cli.bc	apt-package	bc
-cli.btop	apt-package	btop
-cli.eza	apt-package	eza
-cli.fd	apt-package	fd-find
-cli.fd	command-alias	fd:fdfind
-media.ffmpeg	apt-package	ffmpeg
-cli.fzf	apt-package	fzf
-development.gh	apt-package	gh
-cli.htop	apt-package	htop
-media.imagemagick	apt-package	imagemagick
-cli.iperf3	apt-package	iperf3
-development.lazygit	apt-package	lazygit
-media.info	apt-package	mediainfo
-editors.neovim	apt-package	neovim
-cli.nmap	apt-package	nmap
-productivity.pass	apt-package	pass
-cli.procs	apt-package	procs
-languages.python	apt-package	python3
-languages.python	apt-package	python3-venv
-cli.ripgrep	apt-package	ripgrep
-development.shellcheck	apt-package	shellcheck
-development.sshpass	apt-package	sshpass
-cli.tealdeer	apt-package	tealdeer
-development.tree-sitter	apt-package	tree-sitter-cli
-cli.xclip	apt-package	xclip
-desktop.integration	apt-package	xdg-utils
-cli.xh	apt-package	xh
-languages.rust	apt-package	cargo
-languages.java	apt-package	default-jdk
-languages.gradle	apt-package	gradle
-languages.kotlin	apt-package	kotlin
-languages.node	apt-package	nodejs
-languages.node	apt-package	npm
-languages.rust	apt-package	rustc
-productivity.bitwarden	installer	bitwarden
-communication.chrome	installer	chrome
-editors.code	installer	code
-communication.discord	installer	discord
-containers.docker	installer	docker
-terminal.ghostty	installer	ghostty
-development.lazygit	installer	lazygit
-editors.neovim	installer	neovim
-productivity.obsidian	installer	obsidian
-languages.bun	installer	bun
-ai.claude-code	installer	claude_code
-ai.herdr	installer	herdr
-containers.lazydocker	installer	lazydocker
-cli.yazi	installer	yazi
-languages.typescript	npm-package	typescript
-languages.typescript	npm-package	typescript-language-server
-ai.codex-cli	npm-package	@openai/codex
-ai.pi	npm-package	@earendil-works/pi-coding-agent	ignore-scripts
-cli.tealdeer	cargo-package	tealdeer	missing-only
-cli.bat	cargo-package	bat	missing-only
-cli.ripgrep	cargo-package	ripgrep	missing-only
-development.tree-sitter	cargo-package	tree-sitter-cli	missing-only
-development.cargo-edit	cargo-package	cargo-edit	missing-only
-development.wasm-bindgen	cargo-package	wasm-bindgen-cli	missing-only
-development.watchexec	cargo-package	watchexec-cli	missing-only
+foundation.bootstrap	apt	payload	apt-package	ca-certificates
+foundation.build	apt	payload	apt-package	build-essential
+foundation.build	apt	payload	apt-package	clang
+foundation.build	apt	payload	apt-package	cmake
+foundation.curl	apt	payload	apt-package	curl
+foundation.git	apt	payload	apt-package	git
+foundation.gnupg	apt	payload	apt-package	gnupg
+foundation.jq	apt	payload	apt-package	jq
+foundation.locale	apt	payload	apt-package	locales
+foundation.locale	apt	effect	installer	locale
+foundation.build	apt	payload	apt-package	make
+terminal.mosh	apt	payload	apt-package	mosh
+foundation.build	apt	payload	apt-package	pkg-config
+foundation.rsync	apt	payload	apt-package	rsync
+foundation.archives	apt	payload	apt-package	tar
+terminal.tmux	apt	payload	apt-package	tmux
+foundation.archives	apt	payload	apt-package	unzip
+foundation.wget	apt	payload	apt-package	wget
+foundation.archives	apt	payload	apt-package	zip
+terminal.zsh	apt	payload	apt-package	zsh
+terminal.bash	provided	payload	provided	bash
+cli.aria2	apt	payload	apt-package	aria2
+cli.bat	apt	payload	apt-package	bat
+cli.bat	apt	effect	command-alias	bat:batcat
+cli.bc	apt	payload	apt-package	bc
+cli.btop	apt	payload	apt-package	btop
+cli.eza	apt	payload	apt-package	eza
+cli.fd	apt	payload	apt-package	fd-find
+cli.fd	apt	effect	command-alias	fd:fdfind
+media.ffmpeg	apt	payload	apt-package	ffmpeg
+cli.fzf	apt	payload	apt-package	fzf
+development.gh	apt	payload	apt-package	gh
+cli.htop	apt	payload	apt-package	htop
+media.imagemagick	apt	payload	apt-package	imagemagick
+cli.iperf3	apt	payload	apt-package	iperf3
+development.lazygit	apt	payload	apt-package	lazygit
+media.info	apt	payload	apt-package	mediainfo
+editors.neovim	apt	payload	apt-package	neovim
+cli.nmap	apt	payload	apt-package	nmap
+productivity.pass	apt	payload	apt-package	pass
+cli.procs	apt	payload	apt-package	procs
+languages.python	apt	payload	apt-package	python3
+languages.python	apt	payload	apt-package	python3-venv
+cli.ripgrep	apt	payload	apt-package	ripgrep
+development.shellcheck	apt	payload	apt-package	shellcheck
+development.sshpass	apt	payload	apt-package	sshpass
+cli.tealdeer	apt	payload	apt-package	tealdeer
+development.tree-sitter	apt	payload	apt-package	tree-sitter-cli
+cli.xclip	apt	payload	apt-package	xclip
+desktop.integration	apt	payload	apt-package	xdg-utils
+cli.xh	apt	payload	apt-package	xh
+languages.rust	apt	payload	apt-package	cargo
+languages.java	apt	payload	apt-package	default-jdk
+languages.gradle	apt	payload	apt-package	gradle
+languages.kotlin	apt	payload	apt-package	kotlin
+languages.node	apt	payload	apt-package	nodejs
+languages.node	apt	payload	apt-package	npm
+languages.rust	apt	payload	apt-package	rustc
+productivity.bitwarden	direct	payload	installer	bitwarden
+communication.chrome	direct	payload	installer	chrome
+editors.code	direct	payload	installer	code
+communication.discord	direct	payload	installer	discord
+containers.docker	direct	payload	installer	docker
+terminal.ghostty	direct	payload	installer	ghostty
+development.lazygit	direct	payload	installer	lazygit
+editors.neovim	direct	payload	installer	neovim
+productivity.obsidian	direct	payload	installer	obsidian
+languages.bun	direct	payload	installer	bun
+ai.claude-code	direct	payload	installer	claude_code
+ai.herdr	direct	payload	installer	herdr
+containers.lazydocker	direct	payload	installer	lazydocker
+cli.yazi	direct	payload	installer	yazi
+languages.typescript	npm	payload	npm-package	typescript
+languages.typescript	npm	payload	npm-package	typescript-language-server
+ai.codex-cli	npm	payload	npm-package	@openai/codex
+ai.pi	npm	payload	npm-package	@earendil-works/pi-coding-agent	ignore-scripts
+cli.tealdeer	cargo	payload	cargo-package	tealdeer	missing-only
+cli.bat	cargo	payload	cargo-package	bat	missing-only
+cli.ripgrep	cargo	payload	cargo-package	ripgrep	missing-only
+development.tree-sitter	cargo	payload	cargo-package	tree-sitter-cli	missing-only
+development.cargo-edit	cargo	payload	cargo-package	cargo-edit	missing-only
+development.wasm-bindgen	cargo	payload	cargo-package	wasm-bindgen-cli	missing-only
+development.watchexec	cargo	payload	cargo-package	watchexec-cli	missing-only

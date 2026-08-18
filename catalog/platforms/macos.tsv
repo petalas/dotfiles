@@ -1,119 +1,119 @@
-foundation.bootstrap	provided	Homebrew bootstrap
-foundation.curl	provided	curl
-foundation.git	provided	git
-foundation.locale	provided	locale
-foundation.locale	installer	locale
-foundation.archives	provided	tar unzip zip
-cli.aria2	brew-formula	aria2
-terminal.bash	brew-formula	bash
-cli.bat	brew-formula	bat
-cli.bc	brew-formula	bc
-cli.bind	brew-formula	bind
-cli.btop	brew-formula	btop
-cli.fastfetch	brew-formula	fastfetch
-foundation.build	brew-formula	gcc
-cli.htop	brew-formula	htop
-cli.iperf3	brew-formula	iperf3
-terminal.mosh	brew-formula	mosh
-cli.mtr	brew-formula	mtr
-cli.nmap	brew-formula	nmap
-foundation.rsync	brew-formula	rsync
-terminal.tmux	brew-formula	tmux
-cli.watch	brew-formula	watch
-foundation.wget	brew-formula	wget
-cli.bottom	brew-formula	bottom
-cli.dust	brew-formula	dust
-cli.eza	brew-formula	eza
-cli.fd	brew-formula	fd
-cli.fzf	brew-formula	fzf
-foundation.jq	brew-formula	jq
-cli.procs	brew-formula	procs
-cli.sevenzip	brew-formula	sevenzip
-cli.xh	brew-formula	xh
-foundation.build	brew-formula	cmake
-development.gh	brew-formula	gh
-development.git-delta	brew-formula	git-delta
-development.glab	brew-formula	glab
-foundation.gnupg	brew-formula	gnupg
-development.hyperfine	brew-formula	hyperfine
-containers.lazydocker	brew-formula	lazydocker
-development.lazygit	brew-formula	lazygit
-languages.luarocks	brew-formula	luarocks
-desktop.mas	brew-formula	mas
-editors.neovim	brew-formula	neovim
-development.shellcheck	brew-formula	shellcheck
-languages.elixir	brew-formula	elixir
-languages.gradle	brew-formula	gradle
-languages.kotlin	brew-formula	kotlin
-languages.node	brew-formula	node
-languages.java	brew-formula	openjdk
-languages.python	brew-formula	python@3.14
-languages.python	brew-formula	python-setuptools
-languages.rust	brew-formula	rust
-languages.uv	brew-formula	uv
-media.ffmpeg	brew-formula	ffmpeg
-media.imagemagick	brew-formula	imagemagick
-media.info	brew-formula	media-info
-media.poppler	brew-formula	poppler
-media.yt-dlp	brew-formula	yt-dlp
-terminal.ghostty	brew-cask	ghostty
-communication.discord	brew-cask	discord
-communication.chrome	brew-cask	google-chrome
-communication.slack	brew-cask	slack
-communication.whatsapp	brew-cask	whatsapp
-desktop.grandperspective	brew-cask	grandperspective
-desktop.ice	brew-cask	jordanbaird-ice
-desktop.keepingyouawake	brew-cask	keepingyouawake
-desktop.keka	brew-cask	keka
-desktop.raycast	brew-cask	raycast
-desktop.rectangle	brew-cask	rectangle
-desktop.shottr	brew-cask	shottr
-desktop.stats	brew-cask	stats
-productivity.bitwarden	brew-cask	bitwarden
-productivity.obsidian	brew-cask	obsidian
-productivity.pia	brew-cask	private-internet-access
-productivity.syncthing	brew-cask	syncthing-app
-productivity.tailscale	brew-formula	tailscale
-productivity.tailscale	brew-cask	tailscale-app
-creative.capcut	brew-cask	capcut
-creative.gimp	brew-cask	gimp
-creative.qbittorrent	brew-cask	qbittorrent
-creative.spotify	brew-cask	spotify
-creative.vlc	brew-cask	vlc
-ai.codex-app	brew-cask	codex-app
-editors.dbeaver	brew-cask	dbeaver-community
-editors.sublime	brew-cask	sublime-text
-editors.t3-code	brew-cask	t3-code
-editors.code	brew-cask	visual-studio-code
-editors.zed	brew-cask	zed
-containers.docker	brew-cask	docker-desktop
-ai.herdr	brew-formula	herdr
-ai.claude-code	brew-cask	claude-code
-ai.lm-studio	brew-cask	lm-studio
-mobile.applesimutils	brew-tap	mobile-dev-inc/tap
-mobile.applesimutils	brew-formula	wix-incubator/brew/applesimutils	trusted=true
-mobile.bundletool	brew-formula	bundletool
-mobile.cocoapods	brew-formula	cocoapods
-mobile.fastlane	brew-formula	fastlane
-mobile.maestro	brew-formula	mobile-dev-inc/tap/maestro	trusted=true
-mobile.android-tools	brew-cask	android-commandlinetools
-mobile.android-tools	brew-cask	android-platform-tools
-mobile.android-studio	brew-cask	android-studio
-mobile.java17	brew-cask	temurin@17
-cad.bambu-studio	brew-cask	bambu-studio
-cad.openscad	brew-cask	openscad@snapshot
-gaming.parsec	brew-cask	parsec
-gaming.steam	brew-cask	steam
-languages.bun	installer	bun
-terminal.ghostty	installer	ghostty
-cli.yazi	installer	yazi
-languages.typescript	npm-package	typescript
-languages.typescript	npm-package	typescript-language-server
-ai.codex-cli	npm-package	@openai/codex
-ai.pi	npm-package	@earendil-works/pi-coding-agent	ignore-scripts
-cli.tealdeer	cargo-package	tealdeer
-cli.bat	cargo-package	bat	missing-only
-development.tree-sitter	cargo-package	tree-sitter-cli	missing-only
-development.cargo-edit	cargo-package	cargo-edit	missing-only
-development.wasm-bindgen	cargo-package	wasm-bindgen-cli	missing-only
-development.watchexec	cargo-package	watchexec-cli	missing-only
+foundation.bootstrap	provided	payload	provided	Homebrew bootstrap
+foundation.curl	provided	payload	provided	curl
+foundation.git	provided	payload	provided	git
+foundation.locale	provided	payload	provided	locale
+foundation.locale	provided	effect	installer	locale
+foundation.archives	provided	payload	provided	tar unzip zip
+cli.aria2	brew	payload	brew-formula	aria2
+terminal.bash	brew	payload	brew-formula	bash
+cli.bat	brew	payload	brew-formula	bat
+cli.bc	brew	payload	brew-formula	bc
+cli.bind	brew	payload	brew-formula	bind
+cli.btop	brew	payload	brew-formula	btop
+cli.fastfetch	brew	payload	brew-formula	fastfetch
+foundation.build	brew	payload	brew-formula	gcc
+cli.htop	brew	payload	brew-formula	htop
+cli.iperf3	brew	payload	brew-formula	iperf3
+terminal.mosh	brew	payload	brew-formula	mosh
+cli.mtr	brew	payload	brew-formula	mtr
+cli.nmap	brew	payload	brew-formula	nmap
+foundation.rsync	brew	payload	brew-formula	rsync
+terminal.tmux	brew	payload	brew-formula	tmux
+cli.watch	brew	payload	brew-formula	watch
+foundation.wget	brew	payload	brew-formula	wget
+cli.bottom	brew	payload	brew-formula	bottom
+cli.dust	brew	payload	brew-formula	dust
+cli.eza	brew	payload	brew-formula	eza
+cli.fd	brew	payload	brew-formula	fd
+cli.fzf	brew	payload	brew-formula	fzf
+foundation.jq	brew	payload	brew-formula	jq
+cli.procs	brew	payload	brew-formula	procs
+cli.sevenzip	brew	payload	brew-formula	sevenzip
+cli.xh	brew	payload	brew-formula	xh
+foundation.build	brew	payload	brew-formula	cmake
+development.gh	brew	payload	brew-formula	gh
+development.git-delta	brew	payload	brew-formula	git-delta
+development.glab	brew	payload	brew-formula	glab
+foundation.gnupg	brew	payload	brew-formula	gnupg
+development.hyperfine	brew	payload	brew-formula	hyperfine
+containers.lazydocker	brew	payload	brew-formula	lazydocker
+development.lazygit	brew	payload	brew-formula	lazygit
+languages.luarocks	brew	payload	brew-formula	luarocks
+desktop.mas	brew	payload	brew-formula	mas
+editors.neovim	brew	payload	brew-formula	neovim
+development.shellcheck	brew	payload	brew-formula	shellcheck
+languages.elixir	brew	payload	brew-formula	elixir
+languages.gradle	brew	payload	brew-formula	gradle
+languages.kotlin	brew	payload	brew-formula	kotlin
+languages.node	brew	payload	brew-formula	node
+languages.java	brew	payload	brew-formula	openjdk
+languages.python	brew	payload	brew-formula	python@3.14
+languages.python	brew	payload	brew-formula	python-setuptools
+languages.rust	brew	payload	brew-formula	rust
+languages.uv	brew	payload	brew-formula	uv
+media.ffmpeg	brew	payload	brew-formula	ffmpeg
+media.imagemagick	brew	payload	brew-formula	imagemagick
+media.info	brew	payload	brew-formula	media-info
+media.poppler	brew	payload	brew-formula	poppler
+media.yt-dlp	brew	payload	brew-formula	yt-dlp
+terminal.ghostty	brew	payload	brew-cask	ghostty
+communication.discord	brew	payload	brew-cask	discord
+communication.chrome	brew	payload	brew-cask	google-chrome
+communication.slack	brew	payload	brew-cask	slack
+communication.whatsapp	brew	payload	brew-cask	whatsapp
+desktop.grandperspective	brew	payload	brew-cask	grandperspective
+desktop.ice	brew	payload	brew-cask	jordanbaird-ice
+desktop.keepingyouawake	brew	payload	brew-cask	keepingyouawake
+desktop.keka	brew	payload	brew-cask	keka
+desktop.raycast	brew	payload	brew-cask	raycast
+desktop.rectangle	brew	payload	brew-cask	rectangle
+desktop.shottr	brew	payload	brew-cask	shottr
+desktop.stats	brew	payload	brew-cask	stats
+productivity.bitwarden	brew	payload	brew-cask	bitwarden
+productivity.obsidian	brew	payload	brew-cask	obsidian
+productivity.pia	brew	payload	brew-cask	private-internet-access
+productivity.syncthing	brew	payload	brew-cask	syncthing-app
+productivity.tailscale	brew	payload	brew-formula	tailscale
+productivity.tailscale	brew	payload	brew-cask	tailscale-app
+creative.capcut	brew	payload	brew-cask	capcut
+creative.gimp	brew	payload	brew-cask	gimp
+creative.qbittorrent	brew	payload	brew-cask	qbittorrent
+creative.spotify	brew	payload	brew-cask	spotify
+creative.vlc	brew	payload	brew-cask	vlc
+ai.codex-app	brew	payload	brew-cask	codex-app
+editors.dbeaver	brew	payload	brew-cask	dbeaver-community
+editors.sublime	brew	payload	brew-cask	sublime-text
+editors.t3-code	brew	payload	brew-cask	t3-code
+editors.code	brew	payload	brew-cask	visual-studio-code
+editors.zed	brew	payload	brew-cask	zed
+containers.docker	brew	payload	brew-cask	docker-desktop
+ai.herdr	brew	payload	brew-formula	herdr
+ai.claude-code	brew	payload	brew-cask	claude-code
+ai.lm-studio	brew	payload	brew-cask	lm-studio
+mobile.applesimutils	brew	support	brew-tap	mobile-dev-inc/tap
+mobile.applesimutils	brew	payload	brew-formula	wix-incubator/brew/applesimutils	trusted=true
+mobile.bundletool	brew	payload	brew-formula	bundletool
+mobile.cocoapods	brew	payload	brew-formula	cocoapods
+mobile.fastlane	brew	payload	brew-formula	fastlane
+mobile.maestro	brew	payload	brew-formula	mobile-dev-inc/tap/maestro	trusted=true
+mobile.android-tools	brew	payload	brew-cask	android-commandlinetools
+mobile.android-tools	brew	payload	brew-cask	android-platform-tools
+mobile.android-studio	brew	payload	brew-cask	android-studio
+mobile.java17	brew	payload	brew-cask	temurin@17
+cad.bambu-studio	brew	payload	brew-cask	bambu-studio
+cad.openscad	brew	payload	brew-cask	openscad@snapshot
+gaming.parsec	brew	payload	brew-cask	parsec
+gaming.steam	brew	payload	brew-cask	steam
+languages.bun	direct	payload	installer	bun
+terminal.ghostty	direct	payload	installer	ghostty
+cli.yazi	direct	payload	installer	yazi
+languages.typescript	npm	payload	npm-package	typescript
+languages.typescript	npm	payload	npm-package	typescript-language-server
+ai.codex-cli	npm	payload	npm-package	@openai/codex
+ai.pi	npm	payload	npm-package	@earendil-works/pi-coding-agent	ignore-scripts
+cli.tealdeer	cargo	payload	cargo-package	tealdeer
+cli.bat	cargo	payload	cargo-package	bat	missing-only
+development.tree-sitter	cargo	payload	cargo-package	tree-sitter-cli	missing-only
+development.cargo-edit	cargo	payload	cargo-package	cargo-edit	missing-only
+development.wasm-bindgen	cargo	payload	cargo-package	wasm-bindgen-cli	missing-only
+development.watchexec	cargo	payload	cargo-package	watchexec-cli	missing-only

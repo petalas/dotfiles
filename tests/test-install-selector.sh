@@ -21,10 +21,10 @@ languages.python	languages	Python	on	foundation.git
 gaming.steam	gaming	Steam	on
 EOF
 cat >"$catalog/platforms/macos.tsv" <<'EOF'
-foundation.git	provided	git
-languages.node	brew-formula	node
-languages.python	brew-formula	python
-gaming.steam	brew-cask	steam
+foundation.git	provided	payload	provided	git
+languages.node	brew	payload	brew-formula	node
+languages.python	brew	payload	brew-formula	python
+gaming.steam	brew	payload	brew-cask	steam
 EOF
 
 cat >"$fixture/tui" <<'EOF'

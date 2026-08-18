@@ -20,13 +20,14 @@ tools.client	tools	Client	on	tools.runtime
 tools.loose	tools	Loose	on
 EOF
 cat >"$catalog/platforms/macos.tsv" <<'EOF'
-foundation.git	provided	git
-tools.runtime	brew-formula	runtime
-tools.client	brew-formula	client
-tools.loose	installer	loose
+foundation.git	provided	payload	provided	git
+tools.runtime	brew	payload	brew-formula	runtime
+tools.client	brew	payload	brew-formula	client
+tools.loose	direct	payload	installer	loose
 EOF
 cat >"$catalog/removals.tsv" <<'EOF'
 macos	tools.loose	path	~/.local/bin/loose
+macos	tools.loose	retain	~/.config/loose	user-data
 EOF
 cat >"$fixture/observations.tsv" <<'EOF'
 format	1
@@ -85,6 +86,7 @@ grep -Fxq 'force path ~/.local/bin/loose ' "$fixture/actions"
 grep -Fq 'succeeded: tools.client' "$fixture/execute.out"
 grep -Fq 'succeeded: tools.loose' "$fixture/execute.out"
 grep -Fxq $'method\ttools.loose\tforce\tpath\t~/.local/bin/loose\tsucceeded' "$fixture/report.tsv"
+grep -Fxq $'method\ttools.loose\tforce\tretain\t~/.config/loose\tretained' "$fixture/report.tsv"
 
 sed 's#~/.local/bin/loose#/tmp/evil#' "$fixture/removal.plan" >"$fixture/tampered.plan"
 if command -v sha256sum >/dev/null; then digest=$(sha256sum "$fixture/tampered.plan" | awk '{print $1}'); else digest=$(shasum -a 256 "$fixture/tampered.plan" | awk '{print $1}'); fi
@@ -98,10 +100,10 @@ fi
 grep -Fq 'prepared removal is absent from catalog' "$fixture/tampered.err"
 
 cat >"$catalog/platforms/ubuntu.tsv" <<'EOF'
-foundation.git	provided	git
-tools.runtime	apt-package	runtime
-tools.client	apt-package	client
-tools.loose	installer	loose
+foundation.git	provided	payload	provided	git
+tools.runtime	apt	payload	apt-package	runtime
+tools.client	apt	payload	apt-package	client
+tools.loose	direct	payload	installer	loose
 EOF
 sed 's/^os\tmacos$/os\tubuntu/; s/brew-formula/apt-package/g' "$fixture/observations.tsv" >"$fixture/ubuntu-observations.tsv"
 sed $'s/outcome\ttools.loose\tforce/outcome\ttools.loose\tleave/' "$fixture/removal-selection.tsv" >"$fixture/apt-selection.tsv"

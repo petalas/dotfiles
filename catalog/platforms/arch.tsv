@@ -1,93 +1,93 @@
-foundation.build	pacman-package	base-devel
-foundation.bootstrap	pacman-package	ca-certificates
-foundation.build	pacman-package	clang
-foundation.build	pacman-package	cmake
-foundation.curl	pacman-package	curl
-foundation.git	pacman-package	git
-foundation.gnupg	pacman-package	gnupg
-foundation.jq	pacman-package	jq
-terminal.mosh	pacman-package	mosh
-foundation.build	pacman-package	openssl
-foundation.build	pacman-package	pkgconf
-foundation.rsync	pacman-package	rsync
-foundation.archives	pacman-package	tar
-terminal.tmux	pacman-package	tmux
-foundation.archives	pacman-package	unzip
-foundation.wget	pacman-package	wget
-foundation.archives	pacman-package	zip
-terminal.zsh	pacman-package	zsh
-terminal.bash	provided	bash
-foundation.locale	provided	locale
-foundation.locale	installer	locale
-cli.aria2	pacman-package	aria2
-cli.bat	pacman-package	bat
-cli.bc	pacman-package	bc
-cli.bind	pacman-package	bind
-productivity.bitwarden	pacman-package	bitwarden
-cli.bottom	pacman-package	bottom
-cli.btop	pacman-package	btop
-languages.bun	pacman-package	bun
-development.cargo-edit	pacman-package	cargo-edit
-communication.chrome	pacman-package	chromium
-editors.code	pacman-package	code
-communication.discord	pacman-package	discord
-containers.docker	pacman-package	docker
-containers.docker	pacman-package	docker-buildx
-containers.docker	pacman-package	docker-compose
-cli.dust	pacman-package	dust
-cli.eza	pacman-package	eza
-cli.fd	pacman-package	fd
-media.ffmpeg	pacman-package	ffmpeg
-cli.fzf	pacman-package	fzf
-terminal.ghostty	pacman-package	ghostty
-development.gh	pacman-package	github-cli
-languages.gradle	pacman-package	gradle
-cli.htop	pacman-package	htop
-media.imagemagick	pacman-package	imagemagick
-cli.iperf3	pacman-package	iperf3
-languages.java	pacman-package	jdk-openjdk
-languages.kotlin	pacman-package	kotlin
-containers.lazydocker	pacman-package	lazydocker
-development.lazygit	pacman-package	lazygit
-desktop.integration	pacman-package	libnotify
-foundation.build	pacman-package	libxml2
-media.info	pacman-package	mediainfo
-editors.neovim	pacman-package	neovim
-cli.nmap	pacman-package	nmap
-languages.node	pacman-package	nodejs
-languages.node	pacman-package	npm
-productivity.obsidian	pacman-package	obsidian
-foundation.bootstrap	pacman-package	openssh
-cli.sevenzip	pacman-package	p7zip
-productivity.pass	pacman-package	pass
-cli.procs	pacman-package	perf
-media.poppler	pacman-package	poppler
-cli.procs	pacman-package	procs
-languages.python	pacman-package	python
-languages.python	pacman-package	python-virtualenv
-cli.ripgrep	pacman-package	ripgrep
-languages.rust	pacman-package	rust
-development.shellcheck	pacman-package	shellcheck
-development.sshpass	pacman-package	sshpass
-cli.tealdeer	pacman-package	tealdeer
-development.tree-sitter	pacman-package	tree-sitter-cli
-development.watchexec	pacman-package	watchexec
-development.wasm-bindgen	pacman-package	wasm-bindgen
-cli.xclip	pacman-package	xclip
-desktop.integration	pacman-package	xdg-utils
-cli.xh	pacman-package	xh
-cli.yazi	pacman-package	yazi
-containers.docker	installer	docker
-ai.claude-code	installer	claude_code
-ai.herdr	installer	herdr
-languages.typescript	npm-package	typescript
-languages.typescript	npm-package	typescript-language-server
-ai.codex-cli	npm-package	@openai/codex
-ai.pi	npm-package	@earendil-works/pi-coding-agent	ignore-scripts
-cli.tealdeer	cargo-package	tealdeer	missing-only
-cli.bat	cargo-package	bat	missing-only
-cli.ripgrep	cargo-package	ripgrep	missing-only
-development.tree-sitter	cargo-package	tree-sitter-cli	missing-only
-development.cargo-edit	cargo-package	cargo-edit	missing-only
-development.wasm-bindgen	cargo-package	wasm-bindgen-cli	missing-only
-development.watchexec	cargo-package	watchexec-cli	missing-only
+foundation.build	pacman	payload	pacman-package	base-devel
+foundation.bootstrap	pacman	payload	pacman-package	ca-certificates
+foundation.build	pacman	payload	pacman-package	clang
+foundation.build	pacman	payload	pacman-package	cmake
+foundation.curl	pacman	payload	pacman-package	curl
+foundation.git	pacman	payload	pacman-package	git
+foundation.gnupg	pacman	payload	pacman-package	gnupg
+foundation.jq	pacman	payload	pacman-package	jq
+terminal.mosh	pacman	payload	pacman-package	mosh
+foundation.build	pacman	payload	pacman-package	openssl
+foundation.build	pacman	payload	pacman-package	pkgconf
+foundation.rsync	pacman	payload	pacman-package	rsync
+foundation.archives	pacman	payload	pacman-package	tar
+terminal.tmux	pacman	payload	pacman-package	tmux
+foundation.archives	pacman	payload	pacman-package	unzip
+foundation.wget	pacman	payload	pacman-package	wget
+foundation.archives	pacman	payload	pacman-package	zip
+terminal.zsh	pacman	payload	pacman-package	zsh
+terminal.bash	provided	payload	provided	bash
+foundation.locale	provided	payload	provided	locale
+foundation.locale	provided	effect	installer	locale
+cli.aria2	pacman	payload	pacman-package	aria2
+cli.bat	pacman	payload	pacman-package	bat
+cli.bc	pacman	payload	pacman-package	bc
+cli.bind	pacman	payload	pacman-package	bind
+productivity.bitwarden	pacman	payload	pacman-package	bitwarden
+cli.bottom	pacman	payload	pacman-package	bottom
+cli.btop	pacman	payload	pacman-package	btop
+languages.bun	pacman	payload	pacman-package	bun
+development.cargo-edit	pacman	payload	pacman-package	cargo-edit
+communication.chrome	pacman	payload	pacman-package	chromium
+editors.code	pacman	payload	pacman-package	code
+communication.discord	pacman	payload	pacman-package	discord
+containers.docker	pacman	payload	pacman-package	docker
+containers.docker	pacman	payload	pacman-package	docker-buildx
+containers.docker	pacman	payload	pacman-package	docker-compose
+cli.dust	pacman	payload	pacman-package	dust
+cli.eza	pacman	payload	pacman-package	eza
+cli.fd	pacman	payload	pacman-package	fd
+media.ffmpeg	pacman	payload	pacman-package	ffmpeg
+cli.fzf	pacman	payload	pacman-package	fzf
+terminal.ghostty	pacman	payload	pacman-package	ghostty
+development.gh	pacman	payload	pacman-package	github-cli
+languages.gradle	pacman	payload	pacman-package	gradle
+cli.htop	pacman	payload	pacman-package	htop
+media.imagemagick	pacman	payload	pacman-package	imagemagick
+cli.iperf3	pacman	payload	pacman-package	iperf3
+languages.java	pacman	payload	pacman-package	jdk-openjdk
+languages.kotlin	pacman	payload	pacman-package	kotlin
+containers.lazydocker	pacman	payload	pacman-package	lazydocker
+development.lazygit	pacman	payload	pacman-package	lazygit
+desktop.integration	pacman	payload	pacman-package	libnotify
+foundation.build	pacman	payload	pacman-package	libxml2
+media.info	pacman	payload	pacman-package	mediainfo
+editors.neovim	pacman	payload	pacman-package	neovim
+cli.nmap	pacman	payload	pacman-package	nmap
+languages.node	pacman	payload	pacman-package	nodejs
+languages.node	pacman	payload	pacman-package	npm
+productivity.obsidian	pacman	payload	pacman-package	obsidian
+foundation.bootstrap	pacman	payload	pacman-package	openssh
+cli.sevenzip	pacman	payload	pacman-package	p7zip
+productivity.pass	pacman	payload	pacman-package	pass
+cli.procs	pacman	payload	pacman-package	perf
+media.poppler	pacman	payload	pacman-package	poppler
+cli.procs	pacman	payload	pacman-package	procs
+languages.python	pacman	payload	pacman-package	python
+languages.python	pacman	payload	pacman-package	python-virtualenv
+cli.ripgrep	pacman	payload	pacman-package	ripgrep
+languages.rust	pacman	payload	pacman-package	rust
+development.shellcheck	pacman	payload	pacman-package	shellcheck
+development.sshpass	pacman	payload	pacman-package	sshpass
+cli.tealdeer	pacman	payload	pacman-package	tealdeer
+development.tree-sitter	pacman	payload	pacman-package	tree-sitter-cli
+development.watchexec	pacman	payload	pacman-package	watchexec
+development.wasm-bindgen	pacman	payload	pacman-package	wasm-bindgen
+cli.xclip	pacman	payload	pacman-package	xclip
+desktop.integration	pacman	payload	pacman-package	xdg-utils
+cli.xh	pacman	payload	pacman-package	xh
+cli.yazi	pacman	payload	pacman-package	yazi
+containers.docker	direct	payload	installer	docker
+ai.claude-code	direct	payload	installer	claude_code
+ai.herdr	direct	payload	installer	herdr
+languages.typescript	npm	payload	npm-package	typescript
+languages.typescript	npm	payload	npm-package	typescript-language-server
+ai.codex-cli	npm	payload	npm-package	@openai/codex
+ai.pi	npm	payload	npm-package	@earendil-works/pi-coding-agent	ignore-scripts
+cli.tealdeer	cargo	payload	cargo-package	tealdeer	missing-only
+cli.bat	cargo	payload	cargo-package	bat	missing-only
+cli.ripgrep	cargo	payload	cargo-package	ripgrep	missing-only
+development.tree-sitter	cargo	payload	cargo-package	tree-sitter-cli	missing-only
+development.cargo-edit	cargo	payload	cargo-package	cargo-edit	missing-only
+development.wasm-bindgen	cargo	payload	cargo-package	wasm-bindgen-cli	missing-only
+development.watchexec	cargo	payload	cargo-package	watchexec-cli	missing-only

@@ -1,26 +1,26 @@
-ai.claude-code	installer	claude_code
-ai.codex-cli	npm-package	@openai/codex
-ai.herdr	installer	herdr
-ai.pi	npm-package	@earendil-works/pi-coding-agent	ignore-scripts
-cli.bat	cargo-package	bat	missing-only
-cli.ripgrep	cargo-package	ripgrep	missing-only
-cli.tealdeer	cargo-package	tealdeer	missing-only
-cli.yazi	installer	yazi
-communication.chrome	installer	chrome
-communication.discord	installer	discord
-containers.docker	installer	docker
-containers.lazydocker	installer	lazydocker
-development.cargo-edit	cargo-package	cargo-edit	missing-only
-development.lazygit	installer	lazygit
-development.tree-sitter	cargo-package	tree-sitter-cli	missing-only
-development.wasm-bindgen	cargo-package	wasm-bindgen-cli	missing-only
-development.watchexec	cargo-package	watchexec-cli	missing-only
-editors.code	installer	code
-editors.neovim	installer	neovim
-foundation.locale	installer	locale
-languages.bun	installer	bun
-languages.typescript	npm-package	typescript
-languages.typescript	npm-package	typescript-language-server
-productivity.bitwarden	installer	bitwarden
-productivity.obsidian	installer	obsidian
-terminal.ghostty	installer	ghostty
+ai.claude-code	direct	payload	installer	claude_code
+ai.codex-cli	npm	payload	npm-package	@openai/codex
+ai.herdr	direct	payload	installer	herdr
+ai.pi	npm	payload	npm-package	@earendil-works/pi-coding-agent	ignore-scripts
+cli.bat	cargo	payload	cargo-package	bat	missing-only
+cli.ripgrep	cargo	payload	cargo-package	ripgrep	missing-only
+cli.tealdeer	cargo	payload	cargo-package	tealdeer	missing-only
+cli.yazi	direct	payload	installer	yazi
+communication.chrome	direct	payload	installer	chrome
+communication.discord	direct	payload	installer	discord
+containers.docker	direct	payload	installer	docker
+containers.lazydocker	direct	payload	installer	lazydocker
+development.cargo-edit	cargo	payload	cargo-package	cargo-edit	missing-only
+development.lazygit	direct	payload	installer	lazygit
+development.tree-sitter	cargo	payload	cargo-package	tree-sitter-cli	missing-only
+development.wasm-bindgen	cargo	payload	cargo-package	wasm-bindgen-cli	missing-only
+development.watchexec	cargo	payload	cargo-package	watchexec-cli	missing-only
+editors.code	direct	payload	installer	code
+editors.neovim	direct	payload	installer	neovim
+foundation.locale	apt	effect	installer	locale
+languages.bun	direct	payload	installer	bun
+languages.typescript	npm	payload	npm-package	typescript
+languages.typescript	npm	payload	npm-package	typescript-language-server
+productivity.bitwarden	direct	payload	installer	bitwarden
+productivity.obsidian	direct	payload	installer	obsidian
+terminal.ghostty	direct	payload	installer	ghostty

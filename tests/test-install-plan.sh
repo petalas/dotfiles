@@ -23,10 +23,10 @@ languages.python	languages	Python	on	foundation.git
 gaming.steam	gaming	Steam	on
 EOF
 cat >"$catalog/platforms/macos.tsv" <<'EOF'
-foundation.git	brew-formula	git
-languages.node	brew-formula	node
-languages.python	brew-formula	python@3.14
-gaming.steam	brew-cask	steam
+foundation.git	brew	payload	brew-formula	git
+languages.node	brew	payload	brew-formula	node
+languages.python	brew	payload	brew-formula	python@3.14
+gaming.steam	brew	payload	brew-cask	steam
 EOF
 cp "$catalog/platforms/macos.tsv" "$catalog/platforms/ubuntu.tsv"
 cp "$catalog/platforms/macos.tsv" "$catalog/platforms/debian.tsv"
@@ -88,7 +88,7 @@ fi
 grep -Fq 'duplicate group order' "$fixture/order.err"
 
 cp -R "$catalog" "$fixture/option-catalog"
-printf '%s\n' $'gaming.steam\tbrew-formula\tsteam\ttrusted=no' >>"$fixture/option-catalog/platforms/macos.tsv"
+printf '%s\n' $'gaming.steam\tbrew\tpayload\tbrew-formula\tsteam\ttrusted=no' >>"$fixture/option-catalog/platforms/macos.tsv"
 if DOTFILES_CATALOG_DIR="$fixture/option-catalog" "$repo_dir/lib/install-plan" prepare \
     --mode full --os macos --output "$fixture/option.plan" >/dev/null 2>"$fixture/option.err"; then
     echo "Expected invalid adapter option to fail" >&2
@@ -100,7 +100,7 @@ cat >>"$catalog/applications.tsv" <<'EOF'
 languages.loop	languages	Loop	on	languages.loop
 EOF
 cat >>"$catalog/platforms/macos.tsv" <<'EOF'
-languages.loop	brew-formula	loop
+languages.loop	brew	payload	brew-formula	loop
 EOF
 if DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare \
     --mode full --os macos --output "$fixture/cycle.plan" \
