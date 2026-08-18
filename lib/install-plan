@@ -533,7 +533,8 @@ installer_probe_command() {
         bitwarden) echo bitwarden ;; chrome) echo google-chrome ;; code) echo code ;;
         discord) echo discord ;; docker) echo docker ;; ghostty) echo ghostty ;;
         lazygit) echo lazygit ;; neovim) echo nvim ;; obsidian) echo obsidian ;;
-        bun) echo bun ;; claude_code) echo claude ;; herdr) echo herdr ;;
+        bun) echo bun ;; node) echo node ;; rust) echo rustc ;;
+        claude_code) echo claude ;; herdr) echo herdr ;;
         lazydocker) echo lazydocker ;; yazi) echo yazi ;; locale) echo locale ;;
         *) echo "$1" ;;
     esac
@@ -558,7 +559,7 @@ installer_receipt_version() {
         version=$(dpkg-query -W -f='${Version}' "$package" 2>/dev/null || true)
     else
         case "$installer" in
-            bun|chrome|claude_code|code|docker|ghostty|herdr|lazydocker|lazygit|locale|neovim|yazi)
+            bun|chrome|claude_code|code|docker|ghostty|herdr|lazydocker|lazygit|locale|neovim|node|rust|yazi)
                 output=$("$target" --version 2>/dev/null || true)
                 version=${output%%$'\n'*}
                 ;;
@@ -1307,12 +1308,33 @@ run_real_batch() {
     esac
 }
 
+execute_batch_prerequisites() {
+    local operation=$1 batch_kind=$2 action_index=0 dependency_index prerequisite result=0
+    while ((action_index < ${#apply_action_apps[@]})); do
+        if [[ "${apply_action_kinds[$action_index]}" == "$batch_kind" ]]; then
+            dependency_index=0
+            while ((dependency_index < ${#apply_dependency_apps[@]})); do
+                if [[ "${apply_dependency_apps[$dependency_index]}" == "${apply_action_apps[$action_index]}" ]]; then
+                    prerequisite=${apply_dependency_requirements[$dependency_index]}
+                    execute_plan_app "$prerequisite" "$operation" || result=1
+                fi
+                dependency_index=$((dependency_index + 1))
+            done
+        fi
+        action_index=$((action_index + 1))
+    done
+    return "$result"
+}
+
 execute_action_batches() {
     local operation=$1 kind index entries batch_result prerequisite_batch_failed=0
     [[ -z "${DOTFILES_INSTALL_PLAN_ADAPTER:-}" || -n "${DOTFILES_INSTALL_PLAN_BATCH_ADAPTER:-}" ]] || return 0
     for kind in apt-package pacman-package brew-tap brew-formula brew-cask npm-package cargo-package; do
         if [[ "$prerequisite_batch_failed" == 1 && ( "$kind" == npm-package || "$kind" == cargo-package ) ]]; then
             continue
+        fi
+        if [[ "$kind" == npm-package || "$kind" == cargo-package ]]; then
+            execute_batch_prerequisites "$operation" "$kind" || continue
         fi
         entries=$(mktemp "${TMPDIR:-/tmp}/dotfiles-action-batch.XXXXXX")
         index=0

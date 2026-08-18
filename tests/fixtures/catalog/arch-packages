@@ -41,8 +41,6 @@ libxml2
 mediainfo
 mosh
 nmap
-nodejs
-npm
 obsidian
 openssh
 openssl
@@ -56,7 +54,6 @@ python
 python-virtualenv
 ripgrep
 rsync
-rust
 shellcheck
 sshpass
 tar

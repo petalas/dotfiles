@@ -59,13 +59,9 @@ development.tree-sitter	apt	payload	apt-package	tree-sitter-cli
 cli.xclip	apt	payload	apt-package	xclip
 desktop.integration	apt	payload	apt-package	xdg-utils
 cli.xh	apt	payload	apt-package	xh
-languages.rust	apt	payload	apt-package	cargo
 languages.java	apt	payload	apt-package	default-jdk
 languages.gradle	apt	payload	apt-package	gradle
 languages.kotlin	apt	payload	apt-package	kotlin
-languages.node	apt	payload	apt-package	nodejs
-languages.node	apt	payload	apt-package	npm
-languages.rust	apt	payload	apt-package	rustc
 languages.elixir	apt	payload	apt-package	elixir
 languages.luarocks	apt	payload	apt-package	luarocks
 creative.gimp	apt	payload	apt-package	gimp
@@ -82,6 +78,8 @@ development.lazygit	direct	payload	installer	lazygit
 editors.neovim	direct	payload	installer	neovim
 productivity.obsidian	direct	payload	installer	obsidian
 languages.bun	direct	payload	installer	bun
+languages.node	direct	payload	installer	node
+languages.rust	direct	payload	installer	rust
 ai.claude-code	direct	payload	installer	claude_code
 ai.herdr	direct	payload	installer	herdr
 containers.lazydocker	direct	payload	installer	lazydocker

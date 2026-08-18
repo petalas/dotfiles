@@ -35,6 +35,11 @@ if [[ $OSTYPE == darwin* ]]; then
     [[ -d "$HOME/Library/pnpm" ]] && path=("$HOME/Library/pnpm" $path)
 fi
 
+# nvm is a shell function rather than a standalone executable. The installer
+# deliberately leaves shell profiles untouched, so activate it here.
+export NVM_DIR="$HOME/.nvm"
+[[ ! -s "$NVM_DIR/nvm.sh" ]] || source "$NVM_DIR/nvm.sh"
+
 if command -v nvim >/dev/null 2>&1; then
     export EDITOR="$(command -v nvim)"
     export SUDO_EDITOR="$EDITOR"

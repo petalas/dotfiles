@@ -21,6 +21,8 @@ editors.code	direct	payload	installer	code
 editors.neovim	direct	payload	installer	neovim
 foundation.locale	apt	effect	installer	locale
 languages.bun	direct	payload	installer	bun
+languages.node	direct	payload	installer	node
+languages.rust	direct	payload	installer	rust
 languages.typescript	npm	payload	npm-package	typescript
 languages.typescript	npm	payload	npm-package	typescript-language-server
 productivity.bitwarden	direct	payload	installer	bitwarden

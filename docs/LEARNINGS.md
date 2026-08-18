@@ -51,6 +51,12 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Prefer Debian package registrations when trixie owns the package. For `dust` and `bottom`, use the projects' documented Cargo packages and declare the Rust application prerequisite, preserving exact custody through Cargo.
 - WSL2 supports Debian GUI packages through WSLg, but it does not make VPNs, emulators, hardware tools, game clients, or host desktop utilities safe guest defaults. Keep those unavailable until a specific WSL policy and receipt-aware adapter exist. See `docs/research/debian-unavailable-applications.md`.
 
+## Required language toolchains need managed providers and same-run activation
+
+- Debian's `nodejs`/`npm` and `cargo`/`rustc` packages can satisfy a command-presence probe while being too old for the current npm and Cargo applications. This caused global npm permission failures under `/usr/local`, Pi's Node version rejection, and Cargo packages rejecting the system compiler.
+- Node is therefore owned by the pinned nvm installer and tracks nvm's `node` alias (the latest release); Rust is owned by rustup and tracks the stable channel. Keep the native package rows out of every platform catalog so one application has one toolchain owner.
+- User-scoped installers must activate their bin directories in the current catalog process, not only modify a future login shell. The dependent npm/Cargo actions run immediately afterward. Keep nvm loading in `dot/zshrc`, Cargo's bin directory in `PATH`, and the Bun installer's same-run PATH refresh covered by `tests/test-managed-toolchains.sh`.
+
 ## Platform catalog schema changes must include language-addon readers
 
 - `lib/install-plan` is not the only reader of `catalog/platforms/*.tsv`: `installers/install_node_deps.sh` and `installers/install_rust_deps.sh` read those rows directly to restore npm and Cargo add-ons.

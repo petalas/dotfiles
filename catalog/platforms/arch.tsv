@@ -53,8 +53,6 @@ desktop.integration	pacman	payload	pacman-package	libnotify
 foundation.build	pacman	payload	pacman-package	libxml2
 media.info	pacman	payload	pacman-package	mediainfo
 cli.nmap	pacman	payload	pacman-package	nmap
-languages.node	pacman	payload	pacman-package	nodejs
-languages.node	pacman	payload	pacman-package	npm
 productivity.obsidian	pacman	payload	pacman-package	obsidian
 foundation.bootstrap	pacman	payload	pacman-package	openssh
 cli.sevenzip	pacman	payload	pacman-package	p7zip
@@ -65,7 +63,6 @@ cli.procs	pacman	payload	pacman-package	procs
 languages.python	pacman	payload	pacman-package	python
 languages.python	pacman	payload	pacman-package	python-virtualenv
 cli.ripgrep	pacman	payload	pacman-package	ripgrep
-languages.rust	pacman	payload	pacman-package	rust
 development.shellcheck	pacman	payload	pacman-package	shellcheck
 development.sshpass	pacman	payload	pacman-package	sshpass
 cli.tealdeer	pacman	payload	pacman-package	tealdeer
@@ -80,6 +77,8 @@ containers.docker	direct	payload	installer	docker
 editors.neovim	direct	payload	installer	neovim
 ai.claude-code	direct	payload	installer	claude_code
 ai.herdr	direct	payload	installer	herdr
+languages.node	direct	payload	installer	node
+languages.rust	direct	payload	installer	rust
 languages.typescript	npm	payload	npm-package	typescript
 languages.typescript	npm	payload	npm-package	typescript-language-server
 ai.codex-cli	npm	payload	npm-package	@openai/codex

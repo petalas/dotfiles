@@ -51,13 +51,14 @@ run_downloaded_script() {
     local interpreter="$1"
     local url="$2"
     local script_file result=0
+    shift 2
 
     script_file=$(mktemp "${TMPDIR:-/tmp}/dotfiles-installer.XXXXXX") || return 1
     if ! download_file "$url" "$script_file"; then
         rm -f "$script_file"
         return 1
     fi
-    "$interpreter" "$script_file" || result=$?
+    "$interpreter" "$script_file" "$@" || result=$?
     rm -f "$script_file"
     return "$result"
 }

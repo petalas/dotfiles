@@ -45,11 +45,9 @@ development.shellcheck	brew	payload	brew-formula	shellcheck
 languages.elixir	brew	payload	brew-formula	elixir
 languages.gradle	brew	payload	brew-formula	gradle
 languages.kotlin	brew	payload	brew-formula	kotlin
-languages.node	brew	payload	brew-formula	node
 languages.java	brew	payload	brew-formula	openjdk
 languages.python	brew	payload	brew-formula	python@3.14
 languages.python	brew	payload	brew-formula	python-setuptools
-languages.rust	brew	payload	brew-formula	rust
 languages.uv	brew	payload	brew-formula	uv
 media.ffmpeg	brew	payload	brew-formula	ffmpeg
 media.imagemagick	brew	payload	brew-formula	imagemagick
@@ -105,6 +103,8 @@ cad.openscad	brew	payload	brew-cask	openscad@snapshot
 gaming.parsec	brew	payload	brew-cask	parsec
 gaming.steam	brew	payload	brew-cask	steam
 languages.bun	direct	payload	installer	bun
+languages.node	direct	payload	installer	node
+languages.rust	direct	payload	installer	rust
 editors.neovim	direct	payload	installer	neovim
 terminal.ghostty	direct	payload	installer	ghostty
 cli.yazi	direct	payload	installer	yazi

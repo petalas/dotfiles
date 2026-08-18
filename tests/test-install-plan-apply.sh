@@ -75,6 +75,37 @@ DOTFILES_INSTALL_PLAN_ADAPTER="$fixture/fake-adapter" INSTALL_PLAN_TEST_LOG="$lo
 grep -Fxq $'one\tone\t' "$log"
 grep -Fxq $'two\ttwo\t' "$log"
 
+# npm and Cargo batches must establish their declared toolchain prerequisites
+# before invoking either package manager. Direct toolchain installers otherwise
+# run later in the per-application phase and the batch sees the system binary.
+cat >"$fixture/toolchain-batch-plan" <<'EOF'
+format	1
+os	debian
+step	dependencies	on	10	Install dependencies
+app	languages.node	on	required	languages	Node and npm
+app	languages.rust	on	required	languages	Rust and Cargo
+app	ai.cli	on	optional	ai	AI CLI
+app	development.tool	on	optional	development	Development tool
+dependency	ai.cli	languages.node
+dependency	development.tool	languages.rust
+action	languages.node	installer	node
+action	languages.rust	installer	rust
+action	ai.cli	npm-package	@example/cli
+action	development.tool	cargo-package	example-tool
+EOF
+: >"$log"
+DOTFILES_INSTALL_PLAN_BATCH_ADAPTER="$fixture/fake-batch" \
+DOTFILES_INSTALL_PLAN_ADAPTER="$fixture/fake-adapter" INSTALL_PLAN_TEST_LOG="$log" \
+    DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN=1 \
+    "$repo_dir/lib/install-plan" apply --operation install --plan "$fixture/toolchain-batch-plan" \
+    >"$fixture/toolchain-batch.out" 2>"$fixture/toolchain-batch.err"
+[[ "$(sed -n '1p' "$log")" == 'install installer node ' ]]
+[[ "$(sed -n '2p' "$log")" == 'batch install npm-package' ]]
+grep -Fxq $'ai.cli\t@example/cli\t' "$log"
+[[ "$(sed -n '4p' "$log")" == 'install installer rust ' ]]
+[[ "$(sed -n '5p' "$log")" == 'batch install cargo-package' ]]
+grep -Fxq $'development.tool\texample-tool\t' "$log"
+
 # A successful direct installer may claim custody when it demonstrably changes
 # a pre-existing command. A no-op over an unreceipted command still may not.
 mkdir -p "$fixture/receipt-bin"

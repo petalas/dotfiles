@@ -13,6 +13,12 @@ for os in macos ubuntu debian arch; do
     for required in foundation.bootstrap foundation.git foundation.locale languages.bun languages.node languages.rust; do
         grep -Fq $'app\t'"$required"$'\ton\trequired\t' "$fixture/$os.plan"
     done
+    grep -Fxq $'action\tlanguages.node\tinstaller\tnode\t' "$fixture/$os.plan"
+    grep -Fxq $'action\tlanguages.rust\tinstaller\trust\t' "$fixture/$os.plan"
+    if grep -Eq $'^action\tlanguages\.(node|rust)\t(apt-package|pacman-package|brew-formula)\t' "$fixture/$os.plan"; then
+        echo "Native package unexpectedly owns a managed toolchain on $os." >&2
+        exit 1
+    fi
 done
 
 # Frozen pre-migration inventories independently protect package ownership.

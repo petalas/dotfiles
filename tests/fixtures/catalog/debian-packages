@@ -6,7 +6,6 @@ bind9-dnsutils
 btop
 build-essential
 ca-certificates
-cargo
 clang
 cmake
 curl
@@ -38,8 +37,6 @@ mediainfo
 mosh
 mtr-tiny
 nmap
-nodejs
-npm
 openscad
 pass
 pkg-config
@@ -51,7 +48,6 @@ python3-venv
 qbittorrent
 ripgrep
 rsync
-rustc
 shellcheck
 sshpass
 syncthing

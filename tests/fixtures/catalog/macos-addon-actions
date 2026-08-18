@@ -11,6 +11,8 @@ development.watchexec	cargo	payload	cargo-package	watchexec-cli	missing-only
 editors.neovim	direct	payload	installer	neovim
 foundation.locale	provided	effect	installer	locale
 languages.bun	direct	payload	installer	bun
+languages.node	direct	payload	installer	node
+languages.rust	direct	payload	installer	rust
 languages.typescript	npm	payload	npm-package	typescript
 languages.typescript	npm	payload	npm-package	typescript-language-server
 terminal.ghostty	direct	payload	installer	ghostty
