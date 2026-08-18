@@ -75,6 +75,35 @@ DOTFILES_INSTALL_PLAN_ADAPTER="$fixture/fake-adapter" INSTALL_PLAN_TEST_LOG="$lo
 grep -Fxq $'one\tone\t' "$log"
 grep -Fxq $'two\ttwo\t' "$log"
 
+# Post-operation inspection must translate a prepared-run index back to the
+# full catalog. An unavailable catalog entry is omitted from the prepared run.
+alignment_catalog="$fixture/alignment-catalog"
+mkdir -p "$alignment_catalog/platforms"
+printf '10\tdependencies\tInstall dependencies\ton\tdependencies\t\n' >"$alignment_catalog/steps.tsv"
+printf '10\ttest\tTest\ton\n' >"$alignment_catalog/groups.tsv"
+printf '%s\n' \
+    $'test.one\ttest\tOne\ton\t' \
+    $'test.unavailable\ttest\tUnavailable\ton\t' \
+    $'test.two\ttest\tTwo\ton\t' >"$alignment_catalog/applications.tsv"
+printf '%s\n' \
+    $'test.one\tprovided\tpayload\tprovided\tone\t' \
+    $'test.two\tprovided\tpayload\tprovided\ttwo\t' >"$alignment_catalog/platforms/debian.tsv"
+: >"$alignment_catalog/removals.tsv"
+printf '%s\n' \
+    $'format\t1' \
+    $'os\tdebian' \
+    $'step\tdependencies\ton\t10\tInstall dependencies' \
+    $'app\ttest.one\ton\toptional\ttest\tOne' \
+    $'action\ttest.one\tprovided\tone\t' \
+    $'app\ttest.two\ton\toptional\ttest\tTwo' \
+    $'action\ttest.two\tprovided\ttwo\t' >"$fixture/alignment-plan"
+DOTFILES_CATALOG_DIR="$alignment_catalog" "$repo_dir/lib/install-plan" apply --operation install \
+    --plan "$fixture/alignment-plan" --report "$fixture/alignment-report" \
+    >"$fixture/alignment.out" 2>"$fixture/alignment.err"
+grep -Fxq $'post-observation\ttest.one\tpresent\tprovided' "$fixture/alignment-report"
+grep -Fxq $'post-observation\ttest.two\tpresent\tprovided' "$fixture/alignment-report"
+grep -Fxq $'result\ttest.two\tsucceeded' "$fixture/alignment-report"
+
 "$repo_dir/lib/install-plan" prepare --mode full --os macos \
     --output "$fixture/tampered.plan" >/dev/null
 printf '%s\n' $'action\tfoundation.git\tcommand\trm -rf /\t' >>"$fixture/tampered.plan"

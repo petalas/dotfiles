@@ -732,6 +732,12 @@ inspect_app() {
     done
 }
 
+inspect_app_by_id() {
+    local os=$1 id=$2 catalog_index
+    catalog_index=$(find_value_index "$id" "${app_ids[@]}") || return 1
+    inspect_app "$os" "$catalog_index"
+}
+
 inspect_plan() {
     local os='' output='' index=0
     shift
@@ -1388,8 +1394,8 @@ execute_plan_removal() {
     if [[ "$had_failure" == 1 ]]; then settle_app_operation "$index" failed; return 1; fi
     rm -f "$(receipt_path_for_app "$apply_os" "$id")"
     if [[ "${DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN:-0}" != 1 ]]; then
-        result=$(inspect_app "$apply_os" "$index" | head -n 1)
-        IFS=$'\t' read -r _ _ _ presence custody <<<"$result"
+        result=$(inspect_app_by_id "$apply_os" "$id" | head -n 1)
+        IFS=$'\t' read -r _ _ _ presence custody _ <<<"$result"
         report_observation_apps+=("$id"); report_observation_presence+=("$presence"); report_observation_custody+=("$custody")
         case "$presence" in
             absent) ;;
@@ -1442,8 +1448,8 @@ execute_plan_app() {
     done
     if [[ "$had_failure" == 1 ]]; then settle_app_operation "$index" failed; return 1; fi
     if [[ "${DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN:-0}" != 1 ]]; then
-        result=$(inspect_app "$apply_os" "$index" | head -n 1)
-        IFS=$'\t' read -r _ _ _ presence custody <<<"$result"
+        result=$(inspect_app_by_id "$apply_os" "$id" | head -n 1)
+        IFS=$'\t' read -r _ _ _ presence custody _ <<<"$result"
         report_observation_apps+=("$id"); report_observation_presence+=("$presence"); report_observation_custody+=("$custody")
         case "$presence" in present) ;; partial) settle_app_operation "$index" partial; return 1 ;; *) settle_app_operation "$index" failed; return 1 ;; esac
     fi

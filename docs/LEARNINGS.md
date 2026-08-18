@@ -62,6 +62,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - An application can have several possible providers (for example APT plus a direct installer). Reporting only `custody=managed` loses which mechanism actually established custody and can make preparation remove every candidate package identity.
 - Inspection artifacts therefore include one aggregate `observation` plus exact `mechanism` rows. Remove prefers those exact mechanism rows and expands the broader cleanup recipe only when no exact mechanism is available. Do not prepare both sets speculatively: a package identity often appears in both the install action and cleanup recipe, and executing the duplicate removes it once then falsely fails on the second attempt.
 - A direct-install receipt may be created only when the command was absent before a successful installer run or when an existing valid receipt is being refreshed. A successful no-op installer over a pre-existing unreceipted command must not claim custody.
+- Prepared-run application arrays contain only platform-available applications, while catalog arrays include unavailable entries. Their numeric indices diverge at the first unavailable application. Never pass a prepared-run index into catalog inspection; cross that boundary by stable application ID. Otherwise adapters can succeed but post-operation verification inspects neighboring applications, producing a false exit 1 and a shifted run report.
 
 ## Release helper hashes must disable Go VCS stamping
 
