@@ -41,13 +41,27 @@ as_root() {
     fi
 }
 
-case "$(uname -s)" in
+host_os=$(uname -s)
+case "$host_os" in
     Darwin|Linux) ;;
-    *) echo "Unsupported OS: $(uname -s)" >&2; exit 1 ;;
+    *) echo "Unsupported OS: $host_os" >&2; exit 1 ;;
 esac
-if ((EUID != 0)) && { ! command -v sudo >/dev/null 2>&1 || ! sudo -n true 2>/dev/null; }; then
-    echo "Bootstrap requires working 'sudo -n'; provision it first." >&2
-    exit 1
+if ((EUID != 0)); then
+    if ! command -v sudo >/dev/null 2>&1; then
+        echo "Bootstrap requires sudo administrator access." >&2
+        exit 1
+    fi
+    if ! sudo -n true 2>/dev/null; then
+        if [[ "$host_os" != Linux ]]; then
+            echo "Bootstrap requires working 'sudo -n' on macOS; provision it first." >&2
+            exit 1
+        fi
+        echo "Authorizing setup (your sudo password may be requested once)..."
+        if ! sudo -v || ! sudo -n true 2>/dev/null; then
+            echo "Could not authorize setup with sudo." >&2
+            exit 1
+        fi
+    fi
 fi
 
 if ! command -v git >/dev/null 2>&1; then

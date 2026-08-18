@@ -10,7 +10,25 @@ cp "$repo_dir/lib/platform.sh" "$fixture_dir/lib/platform.sh"
 
 cat >"$fixture_dir/bin/sudo" <<'EOF'
 #!/usr/bin/env bash
-[[ "${TEST_SCENARIO:-}" != sudo_failure ]]
+set -euo pipefail
+printf '%s\n' "$*" >>"$TEST_SUDO_LOG"
+if [[ "${1:-}" == -n && "${2:-}" == true ]]; then
+    [[ -e "$TEST_SUDO_STATE" ]]
+    exit
+fi
+if [[ "${1:-}" == -k ]]; then
+    exit
+fi
+if [[ "${1:-}" == sh && "${2:-}" == -c ]]; then
+    [[ "${TEST_SCENARIO:-}" != sudo_denied ]] || exit 1
+    [[ "${6:-}" == /etc/sudoers.d/zz-dotfiles-* ]]
+    [[ "${7:-}" == /etc/sudoers.d/dotfiles-* ]]
+    grep -Eq '^\\#[0-9]+ ALL=\(ALL:ALL\) NOPASSWD: ALL$' "$5"
+    cp "$5" "$TEST_SUDOERS_CAPTURE"
+    touch "$TEST_SUDO_STATE"
+    exit
+fi
+exit 1
 EOF
 for command_name in curl git; do
     cat >"$fixture_dir/bin/$command_name" <<'EOF'
@@ -58,8 +76,14 @@ run_install() {
     local scenario=$1
     shift
     : >"$steps"
-    env TEST_SCENARIO="$scenario" TEST_STEPS="$steps" HOME="$fixture_dir/home" \
-        OSTYPE=darwin-test PATH="$fixture_dir/bin:/usr/bin:/bin" \
+    rm -f "$fixture_dir/$scenario.sudo-ready" "$fixture_dir/$scenario.sudoers"
+    : >"$fixture_dir/$scenario.sudo.log"
+    env TEST_SCENARIO="$scenario" TEST_STEPS="$steps" \
+        TEST_SUDO_LOG="$fixture_dir/$scenario.sudo.log" \
+        TEST_SUDO_STATE="$fixture_dir/$scenario.sudo-ready" \
+        TEST_SUDOERS_CAPTURE="$fixture_dir/$scenario.sudoers" \
+        HOME="$fixture_dir/home" DOTFILES_OS_OVERRIDE=debian \
+        PATH="$fixture_dir/bin:/usr/bin:/bin" \
         "${EASY_INSTALL_TEST_ENTRY_BASH:-$BASH}" "$fixture_dir/easy-install.sh" "$@" \
         >"$fixture_dir/$scenario.log" 2>&1
 }
@@ -71,6 +95,10 @@ run_install visual
 
 run_install unattended --unattended
 grep -Fq 'prepare --mode full' "$steps"
+[[ -s "$fixture_dir/unattended.sudoers" ]]
+[[ "$(grep -c '^sh -c ' "$fixture_dir/unattended.sudo.log")" == 1 ]]
+grep -Fxq -- '-k' "$fixture_dir/unattended.sudo.log"
+grep -Fxq -- '-n true' "$fixture_dir/unattended.sudo.log"
 
 plan="$fixture_dir/custom-plan"
 printf 'format=1\n' >"$plan"
@@ -94,12 +122,12 @@ if run_install prepare_failure --unattended; then
 fi
 [[ "$(wc -l <"$steps")" == 1 ]]
 
-if run_install sudo_failure --unattended; then
-    echo "Expected missing non-interactive sudo to stop setup" >&2
+if run_install sudo_denied --unattended; then
+    echo "Expected denied administrator access to stop setup" >&2
     exit 1
 fi
 [[ ! -s "$steps" ]]
-grep -Fq "requires working 'sudo -n'" "$fixture_dir/sudo_failure.log"
+grep -Fq 'Could not configure passwordless sudo' "$fixture_dir/sudo_denied.log"
 
 run_install help --help
 grep -Fq 'Usage:' "$fixture_dir/help.log"

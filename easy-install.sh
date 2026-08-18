@@ -44,6 +44,9 @@ if [[ "$os" == macos ]] && ((EUID == 0)); then
     exit 1
 fi
 
+if [[ "$os" != macos ]]; then
+    configure_passwordless_sudo
+fi
 require_noninteractive_root
 for command_name in curl git; do
     command -v "$command_name" >/dev/null 2>&1 || {
