@@ -25,6 +25,33 @@ setup_nvim_repository() {
     clone_or_ff https://github.com/petalas/nvim.git "$HOME/.config/nvim" custom
 }
 
+setup_notes_repository() {
+    local destination="$HOME/git/notes"
+    local repository=https://github.com/petalas/notes.git
+
+    if [[ -d "$destination/.git" ]]; then
+        _git_origin_matches "$destination" "$repository"
+        return
+    fi
+    if [[ -e "$destination" ]]; then
+        echo "Cannot clone notes repository over existing path: $destination" >&2
+        return 1
+    fi
+    if ! command -v gh >/dev/null 2>&1 ||
+        ! gh auth status --hostname github.com >/dev/null 2>&1; then
+        echo "Notes repository skipped: authenticate with 'gh auth login --hostname github.com --git-protocol https --web', then rerun ./setup-tools.sh." >&2
+        return 0
+    fi
+
+    mkdir -p "$HOME/git"
+    GIT_CONFIG_COUNT=2 \
+    GIT_CONFIG_KEY_0=credential.https://github.com.helper \
+    GIT_CONFIG_VALUE_0='' \
+    GIT_CONFIG_KEY_1=credential.https://github.com.helper \
+    GIT_CONFIG_VALUE_1='!gh auth git-credential' \
+        clone_or_ff "$repository" "$destination" main
+}
+
 setup_tmux_plugins() {
     clone_or_ff https://github.com/tmux-plugins/tpm.git "$HOME/.tmux/plugins/tpm"
     command -v tmux >/dev/null 2>&1 || return 0
@@ -38,6 +65,7 @@ rebuild_bat_cache() {
 }
 
 run_best_effort "Neovim configuration repository" setup_nvim_repository
+run_best_effort "Notes vault repository" setup_notes_repository
 run_best_effort "tmux plugins" setup_tmux_plugins
 if command -v yazi >/dev/null 2>&1 || command -v ya >/dev/null 2>&1; then
     run_best_effort "Yazi packages" install_yazi_packages

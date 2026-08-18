@@ -30,6 +30,7 @@ tests=(
     tests/test-nvim-github-auth.sh
     tests/test-nvim-sync.sh
     tests/test-script-contracts.sh
+    tests/test-setup-tools.sh
     tests/test-update-install-plan.sh
     tests/test-yazi.sh
     tests/test-zsh-startup.sh

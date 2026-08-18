@@ -42,7 +42,7 @@ git pull --ff-only
 ./link-dotfiles.sh
 ```
 
-The linker is local-only, idempotent, and preserves any replaced file, directory, or symlink as `<path>.old`. To restore generated repositories, plugins, and caches separately, run `./setup-tools.sh`.
+The linker is local-only, idempotent, and preserves any replaced file, directory, or symlink as `<path>.old`. To restore generated repositories, plugins, and caches separately, run `./setup-tools.sh`. When GitHub CLI authentication is available, generated tool setup also clones the private notes vault at `~/git/notes` when it is missing; an existing checkout is left untouched. Without authentication, setup prints the required `gh auth login` command and safely skips that repository.
 
 ## Per-machine intent and safe removal
 

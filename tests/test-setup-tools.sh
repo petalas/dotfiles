@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+fixture=$(mktemp -d /tmp/dotfiles-setup-tools.XXXXXX)
+trap 'rm -rf "$fixture"' EXIT
+mkdir -p "$fixture/bin" "$fixture/home" "$fixture/unauthenticated-home"
+
+cat >"$fixture/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${1:-}" == auth && "${2:-}" == status ]]; then
+    exit "${GH_AUTH_EXIT:-0}"
+fi
+exit 2
+EOF
+
+cat >"$fixture/bin/git" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'config_count=%s helper=%s args=' \
+    "${GIT_CONFIG_COUNT:-}" "${GIT_CONFIG_VALUE_1:-}" >>"$GIT_LOG"
+printf '%s ' "$@" >>"$GIT_LOG"
+printf '\n' >>"$GIT_LOG"
+
+if [[ "${1:-}" == clone ]]; then
+    arguments=("$@")
+    last=$((${#arguments[@]} - 1))
+    destination=${arguments[$last]}
+    repository=${arguments[$((last - 1))]}
+    branch=main
+    for ((index = 1; index < last; index++)); do
+        if [[ "${arguments[$index]}" == --branch ]]; then
+            branch=${arguments[$((index + 1))]}
+        fi
+    done
+    mkdir -p "$destination/.git"
+    printf '%s\n' "$repository" >"$destination/.git/fixture-origin"
+    printf '%s\n' "$branch" >"$destination/.git/fixture-branch"
+    exit 0
+fi
+
+if [[ "${1:-}" == -C ]]; then
+    checkout=$2
+    shift 2
+    case "$1 ${2:-} ${3:-}" in
+        'status --porcelain ') exit 0 ;;
+        'remote get-url origin') cat "$checkout/.git/fixture-origin"; exit 0 ;;
+        'branch --show-current ') cat "$checkout/.git/fixture-branch"; exit 0 ;;
+        'pull --ff-only --quiet') exit 0 ;;
+    esac
+fi
+
+printf 'Unexpected fake git invocation: %s\n' "$*" >&2
+exit 2
+EOF
+chmod +x "$fixture/bin/gh" "$fixture/bin/git"
+
+export GIT_LOG="$fixture/git.log"
+test_path="$fixture/bin:/usr/bin:/bin"
+HOME="$fixture/home" PATH="$test_path" GH_AUTH_EXIT=0 "$repo_dir/setup-tools.sh" >/dev/null
+[[ -d "$fixture/home/git/notes/.git" ]]
+grep -Fq "args=clone --branch main https://github.com/petalas/notes.git $fixture/home/git/notes " \
+    "$GIT_LOG"
+grep -Fq 'config_count=2 helper=!gh auth git-credential args=clone --branch main https://github.com/petalas/notes.git' \
+    "$GIT_LOG"
+
+printf 'draft\n' >"$fixture/home/git/notes/uncommitted.md"
+HOME="$fixture/home" PATH="$test_path" GH_AUTH_EXIT=1 "$repo_dir/setup-tools.sh" >/dev/null
+[[ "$(grep -Fc "https://github.com/petalas/notes.git $fixture/home/git/notes " "$GIT_LOG")" == 1 ]]
+grep -Fxq 'draft' "$fixture/home/git/notes/uncommitted.md"
+if grep -Fq "args=-C $fixture/home/git/notes pull " "$GIT_LOG"; then
+    echo 'Existing notes checkout was unexpectedly pulled.' >&2
+    exit 1
+fi
+
+HOME="$fixture/unauthenticated-home" PATH="$test_path" GH_AUTH_EXIT=1 \
+    "$repo_dir/setup-tools.sh" >"$fixture/unauthenticated.out" 2>"$fixture/unauthenticated.err"
+[[ ! -e "$fixture/unauthenticated-home/git/notes" ]]
+grep -Fq "gh auth login --hostname github.com --git-protocol https --web" \
+    "$fixture/unauthenticated.err"
+
+printf 'Generated tool and notes repository tests passed.\n'
