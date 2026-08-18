@@ -57,7 +57,7 @@ Whether exact removal or cleanup fallback is supported and whether current catal
 _Avoid_: Uninstallable flag
 
 **Cleanup fallback**:
-The automatic, best-effort removal method used when an application lacks verified custody for exact removal but has a cleanup recipe. It retains dependency and user-data safeguards and is disclosed during review and confirmation rather than exposed as a separate desired outcome.
+The automatic, best-effort removal method used when an application lacks verified custody for exact removal but has a cleanup recipe. It retains dependency and user-data safeguards and is disclosed in the confirming review rather than exposed as a separate desired outcome.
 _Avoid_: Force removal, purge
 
 **Cleanup recipe**:
@@ -85,7 +85,7 @@ An explicitly requested installation mode that selects every available step and 
 _Avoid_: Default install, non-interactive mode
 
 **Confirmation boundary**:
-The one-way transition from visual review and differentiated confirmation into execution that accepts no further input. Wanted or not-wanted defaults are saved and one-run destructive outcomes are sealed immediately before crossing it.
+The one-way transition made by pressing Enter on the visual review into execution that accepts no further input. Wanted or not-wanted defaults are saved and one-run destructive outcomes are sealed immediately before crossing it.
 _Avoid_: Submit step, install prompt
 
 **Execution phase**:

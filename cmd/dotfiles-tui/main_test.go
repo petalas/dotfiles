@@ -9,21 +9,31 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-func TestRemovalConfirmationDisclosesAutomaticCleanupFallback(t *testing.T) {
+func TestReviewEnterConfirmsWithoutTypedRemovalPhrase(t *testing.T) {
 	m := model{apps: []application{
 		{id: "exact", label: "Exact", exact: "enabled", outcome: remove},
-		{id: "fallback", label: "Fallback", exact: "disabled", cleanup: "enabled", outcome: remove},
-	}}
-	m.beginConfirmation()
-	want := []string{"Fallback", "REMOVE 2"}
-	for index, expected := range want {
-		if got := m.expectedPhrase(); got != expected {
-			t.Fatalf("step %d: expected %q, got %q", index, expected, got)
-		}
-		m.arm++
+		{id: "fallback", label: "Chrome or Chromium", exact: "disabled", cleanup: "enabled", outcome: remove},
+	}, stage: "review"}
+	updated, command := m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
+	result := updated.(model)
+	if !result.confirmed || command == nil || result.stage != "review" {
+		t.Fatalf("Enter did not approve the displayed review directly: confirmed=%t stage=%q command=%v", result.confirmed, result.stage, command)
 	}
-	if m.confirmationStepCount() != len(want) {
-		t.Fatalf("expected %d confirmation steps, got %d", len(want), m.confirmationStepCount())
+}
+
+func TestReviewEscapeCancelsPreparedRunOrReturnsToPlanning(t *testing.T) {
+	prepared := model{stage: "review", confirmOnly: true}
+	updated, command := prepared.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape}))
+	preparedResult := updated.(model)
+	if !preparedResult.cancelled || command == nil {
+		t.Fatalf("Esc did not cancel prepared review: cancelled=%t command=%v", preparedResult.cancelled, command)
+	}
+
+	selection := model{stage: "review"}
+	updated, command = selection.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape}))
+	selectionResult := updated.(model)
+	if selectionResult.stage != "select" || selectionResult.cancelled || command != nil {
+		t.Fatalf("Esc did not return choice review to planning: stage=%q cancelled=%t command=%v", selectionResult.stage, selectionResult.cancelled, command)
 	}
 }
 
@@ -42,12 +52,13 @@ func TestPreparedCleanupFallbackUsesUnifiedRemovalReview(t *testing.T) {
 	}
 	m := model{apps: apps, steps: steps, reviewDetails: details, display: plain, stage: "review", confirmOnly: true, width: 80, height: 24}
 	view := m.render()
-	if apps[0].outcome != remove || !apps[0].cleanupFallback || !strings.Contains(view, "cleanup fallback") || strings.Contains(view, "Force") {
+	if apps[0].outcome != remove || !apps[0].cleanupFallback || !strings.Contains(view, "cleanup fallback") || strings.Contains(view, "Force") || strings.Contains(view, "Type ") {
 		t.Fatalf("prepared cleanup fallback was not presented as unified removal:\n%s", view)
 	}
-	m.beginConfirmation()
-	if phrase := m.expectedPhrase(); phrase != "Loose" {
-		t.Fatalf("cleanup fallback did not retain differentiated confirmation: %q", phrase)
+	updated, command := m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
+	result := updated.(model)
+	if !result.confirmed || command == nil {
+		t.Fatal("Enter did not approve the prepared cleanup-fallback review")
 	}
 }
 

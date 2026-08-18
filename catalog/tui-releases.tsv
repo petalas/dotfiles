@@ -1,6 +1,6 @@
 format	1
-version	tui-v0.1.9
-artifact	linux	amd64	ca9112333a0a57a4a05836ac4ca89c0576a91c44903c3f1bb230e633cd514d8d	https://github.com/petalas/dotfiles/releases/download/tui-v0.1.9/dotfiles-tui-linux-amd64
-artifact	linux	arm64	4135f7b2d946817d1b91abaa3bc1a5fb2a1b936e67bbcd0e610186a78cc7b887	https://github.com/petalas/dotfiles/releases/download/tui-v0.1.9/dotfiles-tui-linux-arm64
-artifact	macos	amd64	3d76d18bb46ca7b4b15d00411e118697d22da11785b65af5d605e0d1f3e9835f	https://github.com/petalas/dotfiles/releases/download/tui-v0.1.9/dotfiles-tui-macos-amd64
-artifact	macos	arm64	56a9fe57a08889dfc216c421f575c093431820de6ac5a28ac28af9809b0a7b49	https://github.com/petalas/dotfiles/releases/download/tui-v0.1.9/dotfiles-tui-macos-arm64
+version	tui-v0.1.10
+artifact	linux	amd64	90ad2cf6107144c531b477d7c128f96719cc57131387b91c94a7cc773640db90	https://github.com/petalas/dotfiles/releases/download/tui-v0.1.10/dotfiles-tui-linux-amd64
+artifact	linux	arm64	4b60c4f950119c20c4a13a0a8cea06c816a2f2fdc495cbcd2bb3d48c854f3042	https://github.com/petalas/dotfiles/releases/download/tui-v0.1.10/dotfiles-tui-linux-arm64
+artifact	macos	amd64	f0261b3902682800148d46ba33e37b6f155224cba688d2c67fe12b57c9b337f7	https://github.com/petalas/dotfiles/releases/download/tui-v0.1.10/dotfiles-tui-macos-amd64
+artifact	macos	arm64	2b8fcbeea6892234b0e50b053fe8014d751c43b96f61cbe439db99eb12d51387	https://github.com/petalas/dotfiles/releases/download/tui-v0.1.10/dotfiles-tui-macos-arm64

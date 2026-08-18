@@ -67,10 +67,9 @@ type model struct {
 	groupFilter          int
 	reviewScroll         int
 	display              displayMode
-	stage, input, notice string
+	stage, notice        string
 	stepMode             bool
 	stepCursor           int
-	arm                  int
 	output               string
 	confirmed, cancelled bool
 	chooseOnly           bool
@@ -192,9 +191,6 @@ func (m model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			m.verbose = !m.verbose
 			return m, nil
 		}
-		if m.stage == "confirm" {
-			return m.updateConfirmation(key)
-		}
 		if m.stage == "review" {
 			return m.updateReview(key)
 		}
@@ -289,79 +285,10 @@ func (m model) updateReview(key string) (tea.Model, tea.Cmd) {
 		}
 		m.stage, m.reviewScroll = "select", 0
 	case "enter":
-		if m.chooseOnly {
-			m.confirmed = true
-			return m, tea.Quit
-		}
-		m.beginConfirmation()
-	}
-	return m, nil
-}
-
-func (m model) updateConfirmation(key string) (tea.Model, tea.Cmd) {
-	switch key {
-	case "esc":
-		m.stage, m.input, m.arm = "review", "", 0
-	case "backspace":
-		if len(m.input) > 0 {
-			m.input = m.input[:len(m.input)-1]
-		}
-	case "enter":
-		if m.input != m.expectedPhrase() {
-			return m, nil
-		}
-		m.input = ""
-		m.arm++
-		if m.arm < m.confirmationStepCount() {
-			return m, nil
-		}
 		m.confirmed = true
 		return m, tea.Quit
-	default:
-		if len([]rune(key)) == 1 || key == "space" {
-			if key == "space" {
-				key = " "
-			}
-			m.input += key
-		}
 	}
 	return m, nil
-}
-
-func (m *model) beginConfirmation() {
-	m.stage, m.input, m.arm = "confirm", "", 0
-}
-
-func (m model) confirmationStepCount() int {
-	count := len(m.appsUsingCleanupFallback())
-	if len(m.appsWithOutcome(remove)) > 0 {
-		count++
-	}
-	if count == 0 {
-		return 1
-	}
-	return count
-}
-
-func (m model) expectedPhrase() string {
-	fallbacks := m.appsUsingCleanupFallback()
-	if m.arm < len(fallbacks) {
-		return fallbacks[m.arm].label
-	}
-	if removals := len(m.appsWithOutcome(remove)); removals > 0 && m.arm == len(fallbacks) {
-		return fmt.Sprintf("REMOVE %d", removals)
-	}
-	return "START"
-}
-
-func (m model) appsUsingCleanupFallback() []application {
-	apps := []application{}
-	for _, app := range m.apps {
-		if app.usesCleanupFallback() {
-			apps = append(apps, app)
-		}
-	}
-	return apps
 }
 
 func (m *model) setSelectedOutcome(next outcome) {
@@ -626,7 +553,7 @@ func (m model) View() tea.View {
 }
 
 func (m model) render() string {
-	if m.stage == "review" || m.stage == "confirm" {
+	if m.stage == "review" {
 		return m.renderReview()
 	}
 	return m.renderPlan()
@@ -1016,22 +943,19 @@ func (m model) renderReview() string {
 	body := wrapIndentedLines(strings.TrimSuffix(b.String(), "\n"), width)
 	header := []string{fit(stageStepper("review", m.separator()), width)}
 	header = append(header, wrapSegments(m.outcomeSummaryParts(), m.separator(), width)...)
-	footer := []string{}
-	if m.stage == "confirm" {
-		footer = append(footer, fit(fmt.Sprintf("Type %q to continue:", m.expectedPhrase()), width))
-		footer = append(footer, fit("> "+m.input, width))
-		footer = append(footer, fit("backspace edits  enter confirms  esc returns to review", width))
-	} else {
-		verb := "continue to confirmation"
-		if m.chooseOnly {
-			verb = "accept choices"
-		}
-		detailControl := "v show details"
-		if m.verbose {
-			detailControl = "v hide details"
-		}
-		footer = append(footer, wrapWords("up/down scroll  pgup/pgdown page  "+detailControl+"  enter "+verb+"  esc back", width)...)
+	verb := "approve run"
+	if m.chooseOnly {
+		verb = "accept choices"
 	}
+	escape := "esc back"
+	if m.confirmOnly {
+		escape = "esc cancel"
+	}
+	detailControl := "v show details"
+	if m.verbose {
+		detailControl = "v hide details"
+	}
+	footer := wrapWords("up/down scroll  pgup/pgdown page  "+detailControl+"  enter "+verb+"  "+escape, width)
 	bodyHeight := max(1, height-len(header)-len(footer))
 	up, down := "↑ earlier", "↓ more"
 	if m.display == ascii {
