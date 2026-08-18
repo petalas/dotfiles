@@ -848,8 +848,8 @@ write_outcome_plan() {
     for app_index in "${!app_ids[@]}"; do
         app_is_available "${app_ids[$app_index]}" || continue
         observation_index=$(observation_index_for_app "${app_ids[$app_index]}") || fail "missing observation for ${app_ids[$app_index]}"
-        if [[ "${app_outcomes[$app_index]}" == remove && "${observation_exact[$observation_index]}" != enabled &&
-              "${observation_force[$observation_index]}" != enabled ]]; then
+        if [[ "${app_outcomes[$app_index]}" == remove && "${observation_presence[$observation_index]}" != absent &&
+              "${observation_exact[$observation_index]}" != enabled && "${observation_force[$observation_index]}" != enabled ]]; then
             fail "removal is disabled for ${app_ids[$app_index]}"
         fi
         if [[ "${app_outcomes[$app_index]}" == force && "${observation_force[$observation_index]}" != enabled ]]; then
@@ -880,7 +880,7 @@ write_outcome_plan() {
         app_index=$(find_value_index "${mechanism_apps[$index]}" "${app_ids[@]}")
         [[ "${app_outcomes[$app_index]}" == remove ]] || continue
         observation_index=$(observation_index_for_app "${app_ids[$app_index]}") || fail "missing observation for ${app_ids[$app_index]}"
-        [[ "${observation_exact[$observation_index]}" == enabled ]] || continue
+        [[ "${observation_presence[$observation_index]}" != absent && "${observation_exact[$observation_index]}" == enabled ]] || continue
         case "${mechanism_kinds[$index]}" in
             apt-package|pacman-package|brew-formula|brew-cask|npm-package|cargo-package)
                 printf 'removal\t%s\texact\t%s\t%s\t%s\n' "${mechanism_apps[$index]}" "${mechanism_kinds[$index]}" \
@@ -899,6 +899,7 @@ write_outcome_plan() {
         [[ "${removal_oses[$index]}" == "$os" ]] || continue
         app_index=$(find_value_index "${removal_apps[$index]}" "${app_ids[@]}")
         observation_index=$(observation_index_for_app "${app_ids[$app_index]}") || fail "missing observation for ${app_ids[$app_index]}"
+        [[ "${observation_presence[$observation_index]}" != absent ]] || continue
         if [[ "${app_outcomes[$app_index]}" == force ||
               ( "${app_outcomes[$app_index]}" == remove && "${observation_exact[$observation_index]}" != enabled ) ]]; then
             printf 'removal\t%s\tforce\t%s\t%s\t%s\n' "${removal_apps[$index]}" "${removal_methods[$index]}" \
@@ -982,9 +983,9 @@ prepare_plan() {
 }
 
 load_resolved_plan() {
-    local path=$1 type first second third fourth fifth sixth seventh eighth extra format_seen=0
+    local path=$1 type first second third fourth fifth sixth seventh eighth extra outcome presence format_seen=0
     apply_step_ids=(); apply_step_states=(); apply_step_labels=(); apply_step_statuses=()
-    apply_app_ids=(); apply_app_states=(); apply_app_outcomes=(); apply_app_labels=(); apply_app_statuses=()
+    apply_app_ids=(); apply_app_states=(); apply_app_outcomes=(); apply_app_labels=(); apply_app_presences=(); apply_app_statuses=()
     apply_dependency_apps=(); apply_dependency_requirements=()
     apply_action_apps=(); apply_action_kinds=(); apply_action_values=(); apply_action_options=(); apply_action_done=()
     apply_step_action_ids=(); apply_step_action_kinds=(); apply_step_action_values=(); apply_step_action_options=()
@@ -1009,11 +1010,13 @@ load_resolved_plan() {
                     [[ -z "$sixth$seventh$eighth${extra:-}" ]] || fail "malformed resolved application"
                     [[ "$second" == on || "$second" == off ]] || fail "invalid resolved application state"
                     if [[ "$second" == on ]]; then outcome=ensure; else outcome=leave; fi
+                    presence=unknown
                 else
                     [[ -n "$sixth$seventh" && -z "$eighth${extra:-}" ]] || fail "malformed prepared application"
                     case "$second" in ensure|leave|remove|force) outcome=$second ;; *) fail "invalid desired outcome" ;; esac
+                    presence=$sixth
                 fi
-                apply_app_ids+=("$first"); apply_app_outcomes+=("$outcome"); apply_app_labels+=("$fifth")
+                apply_app_ids+=("$first"); apply_app_outcomes+=("$outcome"); apply_app_labels+=("$fifth"); apply_app_presences+=("$presence")
                 if [[ "$outcome" == ensure ]]; then apply_app_states+=(on); else apply_app_states+=(off); fi
                 if [[ "$outcome" == leave ]]; then apply_app_statuses+=(skipped); else apply_app_statuses+=(pending); fi ;;
             dependency)
@@ -1540,7 +1543,8 @@ validate_prepared_removals() {
         for removal_index in "${!apply_removal_apps[@]}"; do
             if [[ "${apply_removal_apps[$removal_index]}" == "${apply_app_ids[$app_index]}" ]]; then found=1; break; fi
         done
-        [[ "$found" == 1 ]] || fail "prepared run omitted removal methods for ${apply_app_ids[$app_index]}"
+        [[ "$found" == 1 || ( "${apply_app_outcomes[$app_index]}" == remove && "${apply_app_presences[$app_index]}" == absent ) ]] ||
+            fail "prepared run omitted removal methods for ${apply_app_ids[$app_index]}"
     done
 }
 

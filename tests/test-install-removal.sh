@@ -85,6 +85,20 @@ if DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare \
 fi
 grep -Fq 'removal is disabled for tools.loose' "$fixture/no-removal.err"
 
+sed -e $'s/outcome\ttools.runtime\tremove/outcome\ttools.runtime\tleave/' \
+    -e $'s/outcome\ttools.client\tremove/outcome\ttools.client\tleave/' \
+    "$fixture/removal-selection.tsv" >"$fixture/absent-selection.tsv"
+sed $'s/observation\ttools.loose\tavailable\tpresent\tunverified\toptional\tdisabled\tenabled/observation\ttools.loose\tavailable\tabsent\tunverified\toptional\tdisabled\tdisabled/' \
+    "$fixture/observations.tsv" >"$fixture/absent-observations.tsv"
+DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare \
+    --mode outcomes --os macos --selection "$fixture/absent-selection.tsv" \
+    --observations "$fixture/absent-observations.tsv" --output "$fixture/absent.plan" >/dev/null
+grep -Fxq $'app\ttools.loose\tremove\toptional\ttools\tLoose\tabsent\tunverified' "$fixture/absent.plan"
+if grep -Fq $'removal\ttools.loose\t' "$fixture/absent.plan"; then
+    echo 'Absent removal must not prepare an adapter method' >&2
+    exit 1
+fi
+
 sed $'s/outcome\ttools.loose\tremove/outcome\ttools.loose\tforce/' \
     "$fixture/removal-selection.tsv" >"$fixture/legacy-force-selection.tsv"
 DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare \
@@ -98,6 +112,16 @@ cat >"$fixture/adapter" <<'EOF'
 printf '%s\n' "$*" >>"$INSTALL_PLAN_TEST_LOG"
 EOF
 chmod +x "$fixture/adapter"
+DOTFILES_CATALOG_DIR="$catalog" DOTFILES_INSTALL_PLAN_ADAPTER="$fixture/adapter" \
+DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN=1 INSTALL_PLAN_TEST_LOG="$fixture/absent-actions" \
+    "$repo_dir/lib/install-plan" execute --operation install --plan "$fixture/absent.plan" \
+    --report "$fixture/absent-report.tsv" >"$fixture/absent-execute.out" 2>"$fixture/absent-execute.err"
+if grep -Eq '^(remove|force) ' "$fixture/absent-actions"; then
+    echo 'Absent removal unexpectedly invoked a removal adapter' >&2
+    exit 1
+fi
+grep -Fq 'succeeded: tools.loose' "$fixture/absent-execute.out"
+
 DOTFILES_CATALOG_DIR="$catalog" DOTFILES_INSTALL_PLAN_ADAPTER="$fixture/adapter" \
 DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN=1 INSTALL_PLAN_TEST_LOG="$fixture/actions" \
     "$repo_dir/lib/install-plan" execute --operation install --plan "$fixture/removal.plan" \

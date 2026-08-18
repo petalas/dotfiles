@@ -392,7 +392,7 @@ func (m *model) trySetOutcome(index int, next outcome) string {
 	if next == remove && m.retainedDependent(app.id) != "" {
 		return app.label + " is retained by " + m.retainedDependent(app.id)
 	}
-	if next == remove && app.exact != "enabled" && app.cleanup != "enabled" {
+	if next == remove && app.presence != "absent" && app.exact != "enabled" && app.cleanup != "enabled" {
 		return app.label + " has no supported removal method"
 	}
 	m.apps[index].outcome = next

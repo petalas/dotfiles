@@ -65,7 +65,7 @@ An ordered, catalog-declared set of reviewed methods and bounded targets that cl
 _Avoid_: Uninstaller, cleanup script
 
 **Desired outcome**:
-The instruction a visual run assigns to an application: ensure present, leave unchanged, or remove. Remove chooses exact removal when custody supports it and cleanup fallback otherwise. Only wanted or not-wanted intent survives into selection defaults; destructive outcomes belong to one confirmed run.
+The instruction a visual run assigns to an application: ensure present, leave unchanged, or remove. Remove is already satisfied when the application is absent; otherwise it chooses exact removal when custody supports it and cleanup fallback when available. Only wanted or not-wanted intent survives into selection defaults; destructive outcomes belong to one confirmed run.
 _Avoid_: Selection state, removal method, action
 
 **Retained application**:

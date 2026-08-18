@@ -102,6 +102,39 @@ func TestRemoveUsesCleanupFallbackWhenExactRemovalIsUnavailable(t *testing.T) {
 	}
 }
 
+func TestRemoveCancelsPendingInstallForAbsentApplication(t *testing.T) {
+	m := model{apps: []application{{
+		id: "creative.gimp", label: "GIMP", group: "creative", availability: "available", presence: "absent",
+		policy: "optional", exact: "disabled", cleanup: "disabled", outcome: ensure,
+	}}, dependencies: map[string][]string{}, display: plain, stage: "select", width: 80, height: 18, cursor: 1}
+	before := m.render()
+	if !strings.Contains(before, "GIMP · absent -> present") {
+		t.Fatalf("repro setup did not schedule the absent application for installation:\n%s", before)
+	}
+	updated, _ := m.Update(tea.KeyPressMsg(tea.Key{Text: "r", Code: 'r'}))
+	result := updated.(model)
+	after := result.render()
+	if result.apps[0].outcome != remove || result.notice != "" || !strings.Contains(after, "GIMP · absent") || strings.Contains(after, "GIMP · absent -> present") {
+		t.Fatalf("Remove did not cancel the pending install in place: outcome=%q notice=%q\n%s", result.apps[0].outcome, result.notice, after)
+	}
+}
+
+func TestGroupRemoveCancelsPendingInstallsForAbsentApplications(t *testing.T) {
+	m := model{apps: []application{
+		{id: "creative.gimp", label: "GIMP", group: "creative", groupLabel: "Creative tools", availability: "available", presence: "absent", policy: "optional", exact: "disabled", cleanup: "disabled", outcome: ensure},
+		{id: "creative.blender", label: "Blender", group: "creative", groupLabel: "Creative tools", availability: "available", presence: "present", policy: "optional", exact: "enabled", cleanup: "enabled", outcome: ensure},
+	}, dependencies: map[string][]string{}, display: plain, stage: "select", width: 90, height: 18}
+	updated, _ := m.Update(tea.KeyPressMsg(tea.Key{Text: "r", Code: 'r'})) // Selected group root.
+	result := updated.(model)
+	view := result.render()
+	if result.apps[0].outcome != remove || result.apps[1].outcome != remove {
+		t.Fatalf("group removal left an absent application pending installation: %#v", result.apps)
+	}
+	if !strings.Contains(view, "Remove 2") || !strings.Contains(view, "GIMP · absent") || strings.Contains(view, "GIMP · absent -> present") {
+		t.Fatalf("group counts and absent row disagree after removal:\n%s", view)
+	}
+}
+
 func TestCompactStateTransitionsDescribeOnlyRealChanges(t *testing.T) {
 	cases := []struct {
 		name     string

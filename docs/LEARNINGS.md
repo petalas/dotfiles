@@ -79,6 +79,8 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - The catalog's real tree is dependency-group root → application leaves. Application prerequisites form a graph with shared nodes and must not be presented as tree parentage. Emit canonical group labels in the TUI selection artifact; deriving labels from IDs loses names such as “Terminal & shell.”
 - Persistent disabled-reason rows make the tree jump even before an action is attempted. Keep compact rows one line and replace the fixed summary/status line with the rejection reason only after an invalid `e/u/r` action.
 - Exact removal and cleanup fallback are execution methods, not separate user intents. Expose one Remove outcome: prefer exact custody-backed mechanisms, automatically select a curated cleanup recipe only when exact removal is unavailable, and disclose fallback targets in review plus differentiated confirmation. Keep accepting legacy `force` artifacts without writing new ones.
+- Removal capability gates apply only when machine state might actually be changed. An absent application already satisfies Remove: `r` must cancel `absent -> present` even though inspection correctly reports exact and cleanup capabilities as disabled, and preparation must emit no removal adapter for that no-op. Otherwise group counts can change while absent children incorrectly remain scheduled for installation.
+- A trusted test plan skips live post-operation inspection; it does not suppress unrelated Ensure adapters in the same prepared run. Tests for absent-removal no-ops must assert that no `remove`/`force` adapter was invoked, not that the entire adapter log is absent.
 
 ## Bubble Tea progress needs consumed terminal replies and a dedicated event channel
 
