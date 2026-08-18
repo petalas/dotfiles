@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Resolve and execute installation plans from the canonical catalog.
 set -euo pipefail
+# Apple ships Bash 3.2, where expanding a declared-but-empty array under
+# nounset raises an error. The engine validates every external field itself;
+# retain errexit/pipefail while disabling only that incompatible shell option.
+if ((BASH_VERSINFO[0] < 4)); then set +u; fi
 
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 catalog_dir=${DOTFILES_CATALOG_DIR:-$root_dir/catalog}

@@ -30,6 +30,11 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Apple Bash 3.2 cannot combine nounset with empty catalog arrays
+
+- Under Apple Bash 3.2, expanding a declared but empty array such as `"${step_ids[@]}"` still raises `unbound variable` when `set -u` is active. The live Homebrew adapter smoke reached the first catalog row and exposed this before any removal.
+- `lib/install-plan` keeps errexit and pipefail but disables nounset only on Bash versions older than 4. External catalog/protocol fields remain explicitly validated. Keep the macOS live adapter job because Linux Bash cannot reproduce this shell-runtime boundary.
+
 ## Pacman removal does not accept the APT-style `--` separator
 
 - The catalog already validates package names and invokes pacman without a shell, so an option separator is unnecessary. `pacman -R --noconfirm -- package` was interpreted incorrectly and reported the installed package as an unavailable target in the disposable Arch adapter smoke.
