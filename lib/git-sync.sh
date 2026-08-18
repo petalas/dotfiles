@@ -11,16 +11,37 @@ _git_retry() {
     return 1
 }
 
+_git_github_identity() {
+    local url="$1" path owner repository extra
+    case "$url" in
+        https://github.com/*) path=${url#https://github.com/} ;;
+        http://github.com/*) path=${url#http://github.com/} ;;
+        git@github.com:*) path=${url#git@github.com:} ;;
+        ssh://git@github.com/*) path=${url#ssh://git@github.com/} ;;
+        *) return 1 ;;
+    esac
+    path=${path%/}
+    path=${path%.git}
+    IFS=/ read -r owner repository extra <<<"$path"
+    [[ -n "$owner" && -n "$repository" && -z "${extra:-}" ]] || return 1
+    [[ "$owner" =~ ^[A-Za-z0-9_.-]+$ && "$repository" =~ ^[A-Za-z0-9_.-]+$ ]] || return 1
+    printf 'github.com/%s/%s\n' "$owner" "$repository"
+}
+
 _git_origin_matches() {
     local checkout="$1"
     local expected_url="$2"
-    local actual_url
+    local actual_url actual_identity expected_identity
 
     actual_url=$(git -C "$checkout" remote get-url origin) || return 1
     if [[ "${actual_url%.git}" != "${expected_url%.git}" ]]; then
-        printf 'Unexpected origin for %s\nExpected: %s\nActual:   %s\n' \
-            "$checkout" "$expected_url" "$actual_url" >&2
-        return 1
+        actual_identity=$(_git_github_identity "$actual_url" || true)
+        expected_identity=$(_git_github_identity "$expected_url" || true)
+        if [[ -z "$actual_identity" || "$actual_identity" != "$expected_identity" ]]; then
+            printf 'Unexpected origin for %s\nExpected: %s\nActual:   %s\n' \
+                "$checkout" "$expected_url" "$actual_url" >&2
+            return 1
+        fi
     fi
 }
 

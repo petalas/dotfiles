@@ -14,6 +14,21 @@ trap cleanup EXIT
 # shellcheck source=../lib/git-sync.sh
 source "$repo_dir/lib/git-sync.sh"
 
+# Repository identity is independent of the GitHub transport spelling.
+identity_checkout="$fixture_dir/identity-checkout"
+git init --quiet "$identity_checkout"
+git -C "$identity_checkout" remote add origin git@github.com:petalas/nvim.git
+_git_origin_matches "$identity_checkout" https://github.com/petalas/nvim.git
+git -C "$identity_checkout" remote set-url origin ssh://git@github.com/petalas/nvim.git
+_git_origin_matches "$identity_checkout" https://github.com/petalas/nvim.git
+git -C "$identity_checkout" remote set-url origin https://github.com/petalas/nvim.git
+_git_origin_matches "$identity_checkout" git@github.com:petalas/nvim.git
+git -C "$identity_checkout" remote set-url origin ssh://git@github.com/petalas/nvim.git
+if _git_origin_matches "$identity_checkout" https://github.com/someone-else/nvim.git; then
+    echo "origin validation accepted a different GitHub repository owner" >&2
+    exit 1
+fi
+
 sleep() { :; }
 
 cat >"$fixture_dir/flaky" <<'EOF'
