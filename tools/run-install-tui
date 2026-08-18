@@ -59,7 +59,7 @@ if [[ -x "$source_binary" ]]; then exec "$source_binary" "$@"; fi
 if command -v go >/dev/null 2>&1; then
     echo "Warning: verified TUI artifact unavailable; building with the existing Go toolchain." >&2
     temporary=$(mktemp "$install_dir/.dotfiles-tui.XXXXXX")
-    if (cd "$root_dir" && CGO_ENABLED=0 go build -trimpath -o "$temporary" ./cmd/dotfiles-tui) && [[ -s "$temporary" ]]; then
+    if (cd "$root_dir" && CGO_ENABLED=0 go build -trimpath -buildvcs=false -o "$temporary" ./cmd/dotfiles-tui) && [[ -s "$temporary" ]]; then
         chmod 755 "$temporary"
         mv -f "$temporary" "$source_binary"
         trap - EXIT

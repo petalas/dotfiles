@@ -11,7 +11,7 @@ for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
     os=${target%/*}; arch=${target#*/}; platform=$os
     [[ "$os" != darwin ]] || platform=macos
     artifact="$fixture/dotfiles-tui-$platform-$arch"
-    CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -ldflags='-s -w -buildid=' \
+    CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -buildvcs=false -ldflags='-s -w -buildid=' \
         -o "$artifact" ./cmd/dotfiles-tui
     if command -v sha256sum >/dev/null; then actual=$(sha256sum "$artifact" | awk '{print $1}'); else actual=$(shasum -a 256 "$artifact" | awk '{print $1}'); fi
     expected=$(awk -F '\t' -v platform="$platform" -v arch="$arch" \

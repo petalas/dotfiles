@@ -41,6 +41,11 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Inspection artifacts therefore include one aggregate `observation` plus exact `mechanism` rows. Prepared Exact Remove operations come only from those mechanism rows; Force removal alone expands the broader cleanup recipe.
 - A direct-install receipt may be created only when the command was absent before a successful installer run or when an existing valid receipt is being refreshed. A successful no-op installer over a pre-existing unreceipted command must not claim custody.
 
+## Release helper hashes must disable Go VCS stamping
+
+- `-trimpath` and an empty build ID are not enough for reproducible Go binaries when building inside a Git checkout. Go also embeds VCS revision and dirty-state metadata by default, so an artifact built before commit has a different SHA-256 after the same source is committed.
+- Build release helpers and verify `catalog/tui-releases.tsv` with `go build -buildvcs=false -trimpath -ldflags='-s -w -buildid='`. The release-manifest test intentionally rebuilds every target after commit so this cannot silently recur.
+
 ## Bubble Tea execution completion must follow both output scanners
 
 - The progress helper reads engine events from stdout and diagnostic output from stderr concurrently. Sending the completion message as soon as `cmd.Wait()` returns can overtake queued scanner messages, leaving the final view at `0/N` even though execution settled.

@@ -27,7 +27,7 @@ jobs:
             arch=${target#*/}
             name_os=$os
             [[ "$os" != darwin ]] || name_os=macos
-            CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath \
+            CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -buildvcs=false \
               -ldflags='-s -w -buildid=' -o "dist/dotfiles-tui-${name_os}-${arch}" ./cmd/dotfiles-tui
           done
           (cd dist && sha256sum dotfiles-tui-* >checksums.txt)
