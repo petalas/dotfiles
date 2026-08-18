@@ -48,7 +48,7 @@ func TestPlanningViewFitsTerminalAndKeepsSelectionVisible(t *testing.T) {
 		}
 	}
 	if !strings.Contains(view, "Application 20") {
-		t.Fatal("selected application must remain visible in the scrollable lane")
+		t.Fatal("selected application must remain visible in the scrollable planning list")
 	}
 	for _, required := range []string{"[PLAN]", "REVIEW", "RUN", "Ensure", "Leave", "Remove", "Force", "Application 20 · present", "enter review", "q quit"} {
 		if !strings.Contains(view, required) {
@@ -70,7 +70,7 @@ func TestCompactStateTransitionsDescribeOnlyRealChanges(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			m := model{apps: []application{test.app}, display: plain, stage: "select", lane: laneIndex(test.app.outcome), dependencies: map[string][]string{}, width: 80, height: 20}
+			m := model{apps: []application{test.app}, display: plain, stage: "select", dependencies: map[string][]string{}, width: 80, height: 20}
 			view := m.render()
 			if !strings.Contains(view, test.contains) {
 				t.Fatalf("compact view is missing %q:\n%s", test.contains, view)
@@ -155,13 +155,23 @@ func TestGroupOutcomeChangesSpecificGroupOnly(t *testing.T) {
 		{id: "game.one", label: "Game one", group: "gaming", presence: "present", policy: "optional", exact: "enabled", outcome: ensure},
 		{id: "game.two", label: "Game two", group: "gaming", presence: "present", policy: "optional", exact: "enabled", outcome: ensure},
 		{id: "editor", label: "Editor", group: "editors", presence: "present", policy: "optional", exact: "enabled", outcome: ensure},
-	}, dependencies: map[string][]string{}, groupFilter: 1}
+	}, dependencies: map[string][]string{}, groupFilter: 1, cursor: 1, display: plain, stage: "select", width: 80, height: 20}
+	before := m.render()
 	m.setGroupOutcome(remove)
 	if m.apps[0].outcome != remove || m.apps[1].outcome != remove || m.apps[2].outcome != ensure {
 		t.Fatalf("group action changed the wrong outcomes: %#v", m.apps)
 	}
 	if !strings.Contains(m.notice, "2 set to Remove") {
 		t.Fatalf("group action did not report its result: %q", m.notice)
+	}
+	if m.cursor != 1 {
+		t.Fatalf("group action moved the cursor to %d", m.cursor)
+	}
+	after := m.render()
+	for _, label := range []string{"Game one", "Game two"} {
+		if !strings.Contains(before, label) || !strings.Contains(after, label) {
+			t.Fatalf("group action changed the visible list around %s", label)
+		}
 	}
 	m.groupFilter = 0
 	m.setGroupOutcome(force)
@@ -170,15 +180,41 @@ func TestGroupOutcomeChangesSpecificGroupOnly(t *testing.T) {
 	}
 }
 
+func TestItemOutcomeChangeKeepsPlanningListAndCursorStable(t *testing.T) {
+	m := model{
+		apps: []application{
+			{id: "a", label: "Alpha", group: "tools", availability: "available", presence: "present", policy: "optional", exact: "enabled", outcome: ensure},
+			{id: "b", label: "Bravo", group: "tools", availability: "available", presence: "present", policy: "optional", exact: "enabled", outcome: ensure},
+			{id: "c", label: "Charlie", group: "tools", availability: "available", presence: "present", policy: "optional", exact: "enabled", outcome: ensure},
+		},
+		dependencies: map[string][]string{}, display: plain, stage: "select", width: 80, height: 20, cursor: 1,
+	}
+	before := m.render()
+	updated, _ := m.Update(tea.KeyPressMsg(tea.Key{Text: "r", Code: 'r'}))
+	result := updated.(model)
+	if result.cursor != m.cursor || result.groupFilter != m.groupFilter {
+		t.Fatalf("outcome change moved planning context: cursor=%d group=%d", result.cursor, result.groupFilter)
+	}
+	after := result.render()
+	for _, label := range []string{"Alpha", "Bravo", "Charlie"} {
+		if !strings.Contains(before, label) || !strings.Contains(after, label) {
+			t.Fatalf("visible list changed around %s after outcome toggle:\n%s", label, after)
+		}
+	}
+	if !strings.Contains(after, "Bravo · present -> removed") {
+		t.Fatalf("selected row did not render its scheduled state immediately:\n%s", after)
+	}
+}
+
 func TestVerboseKeyTogglesDetailWithoutLosingNavigation(t *testing.T) {
 	for _, stage := range []string{"select", "review"} {
-		m := model{apps: []application{{id: "app", label: "App", outcome: ensure}}, stage: stage, lane: 2, cursor: 4, groupFilter: 1, reviewScroll: 7}
+		m := model{apps: []application{{id: "app", label: "App", outcome: ensure}}, stage: stage, cursor: 4, groupFilter: 1, reviewScroll: 7}
 		updated, _ := m.Update(tea.KeyPressMsg(tea.Key{Text: "v", Code: 'v'}))
 		result := updated.(model)
 		if !result.verbose {
 			t.Fatalf("v did not enable verbose mode during %s", stage)
 		}
-		if result.lane != 2 || result.cursor != 4 || result.groupFilter != 1 || result.reviewScroll != 7 {
+		if result.cursor != 4 || result.groupFilter != 1 || result.reviewScroll != 7 {
 			t.Fatalf("verbose toggle changed navigation during %s", stage)
 		}
 		updated, _ = result.Update(tea.KeyPressMsg(tea.Key{Text: "v", Code: 'v'}))

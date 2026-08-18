@@ -68,6 +68,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - The `choose` command must honor its own “Enter opens review” help text. Exiting directly from Plan made the separate prepared-run review feel like an unrelated second UI. Keep the state-transition and 80×24 bounds tests at the model seam.
 - Successful interactive inspection uses the alternate screen and leaves no static “run settled” report behind before Plan opens. Redirected runs still print their final report for automation and diagnostics.
 - Compact rows should carry state text independently of color: rich mode colors the application/current state and any changed desired state, while plain and ASCII modes retain the same `current -> desired` wording. Once rows contain ANSI styling, truncate with the ANSI-aware `x/ansi.Truncate`; rune slicing can cut an escape sequence and corrupt the rest of the terminal.
+- Outcome buckets are summaries, not list-navigation surfaces. Moving an application into another filtered lane after `e/u/r/f` destroys spatial context just when the user needs to verify the new scheduled state. Keep one catalog-order, group-filtered planning list; update the selected row and outcome counts in place.
 
 ## Bubble Tea progress needs consumed terminal replies and a dedicated event channel
 

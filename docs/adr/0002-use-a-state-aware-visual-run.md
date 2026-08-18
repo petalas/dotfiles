@@ -4,7 +4,7 @@ The installation catalog previously resolved wanted/not-wanted choices through a
 
 ## Decision
 
-Use a repository-owned Go helper built with Bubble Tea v2, Bubbles v2, and Lip Gloss v2 for visual planning, differentiated confirmation, and progress rendering. Organize applications into Ensure present, Leave unchanged, Remove, and Force removal lanes. Keep inspection, preparation, catalog validation, dependency ordering, adapter execution, receipts, and run reports behind the `lib/install-plan` subprocess through `inspect`, `prepare`, and `execute` operations.
+Use a repository-owned Go helper built with Bubble Tea v2, Bubbles v2, and Lip Gloss v2 for visual planning, differentiated confirmation, and progress rendering. Show applications in one stable, group-filtered catalog-order list with Ensure present, Leave unchanged, Remove, and Force removal outcome counts above it. Outcome changes update rows in place rather than moving applications between filtered lanes, preserving spatial context while making scheduled state transitions immediate. Keep inspection, preparation, catalog validation, dependency ordering, adapter execution, receipts, and run reports behind the `lib/install-plan` subprocess through `inspect`, `prepare`, and `execute` operations.
 
 Exact removal requires an exact package registration or a validated direct-install receipt. Force removal may act without custody only through `catalog/removals.tsv`; every target is bounded and reviewed. Retained dependents block prerequisite removal, package-manager dependency protections remain active, and user data and shared prerequisites are never cleanup targets.
 

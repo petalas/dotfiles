@@ -31,8 +31,8 @@ const (
 	force  outcome = "force"
 )
 
-var lanes = []outcome{ensure, leave, remove, force}
-var laneTitles = map[outcome]string{ensure: "ENSURE PRESENT", leave: "LEAVE UNCHANGED", remove: "REMOVE", force: "FORCE REMOVAL"}
+var orderedOutcomes = []outcome{ensure, leave, remove, force}
+var outcomeTitles = map[outcome]string{ensure: "ENSURE PRESENT", leave: "LEAVE UNCHANGED", remove: "REMOVE", force: "FORCE REMOVAL"}
 
 type planStep struct {
 	id, label string
@@ -58,7 +58,7 @@ type model struct {
 	dependencies         map[string][]string
 	reviewDetails        []string
 	width, height        int
-	lane, cursor         int
+	cursor               int
 	groupFilter          int
 	reviewScroll         int
 	display              displayMode
@@ -206,16 +206,6 @@ func (m model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		switch key {
-		case "left", "h":
-			if m.lane > 0 {
-				m.lane--
-				m.cursor = 0
-			}
-		case "right", "l":
-			if m.lane < len(lanes)-1 {
-				m.lane++
-				m.cursor = 0
-			}
 		case "[":
 			if m.groupFilter > 0 {
 				m.groupFilter--
@@ -231,13 +221,13 @@ func (m model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor--
 			}
 		case "down", "j":
-			if m.cursor+1 < len(m.appsInLane(lanes[m.lane])) {
+			if m.cursor+1 < len(m.appsInPlanningList()) {
 				m.cursor++
 			}
 		case "pgup":
 			m.cursor = max(0, m.cursor-5)
 		case "pgdown":
-			m.cursor = min(max(0, len(m.appsInLane(lanes[m.lane]))-1), m.cursor+5)
+			m.cursor = min(max(0, len(m.appsInPlanningList())-1), m.cursor+5)
 		case "e":
 			m.setSelectedOutcome(ensure)
 		case "u":
@@ -361,7 +351,7 @@ func (m model) expectedPhrase() string {
 }
 
 func (m *model) setSelectedOutcome(next outcome) {
-	visible := m.appsInLane(lanes[m.lane])
+	visible := m.appsInPlanningList()
 	if m.cursor >= len(visible) {
 		return
 	}
@@ -375,8 +365,6 @@ func (m *model) setSelectedOutcome(next outcome) {
 			return
 		}
 		m.notice = ""
-		m.lane = laneIndex(next)
-		m.cursor = len(m.appsInLane(next)) - 1
 		return
 	}
 }
@@ -438,9 +426,6 @@ func (m *model) setGroupOutcome(next outcome) {
 			changed++
 		}
 	}
-	if changed > 0 {
-		m.lane, m.cursor = laneIndex(next), 0
-	}
 	m.notice = fmt.Sprintf("Group %s: %d set to %s", group, changed, outcomeLabel(next))
 	if skipped > 0 {
 		m.notice += fmt.Sprintf("; %d unchanged because the action is disabled", skipped)
@@ -482,15 +467,6 @@ func (m model) retainedDependent(prerequisite string) string {
 	return ""
 }
 
-func laneIndex(wanted outcome) int {
-	for i, candidate := range lanes {
-		if candidate == wanted {
-			return i
-		}
-	}
-	return 0
-}
-
 func (m model) groupFilters() []string {
 	groups := []string{"All groups"}
 	seen := map[string]bool{}
@@ -502,7 +478,7 @@ func (m model) groupFilters() []string {
 	}
 	return groups
 }
-func (m model) appsInLane(wanted outcome) []application {
+func (m model) appsWithOutcomeInGroup(wanted outcome) []application {
 	apps := filterApps(m.apps, wanted)
 	if m.groupFilter == 0 {
 		return apps
@@ -510,6 +486,20 @@ func (m model) appsInLane(wanted outcome) []application {
 	group := m.groupFilters()[m.groupFilter]
 	filtered := []application{}
 	for _, app := range apps {
+		if app.group == group {
+			filtered = append(filtered, app)
+		}
+	}
+	return filtered
+}
+
+func (m model) appsInPlanningList() []application {
+	if m.groupFilter == 0 {
+		return append([]application(nil), m.apps...)
+	}
+	group := m.groupFilters()[m.groupFilter]
+	filtered := []application{}
+	for _, app := range m.apps {
 		if app.group == group {
 			filtered = append(filtered, app)
 		}
@@ -537,7 +527,7 @@ func (m model) render() string {
 	if m.stage == "review" || m.stage == "confirm" {
 		return m.renderReview()
 	}
-	return m.renderLanes()
+	return m.renderPlan()
 }
 
 func (m model) screenWidth() int {
@@ -561,7 +551,7 @@ func (m model) separator() string {
 	return " · "
 }
 
-func (m model) renderLanes() string {
+func (m model) renderPlan() string {
 	width, height := m.screenWidth(), m.contentHeight()
 	if width < 40 || height < 14 {
 		return compactContext("plan", m.separator(), "Resize to at least 40x14", "q quit", width, height)
@@ -584,7 +574,7 @@ func (m model) renderLanes() string {
 	header := []string{fit(stageStepper("plan", sep), width)}
 	header = append(header, fit("DOTFILES"+sep+fmt.Sprintf("%d applications", len(m.apps))+sep+"group: "+group, width))
 	header = append(header, fit(fmt.Sprintf("managed %d%splanned changes %d%scustody warnings %d", managed, sep, changes, sep, warnings), width))
-	header = append(header, wrapSegments(m.laneTabParts(), sep, width)...)
+	header = append(header, wrapSegments(m.outcomeSummaryParts(), sep, width)...)
 	if m.notice != "" {
 		header = append(header, fit("! "+m.notice, width))
 	}
@@ -603,7 +593,7 @@ func (m model) renderLanes() string {
 		}
 		header = append(header, fit(line, width))
 	}
-	footer := wrapWords("up/down select  left/right lane  e/u/r/f item outcome", width)
+	footer := wrapWords("up/down select  e/u/r/f set item outcome", width)
 	footer = append(footer, wrapWords("[/] choose group  Shift+E/U/R/F whole group  tab steps", width)...)
 	detailControl := "v show details"
 	if m.verbose {
@@ -611,7 +601,7 @@ func (m model) renderLanes() string {
 	}
 	footer = append(footer, wrapWords("pgup/pgdown page  "+detailControl+"  enter review  q quit", width)...)
 	bodyHeight := max(1, height-len(header)-len(footer))
-	body := strings.Split(m.renderLane(lanes[m.lane], width, bodyHeight), "\n")
+	body := strings.Split(m.renderPlanningList(width, bodyHeight), "\n")
 	lines := append(header, body...)
 	lines = append(lines, footer...)
 	return fitScreen(lines, width, height)
@@ -648,26 +638,11 @@ func stageStepper(active, separator string) string {
 	return "STAGES  " + strings.Join(parts, separator)
 }
 
-func (m model) laneSummaryParts() []string {
+func (m model) outcomeSummaryParts() []string {
 	labels := map[outcome]string{ensure: "Ensure", leave: "Leave", remove: "Remove", force: "Force"}
-	parts := make([]string, 0, len(lanes))
-	for _, wanted := range lanes {
-		parts = append(parts, fmt.Sprintf("%s %d", labels[wanted], len(m.appsInLane(wanted))))
-	}
-	return parts
-}
-
-func (m model) laneTabParts() []string {
-	labels := map[outcome]string{ensure: "Ensure", leave: "Leave", remove: "Remove", force: "Force"}
-	parts := make([]string, 0, len(lanes))
-	for index, wanted := range lanes {
-		part := fmt.Sprintf("%s %d", labels[wanted], len(m.appsInLane(wanted)))
-		if index == m.lane {
-			part = "> " + part
-		} else {
-			part = "  " + part
-		}
-		parts = append(parts, part)
+	parts := make([]string, 0, len(orderedOutcomes))
+	for _, wanted := range orderedOutcomes {
+		parts = append(parts, fmt.Sprintf("%s %d", labels[wanted], len(m.appsWithOutcomeInGroup(wanted))))
 	}
 	return parts
 }
@@ -708,12 +683,12 @@ func outcomeLabel(wanted outcome) string {
 	}
 }
 
-func (m model) renderLane(wanted outcome, width, height int) string {
-	apps := m.appsInLane(wanted)
+func (m model) renderPlanningList(width, height int) string {
+	apps := m.appsInPlanningList()
 	if height <= 0 {
 		return ""
 	}
-	title := fmt.Sprintf("%s (%d)", laneTitles[wanted], len(apps))
+	title := fmt.Sprintf("APPLICATIONS (%d)", len(apps))
 	if len(apps) > 0 {
 		title += fmt.Sprintf("  item %d/%d", min(m.cursor+1, len(apps)), len(apps))
 	}
@@ -885,9 +860,9 @@ func (m model) renderReview() string {
 		fmt.Fprintf(&b, "  [%s] %s\n", state, step.label)
 	}
 	fmt.Fprintln(&b)
-	for _, wanted := range lanes {
+	for _, wanted := range orderedOutcomes {
 		apps := m.appsWithOutcome(wanted)
-		fmt.Fprintf(&b, "%s (%d)\n", laneTitles[wanted], len(apps))
+		fmt.Fprintf(&b, "%s (%d)\n", outcomeTitles[wanted], len(apps))
 		for _, app := range apps {
 			label := m.renderApplicationLabel("  ", app)
 			if m.verbose {
@@ -905,7 +880,7 @@ func (m model) renderReview() string {
 	}
 	body := wrapIndentedLines(strings.TrimSuffix(b.String(), "\n"), width)
 	header := []string{fit(stageStepper("review", m.separator()), width)}
-	header = append(header, wrapSegments(m.laneSummaryParts(), m.separator(), width)...)
+	header = append(header, wrapSegments(m.outcomeSummaryParts(), m.separator(), width)...)
 	footer := []string{}
 	if m.stage == "confirm" {
 		footer = append(footer, fit(fmt.Sprintf("Type %q to continue:", m.expectedPhrase()), width))

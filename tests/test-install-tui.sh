@@ -85,8 +85,12 @@ PY
     --selection "$fixture/selection.tsv" --width 70 --display ascii >"$fixture/ascii"
 LC_ALL=C grep -q '^[ -~]*$' "$fixture/ascii"
 grep -Fq '[!]' "$fixture/ascii"
-grep -Fq 'item 1/1' "$fixture/ascii"
-grep -Fq 'left/right lane' "$fixture/ascii"
+grep -Fq 'APPLICATIONS (4)  item 1/4' "$fixture/ascii"
+grep -Fq 'e/u/r/f set item outcome' "$fixture/ascii"
+if grep -Fq 'left/right lane' "$fixture/ascii"; then
+    echo 'Stable planning list must not advertise outcome lanes as navigation' >&2
+    exit 1
+fi
 
 cat >"$fixture/events" <<'EOF'
 #!/usr/bin/env bash
@@ -133,4 +137,4 @@ fi
 grep -Fq 'malformed execution event' "$fixture/bad-run"
 grep -Fq 'event\t2\trun-start\t1' "$fixture/bad-run"
 
-printf 'Intent-lanes TUI and progress rendering tests passed.\n'
+printf 'Stable-list TUI and progress rendering tests passed.\n'
