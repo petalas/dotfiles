@@ -150,19 +150,28 @@ debian	terminal.zsh	apt-package	zsh
 debian	cli.aria2	apt-package	aria2
 debian	cli.bat	apt-package	bat
 debian	cli.bc	apt-package	bc
+debian	cli.bind	apt-package	bind9-dnsutils
 debian	cli.btop	apt-package	btop
+debian	cli.fastfetch	apt-package	fastfetch
 debian	cli.eza	apt-package	eza
 debian	cli.fd	apt-package	fd-find
 debian	media.ffmpeg	apt-package	ffmpeg
 debian	cli.fzf	apt-package	fzf
 debian	development.gh	apt-package	gh
+debian	development.glab	apt-package	glab
+debian	development.git-delta	apt-package	git-delta
+debian	development.hyperfine	apt-package	hyperfine
 debian	cli.htop	apt-package	htop
 debian	media.imagemagick	apt-package	imagemagick
 debian	cli.iperf3	apt-package	iperf3
+debian	cli.mtr	apt-package	mtr-tiny
 debian	development.lazygit	apt-package	lazygit
 debian	media.info	apt-package	mediainfo
+debian	media.poppler	apt-package	poppler-utils
+debian	media.yt-dlp	apt-package	yt-dlp
 debian	editors.neovim	apt-package	neovim
 debian	cli.nmap	apt-package	nmap
+debian	cli.sevenzip	apt-package	7zip
 debian	productivity.pass	apt-package	pass
 debian	cli.procs	apt-package	procs
 debian	languages.python	apt-package	python3
@@ -170,7 +179,9 @@ debian	languages.python	apt-package	python3-venv
 debian	cli.ripgrep	apt-package	ripgrep
 debian	development.shellcheck	apt-package	shellcheck
 debian	development.sshpass	apt-package	sshpass
+debian	productivity.syncthing	apt-package	syncthing
 debian	cli.tealdeer	apt-package	tealdeer
+debian	cli.watch	apt-package	procps
 debian	development.tree-sitter	apt-package	tree-sitter-cli
 debian	cli.xclip	apt-package	xclip
 debian	desktop.integration	apt-package	xdg-utils
@@ -178,6 +189,12 @@ debian	cli.xh	apt-package	xh
 debian	languages.java	apt-package	default-jdk
 debian	languages.gradle	apt-package	gradle
 debian	languages.kotlin	apt-package	kotlin
+debian	languages.elixir	apt-package	elixir
+debian	languages.luarocks	apt-package	luarocks
+debian	creative.gimp	apt-package	gimp
+debian	creative.qbittorrent	apt-package	qbittorrent
+debian	creative.vlc	apt-package	vlc
+debian	cad.openscad	apt-package	openscad
 debian	languages.typescript	npm-package	typescript
 debian	languages.typescript	npm-package	typescript-language-server
 debian	ai.codex-cli	npm-package	@openai/codex
@@ -185,6 +202,8 @@ debian	ai.pi	npm-package	@earendil-works/pi-coding-agent	ignore-scripts
 debian	cli.tealdeer	cargo-package	tealdeer	missing-only
 debian	cli.bat	cargo-package	bat	missing-only
 debian	cli.ripgrep	cargo-package	ripgrep	missing-only
+debian	cli.bottom	cargo-package	bottom	missing-only
+debian	cli.dust	cargo-package	du-dust	missing-only
 debian	development.tree-sitter	cargo-package	tree-sitter-cli	missing-only
 debian	development.cargo-edit	cargo-package	cargo-edit	missing-only
 debian	development.wasm-bindgen	cargo-package	wasm-bindgen-cli	missing-only

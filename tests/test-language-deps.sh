@@ -50,7 +50,7 @@ grep -Fq '@earendil-works/pi-coding-agent' "$log"
 
 : >"$log"
 install_rust_deps
-for package in tree-sitter-cli ripgrep wasm-bindgen-cli cargo-edit tealdeer bat watchexec-cli; do
+for package in tree-sitter-cli ripgrep wasm-bindgen-cli cargo-edit tealdeer bat bottom du-dust watchexec-cli; do
     grep -Fq "$package" "$log"
 done
 

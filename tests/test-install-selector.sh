@@ -34,6 +34,9 @@ command=$1; shift
 case "$command" in
     choose)
         while (($#)); do case "$1" in --selection) input=$2; shift 2 ;; --output) output=$2; shift 2 ;; *) shift ;; esac; done
+        grep -Fxq $'group\tfoundation\tFoundation' "$input"
+        grep -Fxq $'group\tlanguages\tLanguages & runtimes' "$input"
+        grep -Fxq $'group\tgaming\tGaming & streaming' "$input"
         awk -F '\t' 'BEGIN {OFS="\t"} $1=="outcome" && $2=="gaming.steam" {$3="leave"} $1=="format" || $1=="step" || $1=="outcome" {print}' "$input" >"$output"
         ;;
     confirm)

@@ -3,6 +3,8 @@ ai.codex-cli	npm	payload	npm-package	@openai/codex
 ai.herdr	direct	payload	installer	herdr
 ai.pi	npm	payload	npm-package	@earendil-works/pi-coding-agent	ignore-scripts
 cli.bat	cargo	payload	cargo-package	bat	missing-only
+cli.bottom	cargo	payload	cargo-package	bottom	missing-only
+cli.dust	cargo	payload	cargo-package	du-dust	missing-only
 cli.ripgrep	cargo	payload	cargo-package	ripgrep	missing-only
 cli.tealdeer	cargo	payload	cargo-package	tealdeer	missing-only
 cli.yazi	direct	payload	installer	yazi

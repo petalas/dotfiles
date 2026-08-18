@@ -40,8 +40,8 @@ type planStep struct {
 }
 
 type application struct {
-	id, group, label, availability, presence, custody, policy, exact, force, evidence string
-	outcome                                                                           outcome
+	id, group, groupLabel, label, availability, presence, custody, policy, exact, force, evidence string
+	outcome                                                                                       outcome
 }
 
 type displayMode string
@@ -72,10 +72,12 @@ type model struct {
 	confirmOnly          bool
 	interactive          bool
 	verbose              bool
+	collapsedGroups      map[string]bool
 }
 
 func parseInputs(observationsPath, selectionPath string) ([]application, []planStep, map[string][]string, error) {
 	selected := map[string]outcome{}
+	groupLabels := map[string]string{}
 	steps := []planStep{}
 	dependencies := map[string][]string{}
 	if err := scanTSV(selectionPath, func(fields []string) error {
@@ -87,6 +89,11 @@ func parseInputs(observationsPath, selectionPath string) ([]application, []planS
 			default:
 				return fmt.Errorf("invalid desired outcome for %s", fields[1])
 			}
+		case len(fields) == 3 && fields[0] == "group":
+			if fields[1] == "" || fields[2] == "" || groupLabels[fields[1]] != "" {
+				return fmt.Errorf("invalid or duplicate group %q", fields[1])
+			}
+			groupLabels[fields[1]] = fields[2]
 		case len(fields) == 4 && fields[0] == "step":
 			if fields[2] != "on" && fields[2] != "off" {
 				return fmt.Errorf("invalid step state for %s", fields[1])
@@ -110,7 +117,7 @@ func parseInputs(observationsPath, selectionPath string) ([]application, []planS
 			}
 			apps = append(apps, application{
 				id: fields[1], availability: fields[2], presence: fields[3], custody: fields[4], policy: fields[5],
-				exact: fields[6], force: fields[7], group: fields[8], label: fields[9],
+				exact: fields[6], force: fields[7], group: fields[8], groupLabel: groupLabels[fields[8]], label: fields[9],
 				evidence: fields[10], outcome: wanted,
 			})
 			return nil
@@ -206,6 +213,12 @@ func (m model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		switch key {
+		case "left", "h":
+			m.collapseSelectedGroup()
+		case "right", "l":
+			m.expandSelectedGroup()
+		case "space":
+			m.toggleSelectedGroup()
 		case "[":
 			if m.groupFilter > 0 {
 				m.groupFilter--
@@ -221,13 +234,13 @@ func (m model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor--
 			}
 		case "down", "j":
-			if m.cursor+1 < len(m.appsInPlanningList()) {
+			if m.cursor+1 < len(m.planningNodes()) {
 				m.cursor++
 			}
 		case "pgup":
 			m.cursor = max(0, m.cursor-5)
 		case "pgdown":
-			m.cursor = min(max(0, len(m.appsInPlanningList())-1), m.cursor+5)
+			m.cursor = min(max(0, len(m.planningNodes())-1), m.cursor+5)
 		case "e":
 			m.setSelectedOutcome(ensure)
 		case "u":
@@ -351,22 +364,20 @@ func (m model) expectedPhrase() string {
 }
 
 func (m *model) setSelectedOutcome(next outcome) {
-	visible := m.appsInPlanningList()
-	if m.cursor >= len(visible) {
+	nodes := m.planningNodes()
+	if m.cursor >= len(nodes) {
 		return
 	}
-	id := visible[m.cursor].id
-	for i := range m.apps {
-		if m.apps[i].id != id {
-			continue
-		}
-		if reason := m.trySetOutcome(i, next); reason != "" {
-			m.notice = reason
-			return
-		}
-		m.notice = ""
+	node := nodes[m.cursor]
+	if node.isGroup() {
+		m.setGroupOutcomeFor(node.group, next)
 		return
 	}
+	if reason := m.trySetOutcome(node.appIndex, next); reason != "" {
+		m.notice = reason
+		return
+	}
+	m.notice = ""
 }
 
 func (m *model) trySetOutcome(index int, next outcome) string {
@@ -402,11 +413,14 @@ func (m *model) trySetOutcome(index int, next outcome) string {
 }
 
 func (m *model) setGroupOutcome(next outcome) {
-	if m.groupFilter == 0 {
-		m.notice = "Choose a specific group with [ or ] before using a group action"
+	nodes := m.planningNodes()
+	if m.cursor >= len(nodes) {
 		return
 	}
-	group := m.groupFilters()[m.groupFilter]
+	m.setGroupOutcomeFor(nodes[m.cursor].group, next)
+}
+
+func (m *model) setGroupOutcomeFor(group string, next outcome) {
 	indices := []int{}
 	for i := range m.apps {
 		if m.apps[i].group == group {
@@ -418,17 +432,20 @@ func (m *model) setGroupOutcome(next outcome) {
 			indices[left], indices[right] = indices[right], indices[left]
 		}
 	}
-	changed, skipped := 0, 0
+	changed, skipped, firstReason := 0, 0, ""
 	for _, index := range indices {
 		if reason := m.trySetOutcome(index, next); reason != "" {
 			skipped++
+			if firstReason == "" {
+				firstReason = reason
+			}
 		} else {
 			changed++
 		}
 	}
-	m.notice = fmt.Sprintf("Group %s: %d set to %s", group, changed, outcomeLabel(next))
+	m.notice = fmt.Sprintf("%s: %d set to %s", m.groupLabel(group), changed, outcomeLabel(next))
 	if skipped > 0 {
-		m.notice += fmt.Sprintf("; %d unchanged because the action is disabled", skipped)
+		m.notice += fmt.Sprintf("; %d unchanged (%s)", skipped, firstReason)
 	}
 }
 
@@ -493,18 +510,105 @@ func (m model) appsWithOutcomeInGroup(wanted outcome) []application {
 	return filtered
 }
 
-func (m model) appsInPlanningList() []application {
-	if m.groupFilter == 0 {
-		return append([]application(nil), m.apps...)
+type planningNode struct {
+	group     string
+	label     string
+	appIndex  int
+	lastChild bool
+}
+
+func (node planningNode) isGroup() bool { return node.appIndex < 0 }
+
+func (m model) groupLabel(group string) string {
+	if group == "" {
+		return "Applications"
 	}
-	group := m.groupFilters()[m.groupFilter]
-	filtered := []application{}
 	for _, app := range m.apps {
-		if app.group == group {
-			filtered = append(filtered, app)
+		if app.group == group && app.groupLabel != "" {
+			return app.groupLabel
 		}
 	}
-	return filtered
+	special := map[string]string{"ai": "AI", "cad": "CAD", "cli": "CLI utilities"}
+	if label := special[group]; label != "" {
+		return label
+	}
+	return strings.ToUpper(group[:1]) + strings.ReplaceAll(group[1:], "-", " ")
+}
+
+func (m model) planningNodes() []planningNode {
+	groups := []string{}
+	seen := map[string]bool{}
+	selectedGroup := ""
+	if m.groupFilter > 0 {
+		selectedGroup = m.groupFilters()[m.groupFilter]
+	}
+	for _, app := range m.apps {
+		if selectedGroup != "" && app.group != selectedGroup || seen[app.group] {
+			continue
+		}
+		seen[app.group] = true
+		groups = append(groups, app.group)
+	}
+	nodes := []planningNode{}
+	for _, group := range groups {
+		nodes = append(nodes, planningNode{group: group, label: m.groupLabel(group), appIndex: -1})
+		if m.collapsedGroups[group] {
+			continue
+		}
+		indices := []int{}
+		for index := range m.apps {
+			if m.apps[index].group == group {
+				indices = append(indices, index)
+			}
+		}
+		for position, index := range indices {
+			nodes = append(nodes, planningNode{group: group, appIndex: index, lastChild: position == len(indices)-1})
+		}
+	}
+	return nodes
+}
+
+func (m *model) ensureCollapsedGroups() {
+	if m.collapsedGroups == nil {
+		m.collapsedGroups = map[string]bool{}
+	}
+}
+
+func (m *model) collapseSelectedGroup() {
+	nodes := m.planningNodes()
+	if m.cursor >= len(nodes) {
+		return
+	}
+	node := nodes[m.cursor]
+	if !node.isGroup() {
+		for m.cursor > 0 && !nodes[m.cursor].isGroup() {
+			m.cursor--
+		}
+		return
+	}
+	m.ensureCollapsedGroups()
+	m.collapsedGroups[node.group] = true
+}
+
+func (m *model) expandSelectedGroup() {
+	nodes := m.planningNodes()
+	if m.cursor >= len(nodes) || !nodes[m.cursor].isGroup() {
+		return
+	}
+	m.ensureCollapsedGroups()
+	delete(m.collapsedGroups, nodes[m.cursor].group)
+}
+
+func (m *model) toggleSelectedGroup() {
+	nodes := m.planningNodes()
+	if m.cursor >= len(nodes) || !nodes[m.cursor].isGroup() {
+		return
+	}
+	if m.collapsedGroups[nodes[m.cursor].group] {
+		m.expandSelectedGroup()
+	} else {
+		m.collapseSelectedGroup()
+	}
 }
 func (m model) appsWithOutcome(wanted outcome) []application { return filterApps(m.apps, wanted) }
 func filterApps(apps []application, wanted outcome) []application {
@@ -557,6 +661,10 @@ func (m model) renderPlan() string {
 		return compactContext("plan", m.separator(), "Resize to at least 40x14", "q quit", width, height)
 	}
 	group := m.groupFilters()[m.groupFilter]
+	groupDisplay := group
+	if m.groupFilter > 0 {
+		groupDisplay = m.groupLabel(group)
+	}
 	managed, changes, warnings := 0, 0, 0
 	for _, app := range m.apps {
 		if app.presence == "present" && app.custody == "managed" {
@@ -572,12 +680,13 @@ func (m model) renderPlan() string {
 	}
 	sep := m.separator()
 	header := []string{fit(stageStepper("plan", sep), width)}
-	header = append(header, fit("DOTFILES"+sep+fmt.Sprintf("%d applications", len(m.apps))+sep+"group: "+group, width))
-	header = append(header, fit(fmt.Sprintf("managed %d%splanned changes %d%scustody warnings %d", managed, sep, changes, sep, warnings), width))
-	header = append(header, wrapSegments(m.outcomeSummaryParts(), sep, width)...)
+	header = append(header, fit("DOTFILES"+sep+fmt.Sprintf("%d applications", len(m.apps))+sep+"group: "+groupDisplay, width))
+	status := fmt.Sprintf("managed %d%splanned changes %d%scustody warnings %d", managed, sep, changes, sep, warnings)
 	if m.notice != "" {
-		header = append(header, fit("! "+m.notice, width))
+		status = "! " + m.notice
 	}
+	header = append(header, fit(status, width))
+	header = append(header, wrapSegments(m.outcomeSummaryParts(), sep, width)...)
 	if len(m.steps) > 0 {
 		line := "Steps:"
 		for i, step := range m.steps {
@@ -593,15 +702,15 @@ func (m model) renderPlan() string {
 		}
 		header = append(header, fit(line, width))
 	}
-	footer := wrapWords("up/down select  e/u/r/f set item outcome", width)
-	footer = append(footer, wrapWords("[/] choose group  Shift+E/U/R/F whole group  tab steps", width)...)
+	footer := wrapWords("up/down select  left/right collapse/expand  e/u/r/f set node outcome", width)
+	footer = append(footer, wrapWords("Shift+E/U/R/F parent group  [/] filter group  tab steps", width)...)
 	detailControl := "v show details"
 	if m.verbose {
 		detailControl = "v hide details"
 	}
 	footer = append(footer, wrapWords("pgup/pgdown page  "+detailControl+"  enter review  q quit", width)...)
 	bodyHeight := max(1, height-len(header)-len(footer))
-	body := strings.Split(m.renderPlanningList(width, bodyHeight), "\n")
+	body := strings.Split(m.renderPlanningTree(width, bodyHeight), "\n")
 	lines := append(header, body...)
 	lines = append(lines, footer...)
 	return fitScreen(lines, width, height)
@@ -683,43 +792,78 @@ func outcomeLabel(wanted outcome) string {
 	}
 }
 
-func (m model) renderPlanningList(width, height int) string {
-	apps := m.appsInPlanningList()
+func (m model) renderPlanningTree(width, height int) string {
+	nodes := m.planningNodes()
 	if height <= 0 {
 		return ""
 	}
-	title := fmt.Sprintf("APPLICATIONS (%d)", len(apps))
-	if len(apps) > 0 {
-		title += fmt.Sprintf("  item %d/%d", min(m.cursor+1, len(apps)), len(apps))
+	appCount := len(m.apps)
+	if m.groupFilter > 0 {
+		appCount = 0
+		group := m.groupFilters()[m.groupFilter]
+		for _, app := range m.apps {
+			if app.group == group {
+				appCount++
+			}
+		}
 	}
-	if len(apps) == 0 {
+	title := fmt.Sprintf("APPLICATION TREE (%d apps)", appCount)
+	if len(nodes) > 0 {
+		title += fmt.Sprintf("  node %d/%d", min(m.cursor+1, len(nodes)), len(nodes))
+	}
+	if len(nodes) == 0 {
 		return strings.Join([]string{fit(title, width), fit("  (empty)", width)}, "\n")
 	}
 
 	lines := []string{}
 	selectedStart, selectedEnd := 0, 0
-	for i, app := range apps {
+	for index, node := range nodes {
 		start := len(lines)
 		cursor := "  "
-		if i == m.cursor {
+		if index == m.cursor {
 			cursor = "> "
 		}
-		item := m.renderApplicationLabel(cursor, app)
-		if m.verbose {
-			lines = append(lines, fit(item, width))
-			lines = append(lines, fit("    State: "+m.renderStateTransition(app), width))
-			lines = append(lines, fit("    Custody: "+app.custody, width))
-			lines = append(lines, fit("    Evidence: "+app.evidence, width))
+		if node.isGroup() {
+			marker := "▼"
+			if m.collapsedGroups[node.group] {
+				marker = "▶"
+			}
+			if m.display == ascii {
+				if m.collapsedGroups[node.group] {
+					marker = ">"
+				} else {
+					marker = "v"
+				}
+			}
+			line := cursor + marker + " " + node.label + m.separator() + m.groupOutcomeSummary(node.group)
+			if m.display == rich {
+				line = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6")).Render(line)
+			}
+			lines = append(lines, fit(line, width))
 		} else {
-			lines = append(lines, fit(item+m.separator()+m.renderStateTransition(app), width))
+			branch := "├─ "
+			if node.lastChild {
+				branch = "└─ "
+			}
+			if m.display == ascii {
+				branch = "|- "
+				if node.lastChild {
+					branch = "\\- "
+				}
+			}
+			app := m.apps[node.appIndex]
+			item := m.renderApplicationLabel(cursor+"  "+branch, app)
+			if m.verbose {
+				lines = append(lines, fit(item, width))
+				lines = append(lines, fit("        State: "+m.renderStateTransition(app), width))
+				lines = append(lines, fit("        Custody: "+app.custody, width))
+				lines = append(lines, fit("        Evidence: "+app.evidence, width))
+				lines = append(lines, "")
+			} else {
+				lines = append(lines, fit(item+m.separator()+m.renderStateTransition(app), width))
+			}
 		}
-		if reason := m.removalDisabledReason(app); reason != "" && (m.verbose || i == m.cursor) {
-			lines = append(lines, fit("    "+reason, width))
-		}
-		if m.verbose {
-			lines = append(lines, "")
-		}
-		if i == m.cursor {
+		if index == m.cursor {
 			selectedStart, selectedEnd = start, len(lines)-1
 		}
 	}
@@ -729,6 +873,16 @@ func (m model) renderPlanningList(width, height int) string {
 	}
 	visible := viewportAround(lines, selectedStart, selectedEnd, max(0, height-1), width, up, down)
 	return strings.Join(append([]string{fit(title, width)}, visible...), "\n")
+}
+
+func (m model) groupOutcomeSummary(group string) string {
+	counts := map[outcome]int{}
+	for _, app := range m.apps {
+		if app.group == group {
+			counts[app.outcome]++
+		}
+	}
+	return fmt.Sprintf("Ensure %d%sLeave %d%sRemove %d%sForce %d", counts[ensure], m.separator(), counts[leave], m.separator(), counts[remove], m.separator(), counts[force])
 }
 
 func stateTransitionValues(app application) (string, string, bool) {
@@ -789,25 +943,6 @@ func (m model) renderStateTransition(app application) string {
 		return m.colorState(current, current)
 	}
 	return m.colorState(current, current) + " -> " + m.colorState(desired, desired)
-}
-
-func (m model) removalDisabledReason(app application) string {
-	if app.availability == "unavailable" {
-		return "unavailable on this platform"
-	}
-	if dependent := m.retainedDependent(app.id); dependent != "" {
-		return "removal disabled: retained by " + dependent
-	}
-	if app.policy == "required" {
-		return "removal disabled: required"
-	}
-	if app.exact != "enabled" && app.force != "enabled" {
-		return "removal disabled: no safe method"
-	}
-	if app.exact != "enabled" {
-		return "exact disabled: custody unverified"
-	}
-	return ""
 }
 
 func (m model) marker(app application) string {

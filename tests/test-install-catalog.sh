@@ -39,6 +39,30 @@ grep -Fxq $'dependency\tmobile.maestro\tmobile.java17' "$fixture/macos.plan"
 grep -Fxq $'action\tfoundation.locale\tapt-package\tlocales\t' "$fixture/debian.plan"
 grep -Fxq $'action\tcli.fd\tcommand-alias\tfd:fdfind\t' "$fixture/debian.plan"
 grep -Fxq $'action\tcli.bat\tcommand-alias\tbat:batcat\t' "$fixture/debian.plan"
+for declaration in \
+    $'cli.bind\tapt-package\tbind9-dnsutils' \
+    $'cli.fastfetch\tapt-package\tfastfetch' \
+    $'cli.mtr\tapt-package\tmtr-tiny' \
+    $'cli.sevenzip\tapt-package\t7zip' \
+    $'cli.watch\tapt-package\tprocps' \
+    $'development.glab\tapt-package\tglab' \
+    $'development.git-delta\tapt-package\tgit-delta' \
+    $'development.hyperfine\tapt-package\thyperfine' \
+    $'languages.elixir\tapt-package\telixir' \
+    $'languages.luarocks\tapt-package\tluarocks' \
+    $'productivity.syncthing\tapt-package\tsyncthing' \
+    $'media.poppler\tapt-package\tpoppler-utils' \
+    $'media.yt-dlp\tapt-package\tyt-dlp' \
+    $'creative.gimp\tapt-package\tgimp' \
+    $'creative.qbittorrent\tapt-package\tqbittorrent' \
+    $'creative.vlc\tapt-package\tvlc' \
+    $'cad.openscad\tapt-package\topenscad'; do
+    grep -Fxq $'action\t'"$declaration"$'\t' "$fixture/debian.plan"
+done
+grep -Fxq $'action\tcli.bottom\tcargo-package\tbottom\tmissing-only' "$fixture/debian.plan"
+grep -Fxq $'action\tcli.dust\tcargo-package\tdu-dust\tmissing-only' "$fixture/debian.plan"
+grep -Fxq $'dependency\tcli.bottom\tlanguages.rust' "$fixture/debian.plan"
+grep -Fxq $'dependency\tcli.dust\tlanguages.rust' "$fixture/debian.plan"
 grep -Fxq $'action\teditors.code\tinstaller\tcode\t' "$fixture/ubuntu.plan"
 grep -Fxq $'action\tcontainers.docker\tpacman-package\tdocker\t' "$fixture/arch.plan"
 grep -Fxq $'group\tgaming\ton\t160\tGaming & streaming\tunavailable' "$fixture/linux.plan" 2>/dev/null || \

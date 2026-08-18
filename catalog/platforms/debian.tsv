@@ -23,20 +23,29 @@ cli.aria2	apt	payload	apt-package	aria2
 cli.bat	apt	payload	apt-package	bat
 cli.bat	apt	effect	command-alias	bat:batcat
 cli.bc	apt	payload	apt-package	bc
+cli.bind	apt	payload	apt-package	bind9-dnsutils
 cli.btop	apt	payload	apt-package	btop
+cli.fastfetch	apt	payload	apt-package	fastfetch
 cli.eza	apt	payload	apt-package	eza
 cli.fd	apt	payload	apt-package	fd-find
 cli.fd	apt	effect	command-alias	fd:fdfind
 media.ffmpeg	apt	payload	apt-package	ffmpeg
 cli.fzf	apt	payload	apt-package	fzf
 development.gh	apt	payload	apt-package	gh
+development.glab	apt	payload	apt-package	glab
+development.git-delta	apt	payload	apt-package	git-delta
+development.hyperfine	apt	payload	apt-package	hyperfine
 cli.htop	apt	payload	apt-package	htop
 media.imagemagick	apt	payload	apt-package	imagemagick
 cli.iperf3	apt	payload	apt-package	iperf3
+cli.mtr	apt	payload	apt-package	mtr-tiny
 development.lazygit	apt	payload	apt-package	lazygit
 media.info	apt	payload	apt-package	mediainfo
+media.poppler	apt	payload	apt-package	poppler-utils
+media.yt-dlp	apt	payload	apt-package	yt-dlp
 editors.neovim	apt	payload	apt-package	neovim
 cli.nmap	apt	payload	apt-package	nmap
+cli.sevenzip	apt	payload	apt-package	7zip
 productivity.pass	apt	payload	apt-package	pass
 cli.procs	apt	payload	apt-package	procs
 languages.python	apt	payload	apt-package	python3
@@ -44,7 +53,9 @@ languages.python	apt	payload	apt-package	python3-venv
 cli.ripgrep	apt	payload	apt-package	ripgrep
 development.shellcheck	apt	payload	apt-package	shellcheck
 development.sshpass	apt	payload	apt-package	sshpass
+productivity.syncthing	apt	payload	apt-package	syncthing
 cli.tealdeer	apt	payload	apt-package	tealdeer
+cli.watch	apt	payload	apt-package	procps
 development.tree-sitter	apt	payload	apt-package	tree-sitter-cli
 cli.xclip	apt	payload	apt-package	xclip
 desktop.integration	apt	payload	apt-package	xdg-utils
@@ -56,6 +67,12 @@ languages.kotlin	apt	payload	apt-package	kotlin
 languages.node	apt	payload	apt-package	nodejs
 languages.node	apt	payload	apt-package	npm
 languages.rust	apt	payload	apt-package	rustc
+languages.elixir	apt	payload	apt-package	elixir
+languages.luarocks	apt	payload	apt-package	luarocks
+creative.gimp	apt	payload	apt-package	gimp
+creative.qbittorrent	apt	payload	apt-package	qbittorrent
+creative.vlc	apt	payload	apt-package	vlc
+cad.openscad	apt	payload	apt-package	openscad
 productivity.bitwarden	direct	payload	installer	bitwarden
 communication.chrome	direct	payload	installer	chrome
 editors.code	direct	payload	installer	code
@@ -77,6 +94,8 @@ ai.pi	npm	payload	npm-package	@earendil-works/pi-coding-agent	ignore-scripts
 cli.tealdeer	cargo	payload	cargo-package	tealdeer	missing-only
 cli.bat	cargo	payload	cargo-package	bat	missing-only
 cli.ripgrep	cargo	payload	cargo-package	ripgrep	missing-only
+cli.bottom	cargo	payload	cargo-package	bottom	missing-only
+cli.dust	cargo	payload	cargo-package	du-dust	missing-only
 development.tree-sitter	cargo	payload	cargo-package	tree-sitter-cli	missing-only
 development.cargo-edit	cargo	payload	cargo-package	cargo-edit	missing-only
 development.wasm-bindgen	cargo	payload	cargo-package	wasm-bindgen-cli	missing-only

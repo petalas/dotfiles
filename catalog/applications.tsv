@@ -17,9 +17,9 @@ cli.aria2	cli	aria2	on
 cli.bat	cli	bat	on
 cli.bc	cli	bc	on
 cli.bind	cli	DNS tools	on
-cli.bottom	cli	bottom	on
+cli.bottom	cli	bottom	on	languages.rust
 cli.btop	cli	btop	on
-cli.dust	cli	dust	on
+cli.dust	cli	dust	on	languages.rust
 cli.eza	cli	eza	on
 cli.fastfetch	cli	fastfetch	on
 cli.fd	cli	fd	on

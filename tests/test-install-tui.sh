@@ -18,6 +18,10 @@ observation	gaming.steam	available	absent	unverified	optional	disabled	disabled	
 EOF
 cat >"$fixture/selection.tsv" <<'EOF'
 format	1
+group	foundation	Foundation
+group	editors	Editors & IDEs
+group	communication	Browsers & communication
+group	gaming	Gaming & streaming
 step	dependencies	on	Install dependencies
 dependency	editors.neovim	foundation.git
 outcome	foundation.git	ensure
@@ -85,10 +89,11 @@ PY
     --selection "$fixture/selection.tsv" --width 70 --display ascii >"$fixture/ascii"
 LC_ALL=C grep -q '^[ -~]*$' "$fixture/ascii"
 grep -Fq '[!]' "$fixture/ascii"
-grep -Fq 'APPLICATIONS (4)  item 1/4' "$fixture/ascii"
-grep -Fq 'e/u/r/f set item outcome' "$fixture/ascii"
+grep -Fq 'APPLICATION TREE (4 apps)  node 1/8' "$fixture/ascii"
+grep -Fq 'e/u/r/f set node outcome' "$fixture/ascii"
+grep -Fq 'left/right collapse/expand' "$fixture/ascii"
 if grep -Fq 'left/right lane' "$fixture/ascii"; then
-    echo 'Stable planning list must not advertise outcome lanes as navigation' >&2
+    echo 'Planning tree must not advertise outcome lanes as navigation' >&2
     exit 1
 fi
 
@@ -137,4 +142,4 @@ fi
 grep -Fq 'malformed execution event' "$fixture/bad-run"
 grep -Fq 'event\t2\trun-start\t1' "$fixture/bad-run"
 
-printf 'Stable-list TUI and progress rendering tests passed.\n'
+printf 'Planning-tree TUI and progress rendering tests passed.\n'

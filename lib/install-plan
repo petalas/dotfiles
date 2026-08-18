@@ -459,6 +459,11 @@ write_observation_snapshot() {
 write_outcome_selection_draft() {
     local output=$1 index=0 prerequisite old_ifs
     printf 'format\t1\n' >"$output"
+    while ((index < ${#group_ids[@]})); do
+        printf 'group\t%s\t%s\n' "${group_ids[$index]}" "${group_labels[$index]}" >>"$output"
+        index=$((index + 1))
+    done
+    index=0
     while ((index < ${#step_ids[@]})); do
         printf 'step\t%s\t%s\t%s\n' "${step_ids[$index]}" "${step_selection[$index]}" "${step_labels[$index]}" >>"$output"
         index=$((index + 1))
@@ -1081,6 +1086,8 @@ ensure_catalog_command_alias() {
 cargo_package_binary() {
     case "$1" in
         tealdeer) echo tldr ;;
+        bottom) echo btm ;;
+        du-dust) echo dust ;;
         ripgrep) echo rg ;;
         tree-sitter-cli) echo tree-sitter ;;
         cargo-edit) echo cargo-add ;;

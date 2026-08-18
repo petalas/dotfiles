@@ -76,6 +76,10 @@ _Avoid_: Selected application, installed dependent
 The default installation mode in which a terminal selector builds and confirms an installation plan before execution becomes unattended.
 _Avoid_: Interactive install, TUI mode
 
+**Planning tree**:
+The stable visual projection of dependency groups as roots and their catalog-order applications as leaves. A desired outcome assigned to a group root is applied separately to every eligible application in that subtree; shared prerequisite relationships remain a graph and are not represented as tree parentage.
+_Avoid_: Dependency tree, outcome lane
+
 **Unattended full install**:
 An explicitly requested installation mode that selects every available step and application and executes without opening the visual selector.
 _Avoid_: Default install, non-interactive mode

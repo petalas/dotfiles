@@ -45,6 +45,12 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Catalog parity fixtures are sorted text. `en_US.UTF-8` orders `python@3.14` before `python-setuptools`, while the GitHub runner's C locale orders the hyphen first; a silent `cmp` then fails only in CI.
 - `tests/test-install-catalog.sh` exports `LC_ALL=C`, and every sorted frozen fixture must be generated under that same locale.
 
+## Debian availability should use guest-native providers, not host assumptions
+
+- Debian 13 carries many applications that were accidentally macOS-only in the catalog (`fastfetch`, `glab`, `git-delta`, `hyperfine`, Poppler tools, GIMP, VLC, OpenSCAD, and others). Treat absence of a platform row as a catalog gap, not evidence that upstream lacks Linux support.
+- Prefer Debian package registrations when trixie owns the package. For `dust` and `bottom`, use the projects' documented Cargo packages and declare the Rust application prerequisite, preserving exact custody through Cargo.
+- WSL2 supports Debian GUI packages through WSLg, but it does not make VPNs, emulators, hardware tools, game clients, or host desktop utilities safe guest defaults. Keep those unavailable until a specific WSL policy and receipt-aware adapter exist. See `docs/research/debian-unavailable-applications.md`.
+
 ## Platform catalog schema changes must include language-addon readers
 
 - `lib/install-plan` is not the only reader of `catalog/platforms/*.tsv`: `installers/install_node_deps.sh` and `installers/install_rust_deps.sh` read those rows directly to restore npm and Cargo add-ons.
@@ -68,7 +74,9 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - The `choose` command must honor its own “Enter opens review” help text. Exiting directly from Plan made the separate prepared-run review feel like an unrelated second UI. Keep the state-transition and 80×24 bounds tests at the model seam.
 - Successful interactive inspection uses the alternate screen and leaves no static “run settled” report behind before Plan opens. Redirected runs still print their final report for automation and diagnostics.
 - Compact rows should carry state text independently of color: rich mode colors the application/current state and any changed desired state, while plain and ASCII modes retain the same `current -> desired` wording. Once rows contain ANSI styling, truncate with the ANSI-aware `x/ansi.Truncate`; rune slicing can cut an escape sequence and corrupt the rest of the terminal.
-- Outcome buckets are summaries, not list-navigation surfaces. Moving an application into another filtered lane after `e/u/r/f` destroys spatial context just when the user needs to verify the new scheduled state. Keep one catalog-order, group-filtered planning list; update the selected row and outcome counts in place.
+- Outcome buckets are summaries, not list-navigation surfaces. Moving an application into another filtered lane after `e/u/r/f` destroys spatial context just when the user needs to verify the new scheduled state. Keep one catalog-order, group-filtered planning tree; update the selected node and outcome counts in place.
+- The catalog's real tree is dependency-group root → application leaves. Application prerequisites form a graph with shared nodes and must not be presented as tree parentage. Emit canonical group labels in the TUI selection artifact; deriving labels from IDs loses names such as “Terminal & shell.”
+- Persistent disabled-reason rows make the tree jump even before an action is attempted. Keep compact rows one line and replace the fixed summary/status line with the rejection reason only after an invalid `e/u/r/f` action.
 
 ## Bubble Tea progress needs consumed terminal replies and a dedicated event channel
 

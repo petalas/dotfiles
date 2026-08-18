@@ -35,7 +35,7 @@ func TestPlanningViewFitsTerminalAndKeepsSelectionVisible(t *testing.T) {
 			exact: "enabled", force: "disabled", evidence: "registered by package manager", outcome: ensure,
 		}
 	}
-	m := model{apps: apps, dependencies: map[string][]string{}, display: plain, stage: "select", chooseOnly: true, cursor: 19}
+	m := model{apps: apps, dependencies: map[string][]string{}, display: plain, stage: "select", chooseOnly: true, cursor: 20}
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	view := updated.(model).render()
 	lines := strings.Split(strings.TrimSuffix(view, "\n"), "\n")
@@ -83,6 +83,15 @@ func TestCompactStateTransitionsDescribeOnlyRealChanges(t *testing.T) {
 			}
 		})
 	}
+}
+
+func lineNumberContaining(content, value string) int {
+	for index, line := range strings.Split(content, "\n") {
+		if strings.Contains(line, value) {
+			return index
+		}
+	}
+	return -1
 }
 
 func nextLineContaining(content, value string) string {
@@ -174,9 +183,67 @@ func TestGroupOutcomeChangesSpecificGroupOnly(t *testing.T) {
 		}
 	}
 	m.groupFilter = 0
+	m.cursor = 1 // A child still targets its parent subtree without a group filter.
 	m.setGroupOutcome(force)
-	if !strings.Contains(m.notice, "Choose a specific group") {
-		t.Fatalf("all-groups bulk action should be rejected, got %q", m.notice)
+	if !strings.Contains(m.notice, "Gaming:") {
+		t.Fatalf("child group action did not target its parent subtree, got %q", m.notice)
+	}
+}
+
+func TestDisabledReasonAppearsOnlyAfterRejectedAction(t *testing.T) {
+	m := model{apps: []application{{id: "required", label: "Required app", group: "foundation", availability: "available", presence: "present", policy: "required", outcome: ensure}}, dependencies: map[string][]string{}, display: plain, stage: "select", width: 80, height: 18}
+	before := m.render()
+	if strings.Contains(before, "removal disabled") || strings.Contains(before, "is required") {
+		t.Fatalf("disabled reason shifted the untouched planning tree:\n%s", before)
+	}
+	updated, _ := m.Update(tea.KeyPressMsg(tea.Key{Text: "r", Code: 'r'}))
+	view := updated.(model).render()
+	if !strings.Contains(view, "Required app is required") {
+		t.Fatalf("rejected removal did not show a contextual hint:\n%s", view)
+	}
+	if lineNumberContaining(before, "◆ Required app") != lineNumberContaining(view, "◆ Required app") {
+		t.Fatalf("contextual hint shifted the application tree:\nbefore:\n%s\nafter:\n%s", before, view)
+	}
+}
+
+func TestGroupTreeTogglesSubtreeAndCollapsesInPlace(t *testing.T) {
+	m := model{
+		apps: []application{
+			{id: "a", label: "Alpha", group: "cli", groupLabel: "CLI utilities", availability: "available", presence: "present", policy: "optional", exact: "enabled", outcome: ensure},
+			{id: "b", label: "Bravo", group: "cli", groupLabel: "CLI utilities", availability: "available", presence: "present", policy: "optional", exact: "enabled", outcome: ensure},
+			{id: "c", label: "Charlie", group: "development", groupLabel: "Development tools", availability: "available", presence: "present", policy: "optional", exact: "enabled", outcome: ensure},
+		},
+		dependencies: map[string][]string{}, display: plain, stage: "select", width: 90, height: 20,
+	}
+	view := m.render()
+	for _, expected := range []string{"▼ CLI utilities", "├─", "Alpha", "Bravo", "▼ Development tools", "Charlie"} {
+		if !strings.Contains(view, expected) {
+			t.Fatalf("planning tree is missing %q:\n%s", expected, view)
+		}
+	}
+	updated, _ := m.Update(tea.KeyPressMsg(tea.Key{Text: "r", Code: 'r'}))
+	result := updated.(model)
+	if result.apps[0].outcome != remove || result.apps[1].outcome != remove || result.apps[2].outcome != ensure {
+		t.Fatalf("group-row action did not toggle only its subtree: %#v", result.apps)
+	}
+	if result.cursor != 0 || !strings.Contains(result.render(), "Alpha") || !strings.Contains(result.render(), "Bravo") {
+		t.Fatal("group-row action changed the visible tree or cursor")
+	}
+	collapsed, _ := result.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyLeft}))
+	collapsedModel := collapsed.(model)
+	if view := collapsedModel.render(); strings.Contains(view, "Alpha") || strings.Contains(view, "Bravo") || !strings.Contains(view, "CLI utilities") {
+		t.Fatalf("left did not collapse the selected subtree:\n%s", view)
+	}
+	expanded, _ := collapsedModel.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyRight}))
+	expandedModel := expanded.(model)
+	if view := expandedModel.render(); !strings.Contains(view, "Alpha") || !strings.Contains(view, "Bravo") {
+		t.Fatalf("right did not expand the selected subtree:\n%s", view)
+	}
+	expandedModel.cursor = 1 // Alpha leaf.
+	parentChanged, _ := expandedModel.Update(tea.KeyPressMsg(tea.Key{Text: "U", Code: 'U'}))
+	parentModel := parentChanged.(model)
+	if parentModel.apps[0].outcome != leave || parentModel.apps[1].outcome != leave || parentModel.apps[2].outcome != ensure {
+		t.Fatalf("uppercase leaf action did not target only its parent subtree: %#v", parentModel.apps)
 	}
 }
 
@@ -187,7 +254,7 @@ func TestItemOutcomeChangeKeepsPlanningListAndCursorStable(t *testing.T) {
 			{id: "b", label: "Bravo", group: "tools", availability: "available", presence: "present", policy: "optional", exact: "enabled", outcome: ensure},
 			{id: "c", label: "Charlie", group: "tools", availability: "available", presence: "present", policy: "optional", exact: "enabled", outcome: ensure},
 		},
-		dependencies: map[string][]string{}, display: plain, stage: "select", width: 80, height: 20, cursor: 1,
+		dependencies: map[string][]string{}, display: plain, stage: "select", width: 80, height: 20, cursor: 2,
 	}
 	before := m.render()
 	updated, _ := m.Update(tea.KeyPressMsg(tea.Key{Text: "r", Code: 'r'}))
@@ -240,6 +307,7 @@ func TestRetainedDependentBlocksPrerequisiteRemoval(t *testing.T) {
 			{id: "client", label: "Client", presence: "present", policy: "optional", exact: "enabled", outcome: leave},
 		},
 		dependencies: map[string][]string{"client": {"runtime"}},
+		cursor:       1,
 	}
 	m.setSelectedOutcome(remove)
 	if m.apps[0].outcome != ensure {
