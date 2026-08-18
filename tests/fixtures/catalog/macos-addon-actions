@@ -7,6 +7,7 @@ development.cargo-edit	cargo	payload	cargo-package	cargo-edit	missing-only
 development.tree-sitter	cargo	payload	cargo-package	tree-sitter-cli	missing-only
 development.wasm-bindgen	cargo	payload	cargo-package	wasm-bindgen-cli	missing-only
 development.watchexec	cargo	payload	cargo-package	watchexec-cli	missing-only
+editors.neovim	direct	payload	installer	neovim
 foundation.locale	provided	effect	installer	locale
 languages.bun	direct	payload	installer	bun
 languages.typescript	npm	payload	npm-package	typescript

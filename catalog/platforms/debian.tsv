@@ -43,7 +43,6 @@ development.lazygit	apt	payload	apt-package	lazygit
 media.info	apt	payload	apt-package	mediainfo
 media.poppler	apt	payload	apt-package	poppler-utils
 media.yt-dlp	apt	payload	apt-package	yt-dlp
-editors.neovim	apt	payload	apt-package	neovim
 cli.nmap	apt	payload	apt-package	nmap
 cli.sevenzip	apt	payload	apt-package	7zip
 productivity.pass	apt	payload	apt-package	pass

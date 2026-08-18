@@ -35,7 +35,6 @@ media.imagemagick	apt	payload	apt-package	imagemagick
 cli.iperf3	apt	payload	apt-package	iperf3
 development.lazygit	apt	payload	apt-package	lazygit
 media.info	apt	payload	apt-package	mediainfo
-editors.neovim	apt	payload	apt-package	neovim
 cli.nmap	apt	payload	apt-package	nmap
 productivity.pass	apt	payload	apt-package	pass
 cli.procs	apt	payload	apt-package	procs

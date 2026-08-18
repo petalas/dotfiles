@@ -64,6 +64,13 @@ grep -Fxq $'action\tcli.dust\tcargo-package\tdu-dust\tmissing-only' "$fixture/de
 grep -Fxq $'dependency\tcli.bottom\tlanguages.rust' "$fixture/debian.plan"
 grep -Fxq $'dependency\tcli.dust\tlanguages.rust' "$fixture/debian.plan"
 grep -Fxq $'action\teditors.code\tinstaller\tcode\t' "$fixture/ubuntu.plan"
+for os in macos ubuntu debian arch; do
+    grep -Fxq $'action\teditors.neovim\tinstaller\tneovim\t' "$fixture/$os.plan"
+    if grep -Eq $'^action\teditors\.neovim\t(apt-package|pacman-package|brew-formula)\t' "$fixture/$os.plan"; then
+        echo "Native package unexpectedly owns Neovim on $os." >&2
+        exit 1
+    fi
+done
 grep -Fxq $'action\tcontainers.docker\tpacman-package\tdocker\t' "$fixture/arch.plan"
 grep -Fxq $'group\tgaming\ton\t160\tGaming & streaming\tunavailable' "$fixture/linux.plan" 2>/dev/null || \
     grep -Fxq $'group\tgaming\ton\t160\tGaming & streaming\tunavailable' "$fixture/debian.plan"

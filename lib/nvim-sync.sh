@@ -65,11 +65,34 @@ _nvim_sync_git_network() {
         -C "$dir" "$@"
 }
 
+_nvim_sync_resolve_binary() {
+    local managed="${XDG_DATA_HOME:-$HOME/.local/share}/nvim-nightly/bin/nvim"
+    if [ -x "$managed" ]; then
+        printf '%s\n' "$managed"
+    else
+        command -v nvim 2>/dev/null
+    fi
+}
+
+_nvim_sync_require_compatible() {
+    local probe
+    probe=$("$1" --clean --headless \
+        '+lua io.stdout:write("NVIM_PACK_COMPAT=" .. type(vim.pack) .. ":" .. vim.fn.exists("##PackChanged"))' \
+        +qa 2>/dev/null) || return 1
+    [ "$probe" = NVIM_PACK_COMPAT=table:1 ]
+}
+
+_nvim_sync_smoke_config() {
+    "$1" --headless \
+        '+lua if vim.v.errmsg ~= "" or not vim.g.colors_name then vim.cmd("cquit 1") end' \
+        +qa
+}
+
 nvim_sync_fork() {
     local dir="${1:-${XDG_CONFIG_HOME:-$HOME/.config}/nvim}"
     local upstream_url="https://github.com/nvim-lua/kickstart.nvim.git"
     local branch="custom"
-    local counts ahead behind
+    local counts ahead behind nvim_bin
 
     if [ ! -d "$dir/.git" ]; then
         echo "nvim sync: not a git repository: $dir" >&2
@@ -88,6 +111,14 @@ nvim_sync_fork() {
 
     if ! git -C "$dir" remote | grep -qx upstream; then
         git -C "$dir" remote add upstream "$upstream_url" || return 1
+    fi
+
+    if [ "${NVIM_SYNC_SKIP_SMOKE:-0}" != "1" ]; then
+        nvim_bin=$(_nvim_sync_resolve_binary || true)
+        if [ -n "$nvim_bin" ] && ! _nvim_sync_require_compatible "$nvim_bin"; then
+            echo "nvim sync: $nvim_bin lacks the vim.pack APIs required by the config" >&2
+            return 1
+        fi
     fi
 
     _nvim_sync_ensure_github_auth "$dir" || return 1
@@ -109,8 +140,8 @@ nvim_sync_fork() {
 
     # Test the resolved branch regardless of whether changes came from this
     # machine or were fast-forwarded from another one.
-    if command -v nvim >/dev/null 2>&1 && [ "${NVIM_SYNC_SKIP_SMOKE:-0}" != "1" ]; then
-        nvim --headless '+lua assert(vim.g.colors_name)' +qa || {
+    if [ -n "${nvim_bin:-}" ] && [ "${NVIM_SYNC_SKIP_SMOKE:-0}" != "1" ]; then
+        _nvim_sync_smoke_config "$nvim_bin" || {
             echo "nvim sync: resolved config failed the startup smoke test" >&2
             return 1
         }
@@ -142,8 +173,8 @@ nvim_sync_fork() {
         return 1
     fi
 
-    if command -v nvim >/dev/null 2>&1 && [ "${NVIM_SYNC_SKIP_SMOKE:-0}" != "1" ]; then
-        if ! nvim --headless '+lua assert(vim.g.colors_name)' +qa; then
+    if [ -n "${nvim_bin:-}" ] && [ "${NVIM_SYNC_SKIP_SMOKE:-0}" != "1" ]; then
+        if ! _nvim_sync_smoke_config "$nvim_bin"; then
             git -C "$dir" merge --abort >/dev/null 2>&1 || true
             echo "nvim sync: merged config failed its startup smoke test; merge aborted" >&2
             return 1
@@ -170,7 +201,7 @@ nvim_sync_fork() {
 
 nvim_update_plugins() {
     local dir="${1:-${XDG_CONFIG_HOME:-$HOME/.config}/nvim}"
-    local changed config_home
+    local changed config_home nvim_bin
 
     if [ ! -d "$dir/.git" ]; then
         echo "nvim plugins: not a git repository: $dir" >&2
@@ -184,15 +215,20 @@ nvim_update_plugins() {
         echo "nvim plugins: expected branch 'custom' in $dir" >&2
         return 1
     fi
-    if ! command -v nvim >/dev/null 2>&1; then
+    nvim_bin=$(_nvim_sync_resolve_binary || true)
+    if [ -z "$nvim_bin" ]; then
         echo "nvim plugins: nvim is not installed" >&2
+        return 1
+    fi
+    if ! _nvim_sync_require_compatible "$nvim_bin"; then
+        echo "nvim plugins: $nvim_bin lacks the vim.pack APIs required by the config" >&2
         return 1
     fi
 
     config_home=${dir%/nvim}
-    XDG_CONFIG_HOME="$config_home" nvim --headless \
-        '+lua vim.pack.update(nil, { force = true })' \
-        '+lua require("nvim-treesitter").update():wait(300000)' \
+    XDG_CONFIG_HOME="$config_home" "$nvim_bin" --headless \
+        '+lua local ok, err = xpcall(function() vim.pack.update(nil, { force = true }) end, debug.traceback); if not ok then vim.api.nvim_err_writeln(err); vim.cmd("cquit 1") end' \
+        '+lua local ok, err = xpcall(function() require("nvim-treesitter").update():wait(300000) end, debug.traceback); if not ok then vim.api.nvim_err_writeln(err); vim.cmd("cquit 1") end' \
         +qa || return 1
 
     changed=$(git -C "$dir" status --porcelain)

@@ -37,7 +37,6 @@ brew "media-info"
 brew "mobile-dev-inc/tap/maestro", trusted: true
 brew "mosh"
 brew "mtr"
-brew "neovim"
 brew "nmap"
 brew "node"
 brew "openjdk"

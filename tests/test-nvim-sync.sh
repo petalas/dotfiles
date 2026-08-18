@@ -92,4 +92,22 @@ if nvim_update_plugins "$config"; then
 fi
 git -C "$config" checkout --quiet custom
 
+# Plugin reconciliation explicitly uses the managed nightly even when an older
+# distro nvim appears first on PATH.
+managed_home="$fixture/home"
+managed_nvim="$managed_home/.local/share/nvim-nightly/bin/nvim"
+nvim_log="$fixture/nvim.log"
+mkdir -p "${managed_nvim%/*}"
+cat >"$managed_nvim" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$NVIM_TEST_LOG"
+if [[ $* == *NVIM_PACK_COMPAT* ]]; then printf 'NVIM_PACK_COMPAT=table:1'; fi
+exit 0
+EOF
+chmod +x "$managed_nvim"
+HOME="$managed_home" NVIM_TEST_LOG="$nvim_log" nvim_update_plugins "$config"
+grep -Fq -- '--clean --headless' "$nvim_log"
+grep -Fq 'vim.pack.update' "$nvim_log"
+grep -Fq 'xpcall' "$nvim_log"
+
 echo 'Nvim fork synchronization tests passed.'

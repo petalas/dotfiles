@@ -75,6 +75,45 @@ DOTFILES_INSTALL_PLAN_ADAPTER="$fixture/fake-adapter" INSTALL_PLAN_TEST_LOG="$lo
 grep -Fxq $'one\tone\t' "$log"
 grep -Fxq $'two\ttwo\t' "$log"
 
+# A successful direct installer may claim custody when it demonstrably changes
+# a pre-existing command. A no-op over an unreceipted command still may not.
+mkdir -p "$fixture/receipt-bin"
+cat >"$fixture/receipt-bin/herdr" <<'EOF'
+#!/usr/bin/env bash
+printf 'old\n'
+EOF
+chmod +x "$fixture/receipt-bin/herdr"
+cat >"$fixture/receipt-plan" <<'EOF'
+format	1
+os	debian
+step	dependencies	on	10	Install dependencies
+app	ai.herdr	on	optional	ai	Herdr
+action	ai.herdr	installer	herdr
+EOF
+cat >"$fixture/receipt-adapter" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$3" == herdr && "$RECEIPT_ADAPTER_MODE" == update ]]; then
+    cat >"$RECEIPT_BIN/herdr" <<'SCRIPT'
+#!/usr/bin/env bash
+printf 'new\n'
+SCRIPT
+    chmod +x "$RECEIPT_BIN/herdr"
+fi
+EOF
+chmod +x "$fixture/receipt-adapter"
+receipt="$fixture/state/dotfiles/receipts/debian/ai.herdr.tsv"
+PATH="$fixture/receipt-bin:/usr/bin:/bin" XDG_STATE_HOME="$fixture/state" \
+RECEIPT_BIN="$fixture/receipt-bin" RECEIPT_ADAPTER_MODE=update \
+DOTFILES_INSTALL_PLAN_ADAPTER="$fixture/receipt-adapter" DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN=1 \
+    "$repo_dir/lib/install-plan" apply --operation install --plan "$fixture/receipt-plan" >/dev/null
+grep -Fxq $'target\t'"$fixture/receipt-bin/herdr" "$receipt"
+rm -f "$receipt"
+PATH="$fixture/receipt-bin:/usr/bin:/bin" XDG_STATE_HOME="$fixture/state" \
+RECEIPT_BIN="$fixture/receipt-bin" RECEIPT_ADAPTER_MODE=noop \
+DOTFILES_INSTALL_PLAN_ADAPTER="$fixture/receipt-adapter" DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN=1 \
+    "$repo_dir/lib/install-plan" apply --operation install --plan "$fixture/receipt-plan" >/dev/null
+[[ ! -e "$receipt" ]]
+
 # Post-operation inspection must translate a prepared-run index back to the
 # full catalog. An unavailable catalog entry is omitted from the prepared run.
 alignment_catalog="$fixture/alignment-catalog"

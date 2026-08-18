@@ -1408,7 +1408,7 @@ execute_plan_removal() {
 
 execute_plan_app() {
     local id=$1 operation=$2 path=${3:-} index status dependency_index prerequisite prerequisite_index
-    local action_index had_failure=0 adapter_failed installer_before receipt_before result presence custody
+    local action_index had_failure=0 adapter_failed installer_before installer_before_digest installer_after installer_after_digest receipt_before result presence custody
     index=$(find_value_index "$id" "${apply_app_ids[@]}") || return 1
     status=${apply_app_statuses[$index]}
     case "$status" in succeeded) return 0 ;; failed|partial|blocked) return 1 ;; running) return 1 ;; esac
@@ -1431,17 +1431,29 @@ execute_plan_app() {
     action_index=0
     while ((action_index < ${#apply_action_apps[@]})); do
         if [[ "${apply_action_apps[$action_index]}" == "$id" && "${apply_action_done[$action_index]}" != 1 ]]; then
-            installer_before=''; receipt_before=''; adapter_failed=0
+            installer_before=''; installer_before_digest=''; receipt_before=''; adapter_failed=0
             if [[ "${apply_action_kinds[$action_index]}" == installer ]]; then
                 installer_before=$(command -v "$(installer_probe_command "${apply_action_values[$action_index]}")" 2>/dev/null || true)
+                if [[ -n "$installer_before" && -f "$installer_before" ]]; then
+                    installer_before_digest=$(sha256_file "$installer_before")
+                fi
                 receipt_before=$(validated_receipt_target "$apply_os" "$id" "${apply_action_values[$action_index]}" 2>/dev/null || true)
             fi
             run_plan_adapter "$operation" "${apply_action_kinds[$action_index]}" \
                 "${apply_action_values[$action_index]}" "${apply_action_options[$action_index]}" || adapter_failed=1
             if [[ "$adapter_failed" == 1 ]]; then
                 had_failure=1
-            elif [[ "${apply_action_kinds[$action_index]}" == installer && ( -z "$installer_before" || -n "$receipt_before" ) ]]; then
-                write_installation_receipt "$apply_os" "$id" "${apply_action_values[$action_index]}"
+            elif [[ "${apply_action_kinds[$action_index]}" == installer ]]; then
+                installer_after=$(command -v "$(installer_probe_command "${apply_action_values[$action_index]}")" 2>/dev/null || true)
+                installer_after_digest=''
+                if [[ -n "$installer_after" && -f "$installer_after" ]]; then
+                    installer_after_digest=$(sha256_file "$installer_after")
+                fi
+                if [[ -z "$installer_before" || -n "$receipt_before" ||
+                      "$installer_after" != "$installer_before" ||
+                      "$installer_after_digest" != "$installer_before_digest" ]]; then
+                    write_installation_receipt "$apply_os" "$id" "${apply_action_values[$action_index]}"
+                fi
             fi
         fi
         action_index=$((action_index + 1))

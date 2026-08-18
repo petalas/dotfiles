@@ -52,7 +52,6 @@ development.lazygit	pacman	payload	pacman-package	lazygit
 desktop.integration	pacman	payload	pacman-package	libnotify
 foundation.build	pacman	payload	pacman-package	libxml2
 media.info	pacman	payload	pacman-package	mediainfo
-editors.neovim	pacman	payload	pacman-package	neovim
 cli.nmap	pacman	payload	pacman-package	nmap
 languages.node	pacman	payload	pacman-package	nodejs
 languages.node	pacman	payload	pacman-package	npm
@@ -78,6 +77,7 @@ desktop.integration	pacman	payload	pacman-package	xdg-utils
 cli.xh	pacman	payload	pacman-package	xh
 cli.yazi	pacman	payload	pacman-package	yazi
 containers.docker	direct	payload	installer	docker
+editors.neovim	direct	payload	installer	neovim
 ai.claude-code	direct	payload	installer	claude_code
 ai.herdr	direct	payload	installer	herdr
 languages.typescript	npm	payload	npm-package	typescript

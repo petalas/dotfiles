@@ -328,6 +328,8 @@ macos	containers.docker	retain	~/Library/Containers/com.docker.docker	user-data
 macos	containers.docker	retain	~/.docker	user-data
 macos	terminal.ghostty	retain	~/.config/ghostty	user-data
 macos	development.lazygit	retain	~/.config/lazygit	user-data
+macos	editors.neovim	path	~/.local/bin/nvim
+macos	editors.neovim	payload-tree	~/.local/share/nvim-nightly
 macos	editors.neovim	retain	~/.config/nvim	user-data
 macos	editors.neovim	retain	~/.local/share/nvim	user-data
 macos	productivity.obsidian	retain	~/Library/Application Support/obsidian	user-data
@@ -347,6 +349,8 @@ ubuntu	containers.docker	retain	/etc/docker	user-data
 ubuntu	containers.docker	retain	~/.docker	user-data
 ubuntu	terminal.ghostty	retain	~/.config/ghostty	user-data
 ubuntu	development.lazygit	retain	~/.config/lazygit	user-data
+ubuntu	editors.neovim	path	~/.local/bin/nvim
+ubuntu	editors.neovim	payload-tree	~/.local/share/nvim-nightly
 ubuntu	editors.neovim	retain	~/.config/nvim	user-data
 ubuntu	editors.neovim	retain	~/.local/share/nvim	user-data
 ubuntu	productivity.obsidian	retain	~/.config/obsidian	user-data
@@ -366,6 +370,8 @@ debian	containers.docker	retain	/etc/docker	user-data
 debian	containers.docker	retain	~/.docker	user-data
 debian	terminal.ghostty	retain	~/.config/ghostty	user-data
 debian	development.lazygit	retain	~/.config/lazygit	user-data
+debian	editors.neovim	path	~/.local/bin/nvim
+debian	editors.neovim	payload-tree	~/.local/share/nvim-nightly
 debian	editors.neovim	retain	~/.config/nvim	user-data
 debian	editors.neovim	retain	~/.local/share/nvim	user-data
 debian	productivity.obsidian	retain	~/.config/obsidian	user-data
@@ -385,6 +391,8 @@ arch	containers.docker	retain	/etc/docker	user-data
 arch	containers.docker	retain	~/.docker	user-data
 arch	terminal.ghostty	retain	~/.config/ghostty	user-data
 arch	development.lazygit	retain	~/.config/lazygit	user-data
+arch	editors.neovim	path	~/.local/bin/nvim
+arch	editors.neovim	payload-tree	~/.local/share/nvim-nightly
 arch	editors.neovim	retain	~/.config/nvim	user-data
 arch	editors.neovim	retain	~/.local/share/nvim	user-data
 arch	productivity.obsidian	retain	~/.config/obsidian	user-data
