@@ -68,10 +68,12 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - The `choose` command must honor its own “Enter opens review” help text. Exiting directly from Plan made the separate prepared-run review feel like an unrelated second UI. Keep the state-transition and 80×24 bounds tests at the model seam.
 - Successful interactive inspection uses the alternate screen and leaves no static “run settled” report behind before Plan opens. Redirected runs still print their final report for automation and diagnostics.
 
-## Bubble Tea execution completion must follow both output scanners
+## Bubble Tea progress needs consumed terminal replies and a dedicated event channel
 
-- The progress helper reads engine events from stdout and diagnostic output from stderr concurrently. Sending the completion message as soon as `cmd.Wait()` returns can overtake queued scanner messages, leaving the final view at `0/N` even though execution settled.
-- Wait for both scanner goroutines to finish sending before sending the Bubble Tea completion message. The deterministic TUI test uses a fast command intentionally so this ordering regression remains visible.
+- Bubble Tea v2 sends mode 2026/2027 capability queries even when `WithInput(nil)` disables the reader. Ghostty replies were left in canonical input, echoed as `^[[?2026;2$y`, and later appeared at the shell prompt. For progress-only views, pass Bubble Tea a conservative renderer environment with terminal-query triggers removed; the child command still receives the real environment. Keep the Python PTY emulator test, which answers the queries and detects unread replies exactly as a terminal does.
+- Engine events cannot share stdout with adapter diagnostics. A command can emit a tab-separated line beginning with `event` and be mistaken for a malformed protocol record. The helper now gives the engine a dedicated inherited file descriptor 3; stdout and stderr are logs only. Direct engine callers retain stdout events when no descriptor is declared.
+- Build each event as one shell string and write it once so a logical record cannot be split across writes. Initialize that shell string with ANSI-C quoting (`$'event\t1'`), not ordinary single quotes, which preserve `\t` literally. Rejected records include a safely quoted value in the error.
+- The progress helper reads the event descriptor, stdout, and stderr concurrently. Sending the completion message as soon as `cmd.Wait()` returns can overtake queued scanner messages, leaving the final view at `0/N` even though execution settled. Wait for all three scanners before sending completion; the deterministic TUI test uses a fast command intentionally so this ordering regression remains visible.
 
 ## Brewfile environment gates are not a selection interface
 

@@ -47,12 +47,13 @@ grep -Fq 'left/right lane' "$fixture/ascii"
 
 cat >"$fixture/events" <<'EOF'
 #!/usr/bin/env bash
-printf 'event\t1\trun-start\t2\n'
-printf 'event\t1\toperation-start\tapp:one\tOne\tindeterminate\n'
-printf 'event\t1\toperation-settled\tapp:one\tsucceeded\t1\t2\n'
-printf 'event\t1\toperation-start\tstep:links\tLinks\tindeterminate\n'
-printf 'event\t1\toperation-settled\tstep:links\tsucceeded\t2\t2\n'
-printf 'event\t1\trun-settled\tsucceeded\t2\t2\n'
+event_fd=${DOTFILES_INSTALL_PLAN_EVENT_FD:-1}
+printf 'event\t1\trun-start\t2\n' >&"$event_fd"
+printf 'event\t1\toperation-start\tapp:one\tOne\tindeterminate\n' >&"$event_fd"
+printf 'event\t1\toperation-settled\tapp:one\tsucceeded\t1\t2\n' >&"$event_fd"
+printf 'event\t1\toperation-start\tstep:links\tLinks\tindeterminate\n' >&"$event_fd"
+printf 'event\t1\toperation-settled\tstep:links\tsucceeded\t2\t2\n' >&"$event_fd"
+printf 'event\t1\trun-settled\tsucceeded\t2\t2\n' >&"$event_fd"
 EOF
 chmod +x "$fixture/events"
 TERM=xterm "$fixture/dotfiles-tui" run -- "$fixture/events" >"$fixture/run"
@@ -62,9 +63,24 @@ grep -Fq '2/2 settled' "$fixture/run"
 grep -Fq 'One — succeeded' "$fixture/run"
 grep -Fq 'Run settled successfully' "$fixture/run"
 
+cat >"$fixture/event-shaped-log" <<'EOF'
+#!/usr/bin/env bash
+event_fd=${DOTFILES_INSTALL_PLAN_EVENT_FD:-1}
+printf 'event\t1\trun-start\t1\n' >&"$event_fd"
+printf 'event\tHomebrew diagnostic that is not a protocol record\n'
+printf 'event\t1\toperation-start\tapp:one\tOne\tindeterminate\n' >&"$event_fd"
+printf 'event\t1\toperation-settled\tapp:one\tsucceeded\t1\t1\n' >&"$event_fd"
+printf 'event\t1\trun-settled\tsucceeded\t1\t1\n' >&"$event_fd"
+EOF
+chmod +x "$fixture/event-shaped-log"
+TERM=xterm "$fixture/dotfiles-tui" run -- "$fixture/event-shaped-log" >"$fixture/collision-run"
+grep -Fq 'Run settled successfully' "$fixture/collision-run"
+grep -Fq 'Homebrew diagnostic' "$fixture/collision-run"
+
 cat >"$fixture/bad-events" <<'EOF'
 #!/usr/bin/env bash
-printf 'event\t2\trun-start\t1\n'
+event_fd=${DOTFILES_INSTALL_PLAN_EVENT_FD:-1}
+printf 'event\t2\trun-start\t1\n' >&"$event_fd"
 EOF
 chmod +x "$fixture/bad-events"
 if TERM=xterm "$fixture/dotfiles-tui" run -- "$fixture/bad-events" >"$fixture/bad-run" 2>&1; then
@@ -72,5 +88,6 @@ if TERM=xterm "$fixture/dotfiles-tui" run -- "$fixture/bad-events" >"$fixture/ba
     exit 1
 fi
 grep -Fq 'malformed execution event' "$fixture/bad-run"
+grep -Fq 'event\t2\trun-start\t1' "$fixture/bad-run"
 
 printf 'Intent-lanes TUI and progress rendering tests passed.\n'

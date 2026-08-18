@@ -1221,10 +1221,11 @@ type progressModel struct {
 	interactive    bool
 	stage          string
 	display        displayMode
+	interrupt      func()
 }
 
-func newProgressModel(interactive bool, stage string) progressModel {
-	return progressModel{bar: progress.New(progress.WithDefaultBlend()), active: map[string]string{}, interactive: interactive, stage: stage, display: displayMode(defaultDisplay())}
+func newProgressModel(interactive bool, stage string, interrupt func()) progressModel {
+	return progressModel{bar: progress.New(progress.WithDefaultBlend()), active: map[string]string{}, interactive: interactive, stage: stage, display: displayMode(defaultDisplay()), interrupt: interrupt}
 }
 func (m progressModel) Init() tea.Cmd { return nil }
 func (m progressModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
@@ -1232,6 +1233,11 @@ func (m progressModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.bar.SetWidth(max(10, msg.Width-12))
+	case tea.KeyPressMsg:
+		if msg.String() == "ctrl+c" && m.interrupt != nil {
+			m.interrupt()
+			m.logs = append(m.logs, "Cancellation requested; waiting for the active operation to settle.")
+		}
 	case executionEvent:
 		fields := msg.fields
 		if len(fields) < 3 || fields[0] != "event" || fields[1] != "1" ||
@@ -1240,7 +1246,7 @@ func (m progressModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			(fields[2] == "operation-settled" && len(fields) != 7) ||
 			(fields[2] == "run-settled" && len(fields) != 6) ||
 			(fields[2] != "run-start" && fields[2] != "operation-start" && fields[2] != "operation-settled" && fields[2] != "run-settled") {
-			m.err = fmt.Errorf("malformed execution event")
+			m.err = fmt.Errorf("malformed execution event %q", strings.Join(fields, "\t"))
 			return m, nil
 		}
 		switch fields[2] {
@@ -1357,6 +1363,20 @@ func isTerminalFile(file *os.File) bool {
 	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
+func nonInteractiveProgressEnvironment() []string {
+	environment := make([]string, 0, len(os.Environ())+2)
+	for _, entry := range os.Environ() {
+		if strings.HasPrefix(entry, "TERM=") || strings.HasPrefix(entry, "TERM_PROGRAM=") || strings.HasPrefix(entry, "SSH_TTY=") || strings.HasPrefix(entry, "WT_SESSION=") {
+			continue
+		}
+		environment = append(environment, entry)
+	}
+	// Bubble Tea v2 queries modes 2026/2027 even when WithInput(nil) prevents
+	// it from consuming the terminal's replies. Present a conservative renderer
+	// environment for progress-only views; the child command keeps the real one.
+	return append(environment, "TERM=vt100", "TERM_PROGRAM=Apple_Terminal", "SSH_TTY=progress-no-input")
+}
+
 func executionStage(command []string) string {
 	for _, argument := range command {
 		if argument == "inspect" {
@@ -1371,20 +1391,39 @@ func runExecution(command []string) error {
 		return errors.New("run requires a command after --")
 	}
 	cmd := exec.Command(command[0], command[1:]...)
-	cmd.Env = append(os.Environ(), "DOTFILES_INSTALL_PLAN_EVENTS=1")
+	eventReader, eventWriter, err := os.Pipe()
+	if err != nil {
+		return err
+	}
+	defer eventReader.Close()
+	cmd.ExtraFiles = []*os.File{eventWriter} // The child receives this as file descriptor 3.
+	cmd.Env = append(os.Environ(), "DOTFILES_INSTALL_PLAN_EVENTS=1", "DOTFILES_INSTALL_PLAN_EVENT_FD=3")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		eventWriter.Close()
 		return err
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
+		eventWriter.Close()
 		return err
 	}
 	interactive := isTerminalFile(os.Stdout)
-	program := tea.NewProgram(newProgressModel(interactive, executionStage(command)), tea.WithInput(nil), tea.WithoutSignalHandler())
+	interrupt := func() {
+		if cmd.Process != nil {
+			_ = cmd.Process.Signal(os.Interrupt)
+		}
+	}
+	programOptions := []tea.ProgramOption{tea.WithoutSignalHandler()}
+	if !interactive {
+		programOptions = append(programOptions, tea.WithInput(nil), tea.WithEnvironment(nonInteractiveProgressEnvironment()))
+	}
+	program := tea.NewProgram(newProgressModel(interactive, executionStage(command), interrupt), programOptions...)
 	if err = cmd.Start(); err != nil {
+		eventWriter.Close()
 		return err
 	}
+	_ = eventWriter.Close()
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(signals)
@@ -1396,21 +1435,22 @@ func runExecution(command []string) error {
 		}
 	}()
 	var scanners sync.WaitGroup
-	scanners.Add(2)
-	scan := func(scanner *bufio.Scanner) {
+	scanners.Add(3)
+	scanEvents := func(scanner *bufio.Scanner) {
 		defer scanners.Done()
 		for scanner.Scan() {
-			line := scanner.Text()
-			fields := strings.Split(line, "\t")
-			if len(fields) > 0 && fields[0] == "event" {
-				program.Send(executionEvent{fields})
-			} else {
-				program.Send(executionLog(line))
-			}
+			program.Send(executionEvent{strings.Split(scanner.Text(), "\t")})
 		}
 	}
-	go scan(bufio.NewScanner(stdout))
-	go scan(bufio.NewScanner(stderr))
+	scanLogs := func(scanner *bufio.Scanner) {
+		defer scanners.Done()
+		for scanner.Scan() {
+			program.Send(executionLog(scanner.Text()))
+		}
+	}
+	go scanEvents(bufio.NewScanner(eventReader))
+	go scanLogs(bufio.NewScanner(stdout))
+	go scanLogs(bufio.NewScanner(stderr))
 	go func() { commandErr := cmd.Wait(); scanners.Wait(); program.Send(executionDone{commandErr}) }()
 	final, runErr := program.Run()
 	if runErr != nil {

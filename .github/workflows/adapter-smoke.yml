@@ -36,6 +36,18 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.6"
+          cache: true
+      - name: Exercise the complete macOS inspection event stream
+        run: |
+          go build -o /tmp/dotfiles-tui ./cmd/dotfiles-tui
+          observations=$(mktemp)
+          /tmp/dotfiles-tui run -- ./lib/install-plan inspect --os macos --output "$observations" > /tmp/inspection-progress
+          expected=$(awk -F '\t' 'NF >= 4 && $1 !~ /^#/ { count++ } END { print count }' catalog/applications.tsv)
+          grep -Fq "$expected/$expected settled" /tmp/inspection-progress
+          grep -Fq 'Run settled successfully.' /tmp/inspection-progress
       - name: Exercise Homebrew inspection, removal, and reinspection
         run: |
           brew install hello

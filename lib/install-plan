@@ -1297,9 +1297,13 @@ execute_action_batches() {
 
 emit_event() {
     [[ "${DOTFILES_INSTALL_PLAN_EVENTS:-0}" == 1 ]] || return 0
-    printf 'event\t1'
-    printf '\t%s' "$@"
-    printf '\n'
+    local record=$'event\t1' field event_fd=${DOTFILES_INSTALL_PLAN_EVENT_FD:-1}
+    for field in "$@"; do record+=$'\t'"$field"; done
+    case "$event_fd" in
+        1) printf '%s\n' "$record" ;;
+        3) printf '%s\n' "$record" >&3 ;;
+        *) fail "invalid structured-event file descriptor" ;;
+    esac
 }
 
 start_app_operation() {
