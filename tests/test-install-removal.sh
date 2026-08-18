@@ -74,30 +74,47 @@ if grep -Fq $'removal\ttools.runtime\tforce\t' "$fixture/removal.plan"; then
     exit 1
 fi
 
-sed $'s/observation\ttools.loose\tavailable\tpresent\tunverified\toptional\tdisabled\tenabled/observation\ttools.loose\tavailable\tpresent\tunverified\toptional\tdisabled\tdisabled/' \
-    "$fixture/observations.tsv" >"$fixture/no-removal-observations.tsv"
-if DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare \
-    --mode outcomes --os macos --selection "$fixture/removal-selection.tsv" \
-    --observations "$fixture/no-removal-observations.tsv" --output "$fixture/no-removal.plan" \
-    >/dev/null 2>"$fixture/no-removal.err"; then
-    echo 'Expected removal without an exact mechanism or cleanup recipe to fail' >&2
-    exit 1
-fi
-grep -Fq 'removal is disabled for tools.loose' "$fixture/no-removal.err"
-
 sed -e $'s/outcome\ttools.runtime\tremove/outcome\ttools.runtime\tleave/' \
     -e $'s/outcome\ttools.client\tremove/outcome\ttools.client\tleave/' \
-    "$fixture/removal-selection.tsv" >"$fixture/absent-selection.tsv"
-sed $'s/observation\ttools.loose\tavailable\tpresent\tunverified\toptional\tdisabled\tenabled/observation\ttools.loose\tavailable\tabsent\tunverified\toptional\tdisabled\tdisabled/' \
-    "$fixture/observations.tsv" >"$fixture/absent-observations.tsv"
-DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare \
-    --mode outcomes --os macos --selection "$fixture/absent-selection.tsv" \
-    --observations "$fixture/absent-observations.tsv" --output "$fixture/absent.plan" >/dev/null
-grep -Fxq $'app\ttools.loose\tremove\toptional\ttools\tLoose\tabsent\tunverified' "$fixture/absent.plan"
-if grep -Fq $'removal\ttools.loose\t' "$fixture/absent.plan"; then
-    echo 'Absent removal must not prepare an adapter method' >&2
-    exit 1
-fi
+    "$fixture/removal-selection.tsv" >"$fixture/loose-only-selection.tsv"
+
+for presence in partial present unknown; do
+    sed $'s/observation\ttools.loose\tavailable\tpresent\tunverified\toptional\tdisabled\tenabled/observation\ttools.loose\tavailable\t'"$presence"$'\tunverified\toptional\tdisabled\tdisabled/' \
+        "$fixture/observations.tsv" >"$fixture/no-removal-$presence-observations.tsv"
+    if DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare \
+        --mode outcomes --os macos --selection "$fixture/loose-only-selection.tsv" \
+        --observations "$fixture/no-removal-$presence-observations.tsv" --output "$fixture/no-removal-$presence.plan" \
+        >/dev/null 2>"$fixture/no-removal-$presence.err"; then
+        echo "Expected $presence removal without an exact mechanism or cleanup recipe to fail" >&2
+        exit 1
+    fi
+    grep -Fq 'removal is disabled for tools.loose' "$fixture/no-removal-$presence.err"
+
+done
+
+for presence in partial present unknown; do
+    sed $'s/observation\ttools.loose\tavailable\tpresent\tunverified\toptional\tdisabled\tenabled/observation\ttools.loose\tavailable\t'"$presence"$'\tunverified\toptional\tdisabled\tenabled/' \
+        "$fixture/observations.tsv" >"$fixture/fallback-$presence-observations.tsv"
+    DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare \
+        --mode outcomes --os macos --selection "$fixture/loose-only-selection.tsv" \
+        --observations "$fixture/fallback-$presence-observations.tsv" --output "$fixture/fallback-$presence.plan" >/dev/null
+    grep -Fxq $'app\ttools.loose\tremove\toptional\ttools\tLoose\t'"$presence"$'\tunverified' "$fixture/fallback-$presence.plan"
+    grep -Fxq $'removal\ttools.loose\tforce\tpath\t~/.local/bin/loose\t' "$fixture/fallback-$presence.plan"
+done
+
+for cleanup in disabled enabled; do
+    sed $'s/observation\ttools.loose\tavailable\tpresent\tunverified\toptional\tdisabled\tenabled/observation\ttools.loose\tavailable\tabsent\tunverified\toptional\tdisabled\t'"$cleanup"'/' \
+        "$fixture/observations.tsv" >"$fixture/absent-$cleanup-observations.tsv"
+    DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare \
+        --mode outcomes --os macos --selection "$fixture/loose-only-selection.tsv" \
+        --observations "$fixture/absent-$cleanup-observations.tsv" --output "$fixture/absent-$cleanup.plan" >/dev/null
+    grep -Fxq $'app\ttools.loose\tremove\toptional\ttools\tLoose\tabsent\tunverified' "$fixture/absent-$cleanup.plan"
+    if grep -Fq $'removal\ttools.loose\t' "$fixture/absent-$cleanup.plan"; then
+        echo "Absent removal prepared an adapter method with cleanup $cleanup" >&2
+        exit 1
+    fi
+done
+cp "$fixture/absent-disabled.plan" "$fixture/absent.plan"
 
 sed $'s/outcome\ttools.loose\tremove/outcome\ttools.loose\tforce/' \
     "$fixture/removal-selection.tsv" >"$fixture/legacy-force-selection.tsv"

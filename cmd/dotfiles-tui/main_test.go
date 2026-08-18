@@ -135,6 +135,146 @@ func TestGroupRemoveCancelsPendingInstallsForAbsentApplications(t *testing.T) {
 	}
 }
 
+func TestCompleteAvailabilityPresenceOutcomeMatrix(t *testing.T) {
+	tests := []struct {
+		name, availability, presence string
+		requested, result            outcome
+		key                          rune
+		accepted                     bool
+		current, desired, row        string
+		changed                      bool
+	}{
+		{name: "available/absent/ensure", availability: "available", presence: "absent", requested: ensure, result: ensure, key: 'e', accepted: true, current: "absent", desired: "present", row: "absent -> present", changed: true},
+		{name: "available/absent/leave", availability: "available", presence: "absent", requested: leave, result: leave, key: 'u', accepted: true, current: "absent", desired: "absent", row: "absent"},
+		{name: "available/absent/remove", availability: "available", presence: "absent", requested: remove, result: remove, key: 'r', accepted: true, current: "absent", desired: "removed", row: "absent"},
+		{name: "available/partial/ensure", availability: "available", presence: "partial", requested: ensure, result: ensure, key: 'e', accepted: true, current: "partial", desired: "present", row: "partial -> present", changed: true},
+		{name: "available/partial/leave", availability: "available", presence: "partial", requested: leave, result: leave, key: 'u', accepted: true, current: "partial", desired: "partial", row: "partial"},
+		{name: "available/partial/remove", availability: "available", presence: "partial", requested: remove, result: remove, key: 'r', accepted: true, current: "partial", desired: "removed", row: "partial -> removed", changed: true},
+		{name: "available/present/ensure", availability: "available", presence: "present", requested: ensure, result: ensure, key: 'e', accepted: true, current: "present", desired: "present", row: "present"},
+		{name: "available/present/leave", availability: "available", presence: "present", requested: leave, result: leave, key: 'u', accepted: true, current: "present", desired: "present", row: "present"},
+		{name: "available/present/remove", availability: "available", presence: "present", requested: remove, result: remove, key: 'r', accepted: true, current: "present", desired: "removed", row: "present -> removed", changed: true},
+		{name: "available/unknown/ensure", availability: "available", presence: "unknown", requested: ensure, result: ensure, key: 'e', accepted: true, current: "unknown", desired: "present", row: "unknown -> present", changed: true},
+		{name: "available/unknown/leave", availability: "available", presence: "unknown", requested: leave, result: leave, key: 'u', accepted: true, current: "unknown", desired: "unknown", row: "unknown"},
+		{name: "available/unknown/remove", availability: "available", presence: "unknown", requested: remove, result: remove, key: 'r', accepted: true, current: "unknown", desired: "removed", row: "unknown -> removed", changed: true},
+		{name: "unavailable/absent/ensure", availability: "unavailable", presence: "absent", requested: ensure, result: leave, key: 'e', current: "unavailable", desired: "unavailable", row: "unavailable"},
+		{name: "unavailable/absent/leave", availability: "unavailable", presence: "absent", requested: leave, result: leave, key: 'u', accepted: true, current: "unavailable", desired: "unavailable", row: "unavailable"},
+		{name: "unavailable/absent/remove", availability: "unavailable", presence: "absent", requested: remove, result: leave, key: 'r', current: "unavailable", desired: "unavailable", row: "unavailable"},
+		{name: "unavailable/partial/ensure", availability: "unavailable", presence: "partial", requested: ensure, result: leave, key: 'e', current: "unavailable", desired: "unavailable", row: "unavailable"},
+		{name: "unavailable/partial/leave", availability: "unavailable", presence: "partial", requested: leave, result: leave, key: 'u', accepted: true, current: "unavailable", desired: "unavailable", row: "unavailable"},
+		{name: "unavailable/partial/remove", availability: "unavailable", presence: "partial", requested: remove, result: leave, key: 'r', current: "unavailable", desired: "unavailable", row: "unavailable"},
+		{name: "unavailable/present/ensure", availability: "unavailable", presence: "present", requested: ensure, result: leave, key: 'e', current: "unavailable", desired: "unavailable", row: "unavailable"},
+		{name: "unavailable/present/leave", availability: "unavailable", presence: "present", requested: leave, result: leave, key: 'u', accepted: true, current: "unavailable", desired: "unavailable", row: "unavailable"},
+		{name: "unavailable/present/remove", availability: "unavailable", presence: "present", requested: remove, result: leave, key: 'r', current: "unavailable", desired: "unavailable", row: "unavailable"},
+		{name: "unavailable/unknown/ensure", availability: "unavailable", presence: "unknown", requested: ensure, result: leave, key: 'e', current: "unavailable", desired: "unavailable", row: "unavailable"},
+		{name: "unavailable/unknown/leave", availability: "unavailable", presence: "unknown", requested: leave, result: leave, key: 'u', accepted: true, current: "unavailable", desired: "unavailable", row: "unavailable"},
+		{name: "unavailable/unknown/remove", availability: "unavailable", presence: "unknown", requested: remove, result: leave, key: 'r', current: "unavailable", desired: "unavailable", row: "unavailable"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			app := application{
+				id: "app", label: "App", group: "tools", availability: test.availability, presence: test.presence,
+				policy: "optional", exact: "enabled", cleanup: "enabled", outcome: leave,
+			}
+			m := model{apps: []application{app}, dependencies: map[string][]string{}, display: plain, stage: "select", width: 80, height: 18, cursor: 1}
+			updated, _ := m.Update(tea.KeyPressMsg(tea.Key{Text: string(test.key), Code: test.key}))
+			result := updated.(model)
+			if result.apps[0].outcome != test.result {
+				t.Fatalf("outcome: expected %q, got %q (notice %q)", test.result, result.apps[0].outcome, result.notice)
+			}
+			if test.accepted != (result.notice == "") {
+				t.Fatalf("acceptance and notice disagree: accepted=%v notice=%q", test.accepted, result.notice)
+			}
+			current, desired, changed := stateTransitionValues(result.apps[0])
+			if current != test.current || desired != test.desired || changed != test.changed {
+				t.Fatalf("transition: expected %q -> %q changed=%v, got %q -> %q changed=%v", test.current, test.desired, test.changed, current, desired, changed)
+			}
+			view := result.render()
+			if !strings.Contains(view, "App · "+test.row) {
+				t.Fatalf("row does not show expected state %q:\n%s", test.row, view)
+			}
+			if !strings.Contains(view, fmt.Sprintf("%s 1", map[outcome]string{ensure: "Ensure", leave: "Leave", remove: "Remove"}[test.result])) {
+				t.Fatalf("summary does not count outcome %q:\n%s", test.result, view)
+			}
+		})
+	}
+}
+
+func TestCompleteRemovalCapabilityPresenceMatrix(t *testing.T) {
+	presences := []string{"absent", "partial", "present", "unknown"}
+	capabilities := []struct {
+		name, exact, cleanup string
+	}{
+		{name: "neither", exact: "disabled", cleanup: "disabled"},
+		{name: "exact", exact: "enabled", cleanup: "disabled"},
+		{name: "cleanup", exact: "disabled", cleanup: "enabled"},
+		{name: "both", exact: "enabled", cleanup: "enabled"},
+	}
+	for _, presence := range presences {
+		for _, capability := range capabilities {
+			t.Run(presence+"/"+capability.name, func(t *testing.T) {
+				m := model{apps: []application{{
+					id: "app", label: "App", group: "tools", availability: "available", presence: presence,
+					policy: "optional", exact: capability.exact, cleanup: capability.cleanup, outcome: ensure,
+				}}, dependencies: map[string][]string{}, display: plain, stage: "select", width: 80, height: 18, cursor: 1}
+				updated, _ := m.Update(tea.KeyPressMsg(tea.Key{Text: "r", Code: 'r'}))
+				result := updated.(model)
+				accepted := presence == "absent" || capability.exact == "enabled" || capability.cleanup == "enabled"
+				if accepted != (result.apps[0].outcome == remove) || accepted != (result.notice == "") {
+					t.Fatalf("removal acceptance mismatch: accepted=%v outcome=%q notice=%q", accepted, result.apps[0].outcome, result.notice)
+				}
+				expectedFallback := accepted && presence != "absent" && capability.exact != "enabled" && capability.cleanup == "enabled"
+				if result.apps[0].usesCleanupFallback() != expectedFallback {
+					t.Fatalf("cleanup fallback: expected %v, got %v", expectedFallback, result.apps[0].usesCleanupFallback())
+				}
+			})
+		}
+	}
+}
+
+func TestRequiredPolicyOutcomeMatrix(t *testing.T) {
+	requests := []struct {
+		wanted outcome
+		key    rune
+	}{
+		{wanted: ensure, key: 'e'},
+		{wanted: leave, key: 'u'},
+		{wanted: remove, key: 'r'},
+	}
+	for _, request := range requests {
+		t.Run(string(request.wanted), func(t *testing.T) {
+			m := model{apps: []application{{
+				id: "required", label: "Required", group: "foundation", availability: "available", presence: "present",
+				policy: "required", exact: "enabled", cleanup: "enabled", outcome: ensure,
+			}}, dependencies: map[string][]string{}, display: plain, stage: "select", width: 80, height: 18, cursor: 1}
+			updated, _ := m.Update(tea.KeyPressMsg(tea.Key{Text: string(request.key), Code: request.key}))
+			result := updated.(model)
+			accepted := request.wanted == ensure
+			if accepted != (result.notice == "") || result.apps[0].outcome != ensure {
+				t.Fatalf("required policy mismatch: requested=%q outcome=%q notice=%q", request.wanted, result.apps[0].outcome, result.notice)
+			}
+		})
+	}
+}
+
+func TestRetainedDependentRemovalPresenceMatrix(t *testing.T) {
+	for _, presence := range []string{"absent", "partial", "present", "unknown"} {
+		t.Run(presence, func(t *testing.T) {
+			m := model{
+				apps: []application{
+					{id: "runtime", label: "Runtime", group: "tools", availability: "available", presence: presence, policy: "optional", exact: "enabled", cleanup: "enabled", outcome: ensure},
+					{id: "client", label: "Client", group: "tools", availability: "available", presence: "present", policy: "optional", exact: "enabled", cleanup: "enabled", outcome: leave},
+				},
+				dependencies: map[string][]string{"client": {"runtime"}}, display: plain, stage: "select", width: 80, height: 18, cursor: 1,
+			}
+			updated, _ := m.Update(tea.KeyPressMsg(tea.Key{Text: "r", Code: 'r'}))
+			result := updated.(model)
+			if result.apps[0].outcome != ensure || !strings.Contains(result.notice, "retained by Client") {
+				t.Fatalf("retained dependent did not block %s prerequisite removal: outcome=%q notice=%q", presence, result.apps[0].outcome, result.notice)
+			}
+		})
+	}
+}
+
 func TestCompactStateTransitionsDescribeOnlyRealChanges(t *testing.T) {
 	cases := []struct {
 		name     string

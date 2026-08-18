@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Exercise APT inspection, preview, removal, and reinspection
         run: |
           docker run --rm -v "$PWD:/repo:ro" debian:bookworm bash -ceu '
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Exercise pacman inspection, removal, and reinspection
         run: |
           docker run --rm -v "$PWD:/repo:ro" archlinux:latest bash -ceu '
@@ -35,7 +35,7 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version: "1.26.6"

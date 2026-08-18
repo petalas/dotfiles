@@ -46,7 +46,7 @@ type application struct {
 }
 
 func (app application) usesCleanupFallback() bool {
-	return app.outcome == remove && (app.cleanupFallback || app.exact != "enabled" && app.cleanup == "enabled")
+	return app.outcome == remove && app.presence != "absent" && (app.cleanupFallback || app.exact != "enabled" && app.cleanup == "enabled")
 }
 
 type displayMode string

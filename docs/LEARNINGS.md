@@ -81,6 +81,12 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Exact removal and cleanup fallback are execution methods, not separate user intents. Expose one Remove outcome: prefer exact custody-backed mechanisms, automatically select a curated cleanup recipe only when exact removal is unavailable, and disclose fallback targets in review plus differentiated confirmation. Keep accepting legacy `force` artifacts without writing new ones.
 - Removal capability gates apply only when machine state might actually be changed. An absent application already satisfies Remove: `r` must cancel `absent -> present` even though inspection correctly reports exact and cleanup capabilities as disabled, and preparation must emit no removal adapter for that no-op. Otherwise group counts can change while absent children incorrectly remain scheduled for installation.
 - A trusted test plan skips live post-operation inspection; it does not suppress unrelated Ensure adapters in the same prepared run. Tests for absent-removal no-ops must assert that no `remove`/`force` adapter was invoked, not that the entire adapter log is absent.
+- A few happy-path transition examples are insufficient because availability, four presence values, three desired outcomes, and two removal capabilities are independent axes. Keep a literal 24-row availability × presence × outcome matrix at the interactive render seam, plus a 16-case presence × exact/cleanup capability matrix and separate required/retained/group tests. Literal expected transitions avoid reproducing the implementation algorithm inside the test.
+
+## GitHub Action runtimes come from each action, not setup-node
+
+- `actions/checkout@v4` declares `using: node20` in its own `action.yml`. GitHub-hosted runners may temporarily force that action onto Node 24, but emit a deprecation warning on every job.
+- `actions/setup-node` would not change another action's internal runtime. Upgrade the action itself: `actions/checkout@v7` and the existing `actions/setup-go@v6` both declare Node 24. Major action refs intentionally receive compatible fixes within that major; the workflow does not need a separate project Node runtime.
 
 ## Bubble Tea progress needs consumed terminal replies and a dedicated event channel
 

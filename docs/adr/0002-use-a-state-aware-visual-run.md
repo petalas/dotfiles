@@ -8,6 +8,17 @@ Use a repository-owned Go helper built with Bubble Tea v2, Bubbles v2, and Lip G
 
 Remove is one desired outcome with automatic method selection. An absent application already satisfies Remove, so selecting it cancels any pending Ensure transition without requiring or preparing a removal method. For present, partial, or unknown applications, prefer exact removal when an exact package registration or validated direct-install receipt identifies the managed mechanism. When exact removal is unavailable, fall back automatically to the application's `catalog/removals.tsv` cleanup recipe; every target remains bounded and reviewed, and review plus differentiated confirmation disclose the fallback. Retained dependents block prerequisite removal, package-manager dependency protections remain active, and user data and shared prerequisites are never cleanup targets. If neither an exact mechanism nor a cleanup recipe is available, reject Remove contextually.
 
+The complete available-application transition table is:
+
+| Current presence | Ensure present | Leave unchanged | Remove |
+|---|---|---|---|
+| Absent | `absent -> present` | `absent` | `absent` (satisfied; no adapter) |
+| Partial | `partial -> present` | `partial` | `partial -> removed` |
+| Present | `present` | `present` | `present -> removed` |
+| Unknown | `unknown -> present` | `unknown` | `unknown -> removed` |
+
+An unavailable application renders `unavailable`; only Leave is accepted. Required policy permits only Ensure. A retained dependent blocks removal of its prerequisite at every observed presence. For non-absent optional applications, Remove is accepted with exact capability, cleanup capability, or both (exact wins), and rejected with neither. These rules apply identically to leaf and group-subtree edits.
+
 Persist only version-1 wanted/not-wanted plan records. Seal a version-2 prepared run with a SHA-256 approval after review; do not persist destructive outcomes. Execution derives its final removal result from reinspection and writes a permission-restricted, non-replayable report.
 
 Distribute pinned prebuilt helper binaries for macOS and Linux on amd64 and arm64. Verify the selected artifact against the tracked SHA-256 manifest. Build locally only when artifact acquisition fails and a compatible Go toolchain already exists; never install Go to launch visual mode. Fail visual mode closed when neither route succeeds.
