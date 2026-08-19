@@ -12,11 +12,12 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$fixture_dir/bin"
+export HOME="$fixture_dir/home"
 export YAZI_TEST_STATE="$fixture_dir/state"
 export YAZI_TEST_SCENARIO="$fixture_dir/scenario"
 export YAZI_TEST_LOG="$fixture_dir/commands"
 export YAZI_CONFIG_HOME="$fixture_dir/yazi-config"
-mkdir -p "$YAZI_CONFIG_HOME"
+mkdir -p "$HOME" "$YAZI_CONFIG_HOME"
 touch "$YAZI_CONFIG_HOME/package.toml"
 
 cat >"$fixture_dir/bin/ya" <<'EOF'
@@ -67,19 +68,11 @@ EOF
 cat >"$fixture_dir/bin/cargo" <<'EOF'
 #!/usr/bin/env bash
 printf 'cargo:%s\n' "$*" >>"$YAZI_TEST_LOG"
-scenario=$(cat "$YAZI_TEST_SCENARIO")
-
-if [[ "$*" == "install --locked yazi-build" ]]; then
-	[[ "$scenario" == "upgrade" ]] && echo modern >"$YAZI_TEST_STATE"
-	exit 0
-fi
-
-if [[ "$*" == "install --force --locked yazi-build" ]]; then
-	[[ "$scenario" == "repair" ]] && echo modern >"$YAZI_TEST_STATE"
-	exit 0
-fi
-
-exit 2
+case "$*" in
+	'install --list') printf 'yazi-build v26.8.15:\n    yazi-build\n' ;;
+	'uninstall yazi-build') ;;
+	*) exit 2 ;;
+esac
 EOF
 
 chmod +x "$fixture_dir/bin/ya" "$fixture_dir/bin/yazi" "$fixture_dir/bin/cargo"
@@ -105,50 +98,75 @@ assert_no_log_line() {
 	fi
 }
 
-run_install_case() {
-	local state="$1" scenario="$2"
-	printf '%s\n' "$state" >"$YAZI_TEST_STATE"
-	printf '%s\n' "$scenario" >"$YAZI_TEST_SCENARIO"
-	: >"$YAZI_TEST_LOG"
-	install_yazi >/dev/null
-}
-
-# An old but internally consistent Yazi is upgraded through the normal latest
-# release check without forcing a rebuild first.
-run_install_case legacy upgrade
-assert_log_line 'cargo:install --locked yazi-build'
-assert_no_log_line 'cargo:install --force --locked yazi-build'
-yazi_is_compatible
-
-# If Cargo considers yazi-build current but ya/yazi are stale or mismatched,
-# force rebuilding the meta-package to repair both binaries as a pair.
-run_install_case mismatch repair
-assert_log_line 'cargo:install --locked yazi-build'
-assert_log_line 'cargo:install --force --locked yazi-build'
-yazi_is_compatible
-
 # Current Yazi releases print a multiline version block.
 printf 'multiline\n' >"$YAZI_TEST_STATE"
 yazi_is_compatible
 [[ "$(yazi_cli_version)" == 26.8.15 ]]
 [[ "$(yazi_fm_version)" == 26.8.15 ]]
 
-# A current installation still checks for a newer release, but does not force
-# recompilation when Cargo reports no update and the compatibility checks pass.
-run_install_case modern current
-assert_log_line 'cargo:install --locked yazi-build'
-assert_no_log_line 'cargo:install --force --locked yazi-build'
-
-# A successful Cargo exit is insufficient: yazi-build's build script can leave
-# incompatible child binaries behind, so the installer must verify its output.
+# Old or mismatched pairs remain incompatible before replacement.
 printf 'legacy\n' >"$YAZI_TEST_STATE"
-printf 'broken\n' >"$YAZI_TEST_SCENARIO"
-: >"$YAZI_TEST_LOG"
-if install_yazi >/dev/null 2>&1; then
-	echo "Expected install_yazi to reject incompatible binaries" >&2
+if yazi_is_compatible; then
+	echo "Expected the legacy Yazi pair to be incompatible" >&2
 	exit 1
 fi
-assert_log_line 'cargo:install --force --locked yazi-build'
+printf 'mismatch\n' >"$YAZI_TEST_STATE"
+if yazi_is_compatible; then
+	echo "Expected mismatched Yazi versions to be incompatible" >&2
+	exit 1
+fi
+
+# A successful yazi-build installation is not proof that its nested installer
+# produced ya/yazi. Install and select the checksummed official release pair
+# without relying on the meta-package's build-script side effects.
+download_stdout() {
+	cat <<'EOF'
+{"tag_name":"v26.8.15","assets":[{"name":"yazi-x86_64-unknown-linux-gnu.zip","digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","browser_download_url":"https://github.com/sxyazi/yazi/releases/download/v26.8.15/yazi-x86_64-unknown-linux-gnu.zip"}]}
+EOF
+}
+download_file() {
+	printf 'download:%s\n' "$1" >>"$YAZI_TEST_LOG"
+	printf 'archive\n' >"$2"
+}
+# shellcheck disable=SC2317 # Called indirectly by install_yazi.
+_yazi_sha256() {
+	printf '%064d\n' 0 | tr 0 a
+}
+unzip() {
+	local destination=${4:?}
+	local extracted="$destination/yazi-x86_64-unknown-linux-gnu"
+	mkdir -p "$extracted"
+	cp "$fixture_dir/bin/ya" "$extracted/ya"
+	cp "$fixture_dir/bin/yazi" "$extracted/yazi"
+}
+printf 'modern\n' >"$YAZI_TEST_STATE"
+: >"$YAZI_TEST_LOG"
+install_yazi >/dev/null
+[[ $(command -v ya) == "$HOME/.local/bin/ya" ]]
+[[ $(command -v yazi) == "$HOME/.local/bin/yazi" ]]
+assert_log_line 'download:https://github.com/sxyazi/yazi/releases/download/v26.8.15/yazi-x86_64-unknown-linux-gnu.zip'
+assert_no_log_line 'cargo:install --locked yazi-build'
+assert_log_line 'cargo:uninstall yazi-build'
+
+[[ $(_yazi_release_layout macos arm64) == $'yazi-aarch64-apple-darwin.zip\tyazi-aarch64-apple-darwin' ]]
+[[ $(_yazi_release_layout ubuntu x86_64) == $'yazi-x86_64-unknown-linux-gnu.zip\tyazi-x86_64-unknown-linux-gnu' ]]
+if _yazi_release_layout debian mips64 >/dev/null; then
+	echo "Expected an unsupported Yazi architecture to be rejected" >&2
+	exit 1
+fi
+
+# A bad release checksum must not replace the selected pair.
+# shellcheck disable=SC2317 # Called indirectly by install_yazi.
+_yazi_sha256() {
+	printf '%064d\n' 0 | tr 0 b
+}
+: >"$YAZI_TEST_LOG"
+if install_yazi >/dev/null 2>&1; then
+	echo "Expected install_yazi to reject a bad release checksum" >&2
+	exit 1
+fi
+[[ $(command -v ya) == "$HOME/.local/bin/ya" ]]
+[[ $(command -v yazi) == "$HOME/.local/bin/yazi" ]]
 
 # package.toml is canonical: restore its locked dependencies in one operation
 # instead of re-adding and potentially rewriting each dependency.

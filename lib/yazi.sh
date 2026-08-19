@@ -12,22 +12,35 @@ _yazi_version() {
 }
 
 yazi_cli_version() {
-	command -v ya >/dev/null 2>&1 || return 1
-	ya --version 2>/dev/null | _yazi_version
+	local cli
+	cli=$(command -v ya) || return 1
+	_yazi_binary_version "$cli"
 }
 
 yazi_fm_version() {
-	command -v yazi >/dev/null 2>&1 || return 1
-	yazi --version 2>/dev/null | _yazi_version
+	local fm
+	fm=$(command -v yazi) || return 1
+	_yazi_binary_version "$fm"
+}
+
+_yazi_binary_version() {
+	"$1" --version 2>/dev/null | _yazi_version
+}
+
+_yazi_pair_is_compatible() {
+	local cli=$1 fm=$2 cli_version fm_version
+	[[ -x "$cli" && -x "$fm" ]] || return 1
+	cli_version=$(_yazi_binary_version "$cli") || return 1
+	fm_version=$(_yazi_binary_version "$fm") || return 1
+	[[ -n "$cli_version" && "$cli_version" == "$fm_version" ]] || return 1
+	"$cli" pkg --help >/dev/null 2>&1
 }
 
 yazi_is_compatible() {
-	local cli_version fm_version
-
-	cli_version=$(yazi_cli_version) || return 1
-	fm_version=$(yazi_fm_version) || return 1
-	[[ -n "$cli_version" && "$cli_version" == "$fm_version" ]] || return 1
-	ya pkg --help >/dev/null 2>&1
+	local cli fm
+	cli=$(command -v ya) || return 1
+	fm=$(command -v yazi) || return 1
+	_yazi_pair_is_compatible "$cli" "$fm"
 }
 
 print_yazi_compatibility_error() {

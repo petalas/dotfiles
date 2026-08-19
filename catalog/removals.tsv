@@ -274,6 +274,9 @@ arch	development.tree-sitter	cargo-package	tree-sitter-cli	missing-only
 arch	development.cargo-edit	cargo-package	cargo-edit	missing-only
 arch	development.wasm-bindgen	cargo-package	wasm-bindgen-cli	missing-only
 arch	development.watchexec	cargo-package	watchexec-cli	missing-only
+macos	cli.yazi	path	~/.local/bin/ya
+macos	cli.yazi	path	~/.local/bin/yazi
+macos	cli.yazi	payload-tree	~/.local/share/yazi-release
 ubuntu	productivity.bitwarden	apt-package	bitwarden
 ubuntu	communication.chrome	apt-package	google-chrome-stable
 ubuntu	editors.code	apt-package	code
@@ -289,7 +292,9 @@ ubuntu	ai.claude-code	path	~/.local/bin/claude
 ubuntu	ai.claude-code	payload-tree	~/.local/share/claude
 ubuntu	ai.herdr	path	~/.local/bin/herdr
 ubuntu	containers.lazydocker	path	~/.local/bin/lazydocker
-ubuntu	cli.yazi	cargo-package	yazi-build
+ubuntu	cli.yazi	path	~/.local/bin/ya
+ubuntu	cli.yazi	path	~/.local/bin/yazi
+ubuntu	cli.yazi	payload-tree	~/.local/share/yazi-release
 debian	productivity.bitwarden	apt-package	bitwarden
 debian	communication.chrome	apt-package	google-chrome-stable
 debian	editors.code	apt-package	code
@@ -305,7 +310,9 @@ debian	ai.claude-code	path	~/.local/bin/claude
 debian	ai.claude-code	payload-tree	~/.local/share/claude
 debian	ai.herdr	path	~/.local/bin/herdr
 debian	containers.lazydocker	path	~/.local/bin/lazydocker
-debian	cli.yazi	cargo-package	yazi-build
+debian	cli.yazi	path	~/.local/bin/ya
+debian	cli.yazi	path	~/.local/bin/yazi
+debian	cli.yazi	payload-tree	~/.local/share/yazi-release
 arch	ai.claude-code	path	~/.local/bin/claude
 arch	ai.claude-code	payload-tree	~/.local/share/claude
 arch	ai.herdr	path	~/.local/bin/herdr

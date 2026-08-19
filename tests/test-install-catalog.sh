@@ -21,6 +21,16 @@ for os in macos ubuntu debian arch; do
     fi
 done
 
+for os in macos ubuntu debian; do
+    grep -Fxq "$os"$'\tcli.yazi\tpath\t~/.local/bin/ya' "$repo_dir/catalog/removals.tsv"
+    grep -Fxq "$os"$'\tcli.yazi\tpath\t~/.local/bin/yazi' "$repo_dir/catalog/removals.tsv"
+    grep -Fxq "$os"$'\tcli.yazi\tpayload-tree\t~/.local/share/yazi-release' "$repo_dir/catalog/removals.tsv"
+done
+if grep -Fq $'cli.yazi\tcargo-package\tyazi-build' "$repo_dir/catalog/removals.tsv"; then
+    echo "The obsolete yazi-build meta-package still owns Yazi cleanup." >&2
+    exit 1
+fi
+
 # Frozen pre-migration inventories independently protect package ownership.
 awk -F '\t' '$4 == "apt-package" {print $5}' "$repo_dir/catalog/platforms/debian.tsv" |
     sort -u >"$fixture/debian-packages"
