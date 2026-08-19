@@ -90,5 +90,6 @@ It fast-forwards this repository, resolves the saved installation plan, reconcil
 - The required Foundation group configures `en_US.UTF-8` during dependency installation; `./install locale` is only needed for a manual repair.
 - Linux writes Ghostty's `xdg-terminal-exec` preference under `XDG_CONFIG_HOME`; macOS leaves the default-terminal choice to the user.
 - `./tests/run.sh` runs deterministic tests with local fake executables instead of live package repositories or mirrors. Latest-release Yazi compatibility is a separate scheduled/manual CI integration check.
+- `./tools/run-act` replays the complete Linux GitHub Actions `checks` job through Docker against the current working tree. It cannot emulate the Apple Silicon/macOS smoke job; that boundary still requires GitHub's `macos-14` runner. See [`docs/research/act-local-actions.md`](docs/research/act-local-actions.md).
 - Commits are gated by ShellCheck plus Bash/Zsh syntax validation in `.githooks/pre-commit`. The linker activates it through `core.hooksPath`.
 - See [`AGENTS.md`](AGENTS.md) for project structure and conventions, and [`docs/LEARNINGS.md`](docs/LEARNINGS.md) for repo-specific gotchas.

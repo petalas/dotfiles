@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Run the Linux GitHub Actions checks against the current working tree.
+set -euo pipefail
+
+root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+image=${DOTFILES_ACT_IMAGE:-dotfiles-act:latest}
+
+command -v act >/dev/null 2>&1 || {
+    echo "act is required: https://nektosact.com/installation/" >&2
+    exit 1
+}
+command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 || {
+    echo "A running Docker Engine is required by act." >&2
+    exit 1
+}
+
+echo "Preparing local act runner image: $image"
+docker build --pull=false --quiet -f "$root_dir/tools/act.Dockerfile" \
+    -t "$image" "$root_dir" >/dev/null
+
+cd "$root_dir"
+exec act push \
+    --job checks \
+    --workflows .github/workflows/lint.yml \
+    --platform "ubuntu-latest=$image" \
+    --pull=false \
+    --container-options '--user 1000:1000' \
+    --env HOME=/home/ubuntu \
+    "$@"
