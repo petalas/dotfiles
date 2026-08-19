@@ -4,7 +4,8 @@ set -euo pipefail
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 fixture=$(mktemp -d /tmp/dotfiles-setup-tools.XXXXXX)
 trap 'rm -rf "$fixture"' EXIT
-mkdir -p "$fixture/bin" "$fixture/home" "$fixture/unauthenticated-home"
+mkdir -p "$fixture/bin" "$fixture/home" "$fixture/unauthenticated-home" \
+    "$fixture/invalid-home/git/notes"
 
 cat >"$fixture/bin/gh" <<'EOF'
 #!/usr/bin/env bash
@@ -59,6 +60,9 @@ export GIT_LOG="$fixture/git.log"
 test_path="$fixture/bin:/usr/bin:/bin"
 HOME="$fixture/home" PATH="$test_path" GH_AUTH_EXIT=0 "$repo_dir/setup-tools.sh" >/dev/null
 [[ -d "$fixture/home/git/notes/.git" ]]
+[[ -L "$fixture/home/git/notes/.obsidian/app.json" ]]
+jq -e '.alwaysUpdateLinks == true' \
+    "$fixture/home/git/notes/.obsidian/app.json" >/dev/null
 grep -Fq "args=clone --branch main https://github.com/petalas/notes.git $fixture/home/git/notes " \
     "$GIT_LOG"
 grep -Fq 'config_count=2 helper=!gh auth git-credential args=clone --branch main https://github.com/petalas/notes.git' \
@@ -78,5 +82,13 @@ HOME="$fixture/unauthenticated-home" PATH="$test_path" GH_AUTH_EXIT=1 \
 [[ ! -e "$fixture/unauthenticated-home/git/notes" ]]
 grep -Fq "gh auth login --hostname github.com --git-protocol https --web" \
     "$fixture/unauthenticated.err"
+
+if HOME="$fixture/invalid-home" PATH="$test_path" GH_AUTH_EXIT=0 \
+    "$repo_dir/setup-tools.sh" >"$fixture/invalid.out" 2>"$fixture/invalid.err"; then
+    echo 'Invalid notes path unexpectedly succeeded.' >&2
+    exit 1
+fi
+[[ ! -e "$fixture/invalid-home/git/notes/.obsidian" ]]
+grep -Fq "Cannot clone notes repository over existing path" "$fixture/invalid.err"
 
 printf 'Generated tool and notes repository tests passed.\n'

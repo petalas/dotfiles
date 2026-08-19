@@ -44,6 +44,8 @@ git pull --ff-only
 
 The linker is local-only, idempotent, and preserves any replaced file, directory, or symlink as `<path>.old`. To restore generated repositories, plugins, and caches separately, run `./setup-tools.sh`. When GitHub CLI authentication is available, generated tool setup also clones the private notes vault at `~/git/notes` when it is missing; an existing checkout is left untouched. Without authentication, setup prints the required `gh auth login` command and safely skips that repository.
 
+Obsidian settings are managed per vault. When `~/git/notes` exists, the linker installs `dot/.config/obsidian/app.json` as its `.obsidian/app.json`; with the default vault selection, generated tool setup also installs it immediately after cloning a missing notes vault. Set `OBSIDIAN_VAULT_DIR` when using a different vault path. A selected vault that does not exist is skipped rather than cloned automatically.
+
 ## Per-machine intent and safe removal
 
 The selector exposes the same dependency groups on every supported OS and reports each application's current presence/custody beside its desired post-run outcome. Foundation and the Bun, Node, and Rust applications are required and cannot be removed. Group actions only edit the reviewed desired-outcome plan; they never cross the destructive confirmation boundary or initiate execution.

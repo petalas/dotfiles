@@ -4,6 +4,8 @@ set -euo pipefail
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/link.sh
 source "$repo_dir/lib/link.sh"
+# shellcheck source=lib/obsidian.sh
+source "$repo_dir/lib/obsidian.sh"
 
 fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT
@@ -73,5 +75,21 @@ if link_path "$fixture/does-not-exist" "$target"; then
 fi
 [[ ! -L "$target" && "$(cat "$target")" == "untouched" ]] ||
     fail "missing source changed target"
+
+# The managed Obsidian vault config is valid and honors the vault override.
+obsidian_source="$repo_dir/dot/.config/obsidian/app.json"
+obsidian_target="$fixture/notes/.obsidian/app.json"
+jq -e '.alwaysUpdateLinks == true' "$obsidian_source" >/dev/null ||
+    fail "managed Obsidian config does not enable automatic link updates"
+mkdir -p "$fixture/notes"
+OBSIDIAN_VAULT_DIR="$fixture/notes" link_obsidian_vault_settings "$repo_dir"
+[[ -L "$obsidian_target" && "$(readlink "$obsidian_target")" == "$obsidian_source" ]] ||
+    fail "Obsidian config was not linked into the vault"
+jq -e '.alwaysUpdateLinks == true' "$obsidian_target" >/dev/null ||
+    fail "linked Obsidian config changed semantics"
+
+missing_vault="$fixture/missing-vault"
+OBSIDIAN_VAULT_DIR="$missing_vault" link_obsidian_vault_settings "$repo_dir" >/dev/null
+[[ ! -e "$missing_vault" ]] || fail "missing Obsidian vault was created"
 
 printf 'link_path state-transition tests passed.\n'

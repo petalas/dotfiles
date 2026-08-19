@@ -6,6 +6,8 @@ set -euo pipefail
 dotfiles_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/link.sh disable=SC1091
 source "$dotfiles_dir/lib/link.sh"
+# shellcheck source=lib/obsidian.sh disable=SC1091
+source "$dotfiles_dir/lib/obsidian.sh"
 
 mkdir -p "$HOME/.config"
 git -C "$dotfiles_dir" config core.hooksPath .githooks
@@ -47,6 +49,8 @@ fi
 chmod 600 "$pi_settings_tmp"
 mv "$pi_settings_tmp" "$pi_settings"
 trap - EXIT
+
+link_obsidian_vault_settings "$dotfiles_dir"
 
 # SSH. Keep the machine-owned config and add one exact active Include line.
 mkdir -p "$HOME/.ssh"

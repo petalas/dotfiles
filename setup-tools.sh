@@ -7,6 +7,10 @@ root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 cd "$root_dir"
 # shellcheck source=lib/git-sync.sh
 source lib/git-sync.sh
+# shellcheck source=lib/link.sh
+source lib/link.sh
+# shellcheck source=lib/obsidian.sh
+source lib/obsidian.sh
 # shellcheck source=lib/yazi.sh
 source lib/yazi.sh
 
@@ -52,6 +56,11 @@ setup_notes_repository() {
         clone_or_ff "$repository" "$destination" main
 }
 
+setup_notes_vault() {
+    setup_notes_repository || return
+    link_obsidian_vault_settings "$root_dir"
+}
+
 setup_tmux_plugins() {
     clone_or_ff https://github.com/tmux-plugins/tpm.git "$HOME/.tmux/plugins/tpm"
     command -v tmux >/dev/null 2>&1 || return 0
@@ -65,7 +74,7 @@ rebuild_bat_cache() {
 }
 
 run_best_effort "Neovim configuration repository" setup_nvim_repository
-run_best_effort "Notes vault repository" setup_notes_repository
+run_best_effort "Notes vault repository" setup_notes_vault
 run_best_effort "tmux plugins" setup_tmux_plugins
 if command -v yazi >/dev/null 2>&1 || command -v ya >/dev/null 2>&1; then
     run_best_effort "Yazi packages" install_yazi_packages

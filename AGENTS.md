@@ -18,7 +18,7 @@ This project uses a routing table (below) to map file patterns to docs you must 
 *.sh                  # Root setup scripts (main entry points)
 installers/           # Individual tool installer scripts
 dot/                  # Config files symlinked to ~
-  .config/            # XDG configs (ghostty, kitty rollback config, bat, yazi)
+  .config/            # App configs (XDG tools plus managed Obsidian vault settings)
   claude/             # Claude Code config (symlinked to ~/.claude/)
   zshrc               # Shell config
   gitconfig           # Git config
