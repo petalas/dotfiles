@@ -36,6 +36,47 @@ for command_name in curl git; do
 exit 0
 EOF
 done
+cat >"$fixture_dir/bin/systemd-inhibit" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$TEST_SYSTEMD_INHIBIT_LOG"
+if [[ "${1:-}" == --list ]]; then
+    [[ "${TEST_SCENARIO:-}" != inhibitors_unavailable ]]
+    exit
+fi
+while [[ "${1:-}" == --* ]]; do shift; done
+export TEST_SYSTEMD_INHIBITOR_ACTIVE=1
+exec "$@"
+EOF
+cat >"$fixture_dir/bin/gnome-session-inhibit" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$TEST_GNOME_INHIBIT_LOG"
+if [[ "${1:-}" == --list ]]; then
+    [[ "${TEST_SCENARIO:-}" != gnome_unavailable &&
+        "${TEST_SCENARIO:-}" != inhibitors_unavailable ]]
+    exit
+fi
+while [[ "${1:-}" == --* ]]; do shift; done
+export TEST_GNOME_INHIBITOR_ACTIVE=1
+exec "$@"
+EOF
+cat >"$fixture_dir/bin/getent" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == passwd ]]; then
+    printf '%s:x:1000:1000::%s:%s\n' "$2" "$HOME" "${TEST_LOGIN_SHELL:-/bin/bash}"
+    exit 0
+fi
+exec /usr/bin/getent "$@"
+EOF
+cat >"$fixture_dir/bin/zsh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "${TEST_SYSTEMD_INHIBITOR_ACTIVE:-0}" == 0 ]]
+[[ "${TEST_GNOME_INHIBITOR_ACTIVE:-0}" == 0 ]]
+printf 'SHELL=%s args=%s\n' "${SHELL:-}" "$*" >"$TEST_ZSH_HANDOFF"
+EOF
 cat >"$fixture_dir/lib/install-plan" <<'EOF'
 #!/usr/bin/env bash
 command=$1
@@ -59,6 +100,13 @@ case "$command" in
     execute|apply)
         [[ "${NONINTERACTIVE:-}" == 1 ]]
         [[ "${DOTFILES_NONINTERACTIVE:-}" == 1 ]]
+        if [[ "${TEST_SCENARIO:-}" != inhibitors_unavailable ]]; then
+            [[ "${TEST_SYSTEMD_INHIBITOR_ACTIVE:-}" == 1 ]]
+        fi
+        if [[ "${TEST_SCENARIO:-}" != gnome_unavailable &&
+            "${TEST_SCENARIO:-}" != inhibitors_unavailable ]]; then
+            [[ "${TEST_GNOME_INHIBITOR_ACTIVE:-}" == 1 ]]
+        fi
         if IFS= read -r _; then echo 'apply stdin was open' >&2; exit 1; fi
         [[ "${TEST_SCENARIO:-}" != apply_failure ]]
         ;;
@@ -78,11 +126,16 @@ run_install() {
     : >"$steps"
     rm -f "$fixture_dir/$scenario.sudo-ready" "$fixture_dir/$scenario.sudoers"
     : >"$fixture_dir/$scenario.sudo.log"
+    : >"$fixture_dir/$scenario.systemd-inhibit.log"
+    : >"$fixture_dir/$scenario.gnome-inhibit.log"
     env TEST_SCENARIO="$scenario" TEST_STEPS="$steps" \
         TEST_SUDO_LOG="$fixture_dir/$scenario.sudo.log" \
         TEST_SUDO_STATE="$fixture_dir/$scenario.sudo-ready" \
         TEST_SUDOERS_CAPTURE="$fixture_dir/$scenario.sudoers" \
+        TEST_SYSTEMD_INHIBIT_LOG="$fixture_dir/$scenario.systemd-inhibit.log" \
+        TEST_GNOME_INHIBIT_LOG="$fixture_dir/$scenario.gnome-inhibit.log" \
         HOME="$fixture_dir/home" DOTFILES_OS_OVERRIDE=debian \
+        XDG_CURRENT_DESKTOP=GNOME DBUS_SESSION_BUS_ADDRESS=fixture \
         PATH="$fixture_dir/bin:/usr/bin:/bin" \
         "${EASY_INSTALL_TEST_ENTRY_BASH:-$BASH}" "$fixture_dir/easy-install.sh" "$@" \
         >"$fixture_dir/$scenario.log" 2>&1
@@ -92,6 +145,16 @@ run_install visual
 [[ "$(sed -n '1p' "$steps")" == inspect*'--os '* ]]
 [[ "$(sed -n '2p' "$steps")" == prepare*'--mode visual'* ]]
 [[ "$(sed -n '3p' "$steps")" == execute*'--operation install'* ]]
+grep -Fq -- '--what=idle:sleep --mode=block' "$fixture_dir/visual.systemd-inhibit.log"
+grep -Fq -- '--inhibit=idle:suspend' "$fixture_dir/visual.gnome-inhibit.log"
+
+run_install gnome_unavailable --unattended
+grep -Fq -- '--what=idle:sleep --mode=block' "$fixture_dir/gnome_unavailable.systemd-inhibit.log"
+[[ "$(wc -l <"$fixture_dir/gnome_unavailable.gnome-inhibit.log")" == 1 ]]
+
+run_install inhibitors_unavailable --unattended
+[[ "$(wc -l <"$fixture_dir/inhibitors_unavailable.systemd-inhibit.log")" == 1 ]]
+[[ "$(wc -l <"$fixture_dir/inhibitors_unavailable.gnome-inhibit.log")" == 1 ]]
 
 run_install unattended --unattended
 grep -Fq 'prepare --mode full' "$steps"
@@ -132,5 +195,61 @@ grep -Fq 'Could not configure passwordless sudo' "$fixture_dir/sudo_denied.log"
 run_install help --help
 grep -Fq 'Usage:' "$fixture_dir/help.log"
 [[ ! -s "$steps" ]]
+[[ ! -s "$fixture_dir/help.systemd-inhibit.log" ]]
+[[ ! -s "$fixture_dir/help.gnome-inhibit.log" ]]
+
+command -v python3 >/dev/null 2>&1 || {
+    echo "Python unavailable; login-shell handoff regression skipped."
+    echo "easy-install mode contract tests passed."
+    exit 0
+}
+rm -f "$fixture_dir/handoff.zsh" "$fixture_dir/handoff.sudo-ready"
+: >"$fixture_dir/handoff.sudo.log"
+: >"$fixture_dir/handoff.systemd-inhibit.log"
+: >"$fixture_dir/handoff.gnome-inhibit.log"
+TEST_FIXTURE_DIR="$fixture_dir" TEST_ENTRY_BASH="${EASY_INSTALL_TEST_ENTRY_BASH:-$BASH}" python3 <<'PY'
+import os
+import pty
+import time
+
+fixture = os.environ["TEST_FIXTURE_DIR"]
+pid, descriptor = pty.fork()
+if pid == 0:
+    environment = os.environ.copy()
+    environment.update({
+        "TEST_SCENARIO": "handoff",
+        "TEST_STEPS": fixture + "/steps",
+        "TEST_SUDO_LOG": fixture + "/handoff.sudo.log",
+        "TEST_SUDO_STATE": fixture + "/handoff.sudo-ready",
+        "TEST_SUDOERS_CAPTURE": fixture + "/handoff.sudoers",
+        "TEST_SYSTEMD_INHIBIT_LOG": fixture + "/handoff.systemd-inhibit.log",
+        "TEST_GNOME_INHIBIT_LOG": fixture + "/handoff.gnome-inhibit.log",
+        "TEST_LOGIN_SHELL": fixture + "/bin/zsh",
+        "TEST_ZSH_HANDOFF": fixture + "/handoff.zsh",
+        "HOME": fixture + "/home",
+        "SHELL": "/bin/bash",
+        "DOTFILES_OS_OVERRIDE": "debian",
+        "XDG_CURRENT_DESKTOP": "GNOME",
+        "DBUS_SESSION_BUS_ADDRESS": "fixture",
+        "PATH": fixture + "/bin:/usr/bin:/bin",
+    })
+    shell = os.environ["TEST_ENTRY_BASH"]
+    os.execve(shell, [shell, fixture + "/easy-install.sh"], environment)
+
+status = None
+deadline = time.time() + 10
+while time.time() < deadline:
+    finished, child_status = os.waitpid(pid, os.WNOHANG)
+    if finished:
+        status = child_status
+        break
+    time.sleep(0.05)
+if status is None:
+    os.kill(pid, 9)
+    raise SystemExit("visual install did not hand off to the login shell")
+if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:
+    raise SystemExit("visual install or login-shell handoff failed")
+PY
+grep -Fqx "SHELL=$fixture_dir/bin/zsh args=-l" "$fixture_dir/handoff.zsh"
 
 echo "easy-install mode contract tests passed."

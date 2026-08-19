@@ -52,6 +52,23 @@ dotfiles_os_codename() {
     awk -F= '$1 == "VERSION_CODENAME" { gsub(/"/, "", $2); print $2; exit }' /etc/os-release
 }
 
+dotfiles_target_user() {
+    printf '%s\n' "${SUDO_USER:-$(id -un)}"
+}
+
+dotfiles_login_shell() {
+    local login_shell os user
+    user=${1:-$(dotfiles_target_user)}
+    os=$(dotfiles_os) || return 1
+    if [[ "$os" == macos ]]; then
+        login_shell=$(dscl . -read "/Users/$user" UserShell 2>/dev/null | awk '{ print $2 }')
+    else
+        login_shell=$(getent passwd "$user" | cut -d: -f7)
+    fi
+    [[ -n "$login_shell" ]] || return 1
+    printf '%s\n' "$login_shell"
+}
+
 run_as_root() {
     if [[ "${DOTFILES_PACKAGE_NO_SUDO:-0}" == 1 || "${EUID:-$(id -u)}" == 0 ]]; then
         "$@"
