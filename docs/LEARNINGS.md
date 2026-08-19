@@ -248,11 +248,12 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
-## Login-shell changes need a terminal handoff, not a reboot
+## Login-shell changes need a fresh terminal, not a reboot
 
 - `chsh` updates the account database immediately, but a child installer cannot rewrite the parent shell or the `SHELL` exported by an already-running desktop login session. Waiting for a reboot only appeared to make the change itself take effect because rebooting created a fresh login environment.
-- The catalog adapter must remain non-interactive because it runs in the detached execution phase. After a successful visual run, `easy-install.sh` instead re-reads the account's verified login shell, reopens `/dev/tty` because stdin crossed the confirmation boundary closed, exports the new `SHELL`, and replaces itself with `zsh -l`. Unattended and redirected runs must still terminate normally.
-- Linux installation runs use standard process-scoped inhibitors rather than changing global desktop settings or simulating input. The logind inhibitor protects against OS idle sleep; GNOME's session inhibitor additionally prevents its independent idle lock and is used only when its session API is reachable. Keep the final interactive Zsh handoff in the outer entry-point process so both child-scoped inhibitors are released before Zsh starts; otherwise they remain held for the entire shell session.
+- The catalog adapter must remain non-interactive because it runs in the detached execution phase. After a successful visual run, `easy-install.sh` re-reads the account's verified login shell and launches Ghostty with that Zsh path explicitly as a login shell. This avoids both the stale parent `SHELL` value and ambiguity in GUI-launcher environment propagation while opening the linked `.zshrc` in the configured terminal. Unattended and redirected runs must still terminate without launching a terminal.
+- Linux installation runs use standard process-scoped inhibitors rather than changing global desktop settings or simulating input. The logind inhibitor protects against OS idle sleep; GNOME's session inhibitor additionally prevents its independent idle lock and is used only when its session API is reachable. Keep the final Ghostty launch in the outer entry-point process so both child-scoped inhibitors are released before the terminal starts; otherwise they remain held for the entire terminal session.
+- A background `nohup` launched as the PTY-owning installer exits can lose a race with terminal teardown before the child starts. Use `setsid -f` for the Linux Ghostty launch when available, with `nohup` only as a compatibility fallback, and keep the PTY regression test polling the launch marker.
 
 ---
 

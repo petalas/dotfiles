@@ -69,7 +69,7 @@ run_install_with_inhibitors() {
 
     ((inhibitor_found)) || return 0
     if "${inhibited_command[@]}"; then
-        handoff_to_login_shell
+        launch_ghostty_with_zsh
         exit 0
     else
         install_status=$?
@@ -77,20 +77,38 @@ run_install_with_inhibitors() {
     fi
 }
 
-handoff_to_login_shell() {
-    local login_shell user
+launch_ghostty_with_zsh() {
+    local ghostty_command login_shell user
     [[ "$mode" == visual && -t 1 ]] || return 0
+
     user=$(dotfiles_target_user)
     login_shell=$(dotfiles_login_shell "$user") || return 0
     [[ -x "$login_shell" && "${login_shell##*/}" == zsh ]] || return 0
-    [[ "${SHELL:-}" != */zsh ]] || return 0
-    if ! { exec 3<>/dev/tty; } 2>/dev/null; then
+
+    if [[ "$os" == macos ]]; then
+        if ! open -Ra Ghostty.app >/dev/null 2>&1; then
+            echo "Ghostty is not installed; skipping terminal launch." >&2
+            return 0
+        fi
+        echo "Opening Ghostty with the verified Zsh login shell."
+        if ! SHELL="$login_shell" open -na Ghostty.app --args -e "$login_shell" -l; then
+            echo "Could not launch Ghostty." >&2
+        fi
         return 0
     fi
 
-    printf 'Starting the new Zsh login shell now (no reboot required).\n' >&3
-    export SHELL=$login_shell
-    exec "$login_shell" -l <&3 >&3 2>&3
+    if ! ghostty_command=$(command -v ghostty); then
+        echo "Ghostty is not installed; skipping terminal launch." >&2
+        return 0
+    fi
+    echo "Opening Ghostty with the verified Zsh login shell."
+    if command -v setsid >/dev/null 2>&1; then
+        setsid -f env SHELL="$login_shell" "$ghostty_command" \
+            -e "$login_shell" -l >/dev/null 2>&1
+    else
+        nohup env SHELL="$login_shell" "$ghostty_command" -e "$login_shell" -l \
+            >/dev/null 2>&1 &
+    fi
 }
 
 if ! os=$(dotfiles_os); then
@@ -148,5 +166,5 @@ else
 fi
 echo "Setup complete."
 if [[ "${DOTFILES_INSTALL_INHIBITED:-0}" != 1 ]]; then
-    handoff_to_login_shell
+    launch_ghostty_with_zsh
 fi

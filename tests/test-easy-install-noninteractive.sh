@@ -72,10 +72,14 @@ exec /usr/bin/getent "$@"
 EOF
 cat >"$fixture_dir/bin/zsh" <<'EOF'
 #!/usr/bin/env bash
+exit 0
+EOF
+cat >"$fixture_dir/bin/ghostty" <<'EOF'
+#!/usr/bin/env bash
 set -euo pipefail
 [[ "${TEST_SYSTEMD_INHIBITOR_ACTIVE:-0}" == 0 ]]
 [[ "${TEST_GNOME_INHIBITOR_ACTIVE:-0}" == 0 ]]
-printf 'SHELL=%s args=%s\n' "${SHELL:-}" "$*" >"$TEST_ZSH_HANDOFF"
+printf 'SHELL=%s args=%s\n' "${SHELL:-}" "$*" >"$TEST_GHOSTTY_LAUNCH"
 EOF
 cat >"$fixture_dir/lib/install-plan" <<'EOF'
 #!/usr/bin/env bash
@@ -199,14 +203,14 @@ grep -Fq 'Usage:' "$fixture_dir/help.log"
 [[ ! -s "$fixture_dir/help.gnome-inhibit.log" ]]
 
 command -v python3 >/dev/null 2>&1 || {
-    echo "Python unavailable; login-shell handoff regression skipped."
+    echo "Python unavailable; Ghostty launch regression skipped."
     echo "easy-install mode contract tests passed."
     exit 0
 }
-rm -f "$fixture_dir/handoff.zsh" "$fixture_dir/handoff.sudo-ready"
-: >"$fixture_dir/handoff.sudo.log"
-: >"$fixture_dir/handoff.systemd-inhibit.log"
-: >"$fixture_dir/handoff.gnome-inhibit.log"
+rm -f "$fixture_dir/launch.ghostty" "$fixture_dir/launch.sudo-ready"
+: >"$fixture_dir/launch.sudo.log"
+: >"$fixture_dir/launch.systemd-inhibit.log"
+: >"$fixture_dir/launch.gnome-inhibit.log"
 TEST_FIXTURE_DIR="$fixture_dir" TEST_ENTRY_BASH="${EASY_INSTALL_TEST_ENTRY_BASH:-$BASH}" python3 <<'PY'
 import os
 import pty
@@ -217,15 +221,15 @@ pid, descriptor = pty.fork()
 if pid == 0:
     environment = os.environ.copy()
     environment.update({
-        "TEST_SCENARIO": "handoff",
+        "TEST_SCENARIO": "launch",
         "TEST_STEPS": fixture + "/steps",
-        "TEST_SUDO_LOG": fixture + "/handoff.sudo.log",
-        "TEST_SUDO_STATE": fixture + "/handoff.sudo-ready",
-        "TEST_SUDOERS_CAPTURE": fixture + "/handoff.sudoers",
-        "TEST_SYSTEMD_INHIBIT_LOG": fixture + "/handoff.systemd-inhibit.log",
-        "TEST_GNOME_INHIBIT_LOG": fixture + "/handoff.gnome-inhibit.log",
+        "TEST_SUDO_LOG": fixture + "/launch.sudo.log",
+        "TEST_SUDO_STATE": fixture + "/launch.sudo-ready",
+        "TEST_SUDOERS_CAPTURE": fixture + "/launch.sudoers",
+        "TEST_SYSTEMD_INHIBIT_LOG": fixture + "/launch.systemd-inhibit.log",
+        "TEST_GNOME_INHIBIT_LOG": fixture + "/launch.gnome-inhibit.log",
         "TEST_LOGIN_SHELL": fixture + "/bin/zsh",
-        "TEST_ZSH_HANDOFF": fixture + "/handoff.zsh",
+        "TEST_GHOSTTY_LAUNCH": fixture + "/launch.ghostty",
         "HOME": fixture + "/home",
         "SHELL": "/bin/bash",
         "DOTFILES_OS_OVERRIDE": "debian",
@@ -246,10 +250,18 @@ while time.time() < deadline:
     time.sleep(0.05)
 if status is None:
     os.kill(pid, 9)
-    raise SystemExit("visual install did not hand off to the login shell")
+    raise SystemExit("visual install did not finish after launching Ghostty")
 if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:
-    raise SystemExit("visual install or login-shell handoff failed")
+    raise SystemExit("visual install or Ghostty launch failed")
+
+launch = fixture + "/launch.ghostty"
+deadline = time.time() + 2
+while time.time() < deadline and not os.path.exists(launch):
+    time.sleep(0.05)
+if not os.path.exists(launch):
+    raise SystemExit("visual install did not launch Ghostty")
 PY
-grep -Fqx "SHELL=$fixture_dir/bin/zsh args=-l" "$fixture_dir/handoff.zsh"
+grep -Fqx "SHELL=$fixture_dir/bin/zsh args=-e $fixture_dir/bin/zsh -l" \
+    "$fixture_dir/launch.ghostty"
 
 echo "easy-install mode contract tests passed."
