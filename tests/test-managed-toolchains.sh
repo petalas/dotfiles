@@ -96,10 +96,12 @@ PATH="$fixture/bin:/usr/bin:/bin"
 : >"$log"
 install_rust
 [[ $(command -v rustc) == "$HOME/.cargo/bin/rustc" ]]
-grep -Fq 'interpreter=sh url=https://sh.rustup.rs args=-y --no-modify-path --profile default --default-toolchain stable' "$log"
+grep -Fq 'interpreter=sh url=https://sh.rustup.rs args=-y --no-modify-path --profile minimal --default-toolchain none' "$log"
 grep -Fxq 'rustup set profile default' "$log"
 grep -Fxq 'rustup update stable' "$log"
 grep -Fxq 'rustup default stable' "$log"
+[[ "$(install_node_operations)" == $'nvm\tEnsure nvm\nnode\tEnsure Node and npm' ]]
+[[ "$(install_rust_operations)" == $'rustup\tEnsure rustup\nstable\tEnsure the stable Rust toolchain' ]]
 
 PATH="$fixture/bin:/usr/bin:/bin"
 : >"$log"

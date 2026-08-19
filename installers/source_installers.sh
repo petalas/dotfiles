@@ -9,6 +9,16 @@ source "$DOTFILES_ROOT/lib/download.sh"
 # shellcheck source=../lib/packages.sh
 source "$DOTFILES_ROOT/lib/packages.sh"
 
+# The catalog engine overrides this hook to expose installer-owned operations
+# in run progress. Direct installer calls retain the same behavior without
+# depending on the engine.
+if ! declare -F run_installer_operation >/dev/null 2>&1; then
+    run_installer_operation() {
+        shift 2
+        "$@"
+    }
+fi
+
 for script in "$SCRIPT_DIR"/install_*.sh "$SCRIPT_DIR"/setup_*.sh; do
     # shellcheck disable=SC1090
     source "$script"

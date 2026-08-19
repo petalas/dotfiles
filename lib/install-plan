@@ -1231,8 +1231,7 @@ run_real_adapter() {
             cargo install --locked "$value" </dev/null
             ;;
         installer)
-            # shellcheck source=../installers/source_installers.sh
-            source "$root_dir/installers/source_installers.sh" >/dev/null
+            ensure_installers_loaded
             if [[ $(type -t "install_$value") == function ]]; then function_name="install_$value"
             elif [[ $(type -t "setup_$value") == function ]]; then function_name="setup_$value"
             else echo "Unknown installer adapter: $value" >&2; return 1
@@ -1346,6 +1345,11 @@ execute_action_batches() {
             index=$((index + 1))
         done
         if [[ ! -s "$entries" ]]; then rm -f "$entries"; continue; fi
+        index=0
+        while ((index < ${#apply_action_apps[@]})); do
+            [[ "${apply_action_kinds[$index]}" != "$kind" ]] || start_action_operation "$index"
+            index=$((index + 1))
+        done
         batch_result=0
         if [[ -n "${DOTFILES_INSTALL_PLAN_BATCH_ADAPTER:-}" ]]; then
             "$DOTFILES_INSTALL_PLAN_BATCH_ADAPTER" "$operation" "$kind" "$entries" || batch_result=$?
@@ -1356,7 +1360,10 @@ execute_action_batches() {
         if [[ "$batch_result" == 0 ]]; then
             index=0
             while ((index < ${#apply_action_apps[@]})); do
-                [[ "${apply_action_kinds[$index]}" != "$kind" ]] || apply_action_done[$index]=1
+                if [[ "${apply_action_kinds[$index]}" == "$kind" ]]; then
+                    apply_action_done[$index]=1
+                    settle_action_operation "$index" succeeded
+                fi
                 index=$((index + 1))
             done
         elif [[ "$kind" == apt-package || "$kind" == pacman-package ||
@@ -1377,23 +1384,171 @@ emit_event() {
     esac
 }
 
-start_app_operation() {
+ensure_installers_loaded() {
+    [[ "${_INSTALL_PLAN_INSTALLERS_LOADED:-0}" == 1 ]] && return 0
+    # shellcheck source=../installers/source_installers.sh
+    source "$root_dir/installers/source_installers.sh" >/dev/null
+    _INSTALL_PLAN_INSTALLERS_LOADED=1
+}
+
+installer_exposes_operations() {
+    local installer=$1
+    [[ -z "${DOTFILES_INSTALL_PLAN_ADAPTER:-}" ]] || return 1
+    ensure_installers_loaded
+    [[ $(type -t "install_${installer}_operations") == function ]]
+}
+
+register_event_operation() {
+    find_value_index "$1" "${event_operation_ids[@]}" >/dev/null 2>&1 && fail "duplicate progress operation: $1"
+    event_operation_ids+=("$1")
+    event_operation_labels+=("$2")
+    event_operation_states+=(pending)
+}
+
+action_operation_label() {
+    local index app_index kind value
+    index=$1; kind=${apply_action_kinds[$index]}; value=${apply_action_values[$index]}
+    app_index=$(find_value_index "${apply_action_apps[$index]}" "${apply_app_ids[@]}") || return 1
+    case "$kind" in
+        apt-package) printf 'APT package %s\n' "$value" ;;
+        pacman-package) printf 'pacman package %s\n' "$value" ;;
+        brew-tap) printf 'Homebrew tap %s\n' "$value" ;;
+        brew-formula) printf 'Homebrew formula %s\n' "$value" ;;
+        brew-cask) printf 'Homebrew cask %s\n' "$value" ;;
+        npm-package) printf 'npm package %s\n' "$value" ;;
+        cargo-package) printf 'Cargo package %s\n' "$value" ;;
+        command-alias) printf 'Command alias for %s\n' "${apply_app_labels[$app_index]}" ;;
+        provided) printf 'Provided dependency %s\n' "${apply_app_labels[$app_index]}" ;;
+        installer) printf 'Install %s\n' "${apply_app_labels[$app_index]}" ;;
+        *) printf '%s: %s\n' "${apply_app_labels[$app_index]}" "$value" ;;
+    esac
+}
+
+register_action_operations() {
+    local index=$1 sub_id sub_label registered=0
+    if [[ "${apply_action_kinds[$index]}" == installer ]] &&
+        installer_exposes_operations "${apply_action_values[$index]}"; then
+        while IFS=$'\t' read -r sub_id sub_label; do
+            [[ -n "$sub_id" && -n "$sub_label" ]] || continue
+            valid_id "$sub_id" || fail "invalid installer operation id for ${apply_action_values[$index]}: $sub_id"
+            register_event_operation "action:$index:$sub_id" "$sub_label"
+            registered=$((registered + 1))
+        done < <("install_${apply_action_values[$index]}_operations")
+        ((registered > 0)) || fail "installer ${apply_action_values[$index]} declares no operations"
+    else
+        register_event_operation "action:$index" "$(action_operation_label "$index")"
+    fi
+}
+
+initialize_event_operations() {
+    local index app_index outcome dependencies_enabled=0
+    event_operation_ids=(); event_operation_labels=(); event_operation_states=()
+    for index in "${!apply_step_ids[@]}"; do
+        if [[ "${apply_step_ids[$index]}" == dependencies && "${apply_step_states[$index]}" == on ]]; then
+            dependencies_enabled=1
+            break
+        fi
+    done
+    if [[ "$dependencies_enabled" == 1 ]]; then
+        for index in "${!apply_action_apps[@]}"; do
+            app_index=$(find_value_index "${apply_action_apps[$index]}" "${apply_app_ids[@]}") || continue
+            [[ "${apply_app_outcomes[$app_index]}" == ensure ]] || continue
+            register_action_operations "$index"
+        done
+        for index in "${!apply_removal_apps[@]}"; do
+            app_index=$(find_value_index "${apply_removal_apps[$index]}" "${apply_app_ids[@]}") || continue
+            case "${apply_app_outcomes[$app_index]}" in remove|force)
+                register_event_operation "removal:$index" "Remove ${apply_removal_targets[$index]}" ;;
+            esac
+        done
+        for app_index in "${!apply_app_ids[@]}"; do
+            outcome=${apply_app_outcomes[$app_index]}
+            [[ "$outcome" == leave ]] || register_event_operation "verify:$app_index" "Verify ${apply_app_labels[$app_index]}"
+        done
+    fi
+    for index in "${!apply_step_ids[@]}"; do
+        [[ "${apply_step_states[$index]}" == on && "${apply_step_ids[$index]}" != dependencies ]] || continue
+        register_event_operation "step:$index" "${apply_step_labels[$index]}"
+    done
+    event_total=${#event_operation_ids[@]}
+    event_settled=0
+}
+
+start_registered_operation() {
+    local id=$1 index
+    index=$(find_value_index "$id" "${event_operation_ids[@]}") || fail "unregistered progress operation: $id"
+    [[ "${event_operation_states[$index]}" == pending ]] || return 0
+    event_operation_states[$index]=active
+    emit_event operation-start "$id" "${event_operation_labels[$index]}" indeterminate
+}
+
+settle_registered_operation() {
+    local id=$1 status=$2 index
+    index=$(find_value_index "$id" "${event_operation_ids[@]}") || fail "unregistered progress operation: $id"
+    [[ "${event_operation_states[$index]}" != settled ]] || return 0
+    start_registered_operation "$id"
+    event_operation_states[$index]=settled
+    event_settled=$((event_settled + 1))
+    emit_event operation-settled "$id" "$status" "$event_settled" "$event_total"
+}
+
+action_has_suboperations() {
     local index=$1
-    emit_event operation-start "app:${apply_app_ids[$index]}" "${apply_app_labels[$index]}" indeterminate
+    [[ "${apply_action_kinds[$index]}" == installer ]] &&
+        installer_exposes_operations "${apply_action_values[$index]}"
+}
+
+start_action_operation() {
+    local index=$1
+    action_has_suboperations "$index" || start_registered_operation "action:$index"
+}
+
+settle_action_operation() {
+    local index status operation_index id prefix
+    index=$1; status=$2; prefix="action:$index:"
+    if action_has_suboperations "$index"; then
+        for operation_index in "${!event_operation_ids[@]}"; do
+            id=${event_operation_ids[$operation_index]}
+            case "$id" in "$prefix"*) settle_registered_operation "$id" "$status" ;; esac
+        done
+    else
+        settle_registered_operation "action:$index" "$status"
+    fi
+}
+
+run_installer_operation() {
+    local sub_id=$1 label=$2 result=0 id
+    shift 2
+    if [[ -z "${_INSTALL_PLAN_CURRENT_ACTION_INDEX:-}" ]]; then
+        "$@"
+        return
+    fi
+    id="action:${_INSTALL_PLAN_CURRENT_ACTION_INDEX}:$sub_id"
+    start_registered_operation "$id"
+    "$@" || result=$?
+    if [[ "$result" == 0 ]]; then settle_registered_operation "$id" succeeded
+    else settle_registered_operation "$id" failed; fi
+    return "$result"
 }
 
 settle_app_operation() {
-    local index=$1 status=$2
+    local index=$1 status=$2 action_index removal_index
     apply_app_statuses[$index]=$status
-    event_settled=$((event_settled + 1))
-    emit_event operation-settled "app:${apply_app_ids[$index]}" "$status" "$event_settled" "$event_total"
+    for action_index in "${!apply_action_apps[@]}"; do
+        [[ "${apply_action_apps[$action_index]}" != "${apply_app_ids[$index]}" ]] ||
+            settle_action_operation "$action_index" "$status"
+    done
+    for removal_index in "${!apply_removal_apps[@]}"; do
+        [[ "${apply_removal_apps[$removal_index]}" != "${apply_app_ids[$index]}" ]] ||
+            settle_registered_operation "removal:$removal_index" "$status"
+    done
+    settle_registered_operation "verify:$index" "$status"
 }
 
 settle_step_operation() {
     local index=$1 status=$2
     apply_step_statuses[$index]=$status
-    event_settled=$((event_settled + 1))
-    emit_event operation-settled "step:${apply_step_ids[$index]}" "$status" "$event_settled" "$event_total"
+    [[ "${apply_step_ids[$index]}" == dependencies ]] || settle_registered_operation "step:$index" "$status"
 }
 
 execute_plan_removal() {
@@ -1402,7 +1557,7 @@ execute_plan_removal() {
     status=${apply_app_statuses[$index]}
     case "$status" in succeeded) return 0 ;; failed|partial|blocked) return 1 ;; running) return 1 ;; esac
     case "$path" in *"|$id|"*) settle_app_operation "$index" failed; return 1 ;; esac
-    apply_app_statuses[$index]=running; start_app_operation "$index"
+    apply_app_statuses[$index]=running
     dependency_index=0
     while ((dependency_index < ${#apply_dependency_apps[@]})); do
         if [[ "${apply_dependency_requirements[$dependency_index]}" == "$id" ]]; then
@@ -1427,6 +1582,7 @@ execute_plan_removal() {
         if [[ "${apply_removal_apps[$removal_index]}" == "$id" ]]; then
             if [[ "${apply_removal_modes[$removal_index]}" == exact ]]; then operation=remove; else operation=force; fi
             method_status=succeeded; DOTFILES_ADAPTER_METHOD_STATUS=succeeded
+            start_registered_operation "removal:$removal_index"
             if [[ "${apply_removal_kinds[$removal_index]}" == retain || "${apply_removal_kinds[$removal_index]}" == retain-effect ]]; then
                 method_status=retained
             elif ! run_plan_adapter "$operation" "${apply_removal_kinds[$removal_index]}" \
@@ -1435,6 +1591,8 @@ execute_plan_removal() {
             elif [[ "${DOTFILES_ADAPTER_METHOD_STATUS:-succeeded}" == retained ]]; then
                 method_status=retained
             fi
+            if [[ "$method_status" == failed ]]; then settle_registered_operation "removal:$removal_index" failed
+            else settle_registered_operation "removal:$removal_index" succeeded; fi
             report_method_apps+=("$id"); report_method_modes+=("${apply_removal_modes[$removal_index]}")
             report_method_kinds+=("${apply_removal_kinds[$removal_index]}"); report_method_targets+=("${apply_removal_targets[$removal_index]}")
             report_method_statuses+=("$method_status")
@@ -1443,6 +1601,7 @@ execute_plan_removal() {
     done
     if [[ "$had_failure" == 1 ]]; then settle_app_operation "$index" failed; return 1; fi
     rm -f "$(receipt_path_for_app "$apply_os" "$id")"
+    start_registered_operation "verify:$index"
     if [[ "${DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN:-0}" != 1 ]]; then
         result=$(inspect_app_by_id "$apply_os" "$id" | head -n 1)
         IFS=$'\t' read -r _ _ _ presence custody _ <<<"$result"
@@ -1463,7 +1622,7 @@ execute_plan_app() {
     status=${apply_app_statuses[$index]}
     case "$status" in succeeded) return 0 ;; failed|partial|blocked) return 1 ;; running) return 1 ;; esac
     case "$path" in *"|$id|"*) settle_app_operation "$index" failed; return 1 ;; esac
-    apply_app_statuses[$index]=running; start_app_operation "$index"
+    apply_app_statuses[$index]=running
     dependency_index=0
     while ((dependency_index < ${#apply_dependency_apps[@]})); do
         if [[ "${apply_dependency_apps[$dependency_index]}" == "$id" ]]; then
@@ -1489,26 +1648,34 @@ execute_plan_app() {
                 fi
                 receipt_before=$(validated_receipt_target "$apply_os" "$id" "${apply_action_values[$action_index]}" 2>/dev/null || true)
             fi
+            start_action_operation "$action_index"
+            _INSTALL_PLAN_CURRENT_ACTION_INDEX=$action_index
             run_plan_adapter "$operation" "${apply_action_kinds[$action_index]}" \
                 "${apply_action_values[$action_index]}" "${apply_action_options[$action_index]}" || adapter_failed=1
+            unset _INSTALL_PLAN_CURRENT_ACTION_INDEX
             if [[ "$adapter_failed" == 1 ]]; then
+                settle_action_operation "$action_index" failed
                 had_failure=1
-            elif [[ "${apply_action_kinds[$action_index]}" == installer ]]; then
-                installer_after=$(command -v "$(installer_probe_command "${apply_action_values[$action_index]}")" 2>/dev/null || true)
-                installer_after_digest=''
-                if [[ -n "$installer_after" && -f "$installer_after" ]]; then
-                    installer_after_digest=$(sha256_file "$installer_after")
-                fi
-                if [[ -z "$installer_before" || -n "$receipt_before" ||
-                      "$installer_after" != "$installer_before" ||
-                      "$installer_after_digest" != "$installer_before_digest" ]]; then
-                    write_installation_receipt "$apply_os" "$id" "${apply_action_values[$action_index]}"
+            else
+                settle_action_operation "$action_index" succeeded
+                if [[ "${apply_action_kinds[$action_index]}" == installer ]]; then
+                    installer_after=$(command -v "$(installer_probe_command "${apply_action_values[$action_index]}")" 2>/dev/null || true)
+                    installer_after_digest=''
+                    if [[ -n "$installer_after" && -f "$installer_after" ]]; then
+                        installer_after_digest=$(sha256_file "$installer_after")
+                    fi
+                    if [[ -z "$installer_before" || -n "$receipt_before" ||
+                          "$installer_after" != "$installer_before" ||
+                          "$installer_after_digest" != "$installer_before_digest" ]]; then
+                        write_installation_receipt "$apply_os" "$id" "${apply_action_values[$action_index]}"
+                    fi
                 fi
             fi
         fi
         action_index=$((action_index + 1))
     done
     if [[ "$had_failure" == 1 ]]; then settle_app_operation "$index" failed; return 1; fi
+    start_registered_operation "verify:$index"
     if [[ "${DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN:-0}" != 1 ]]; then
         result=$(inspect_app_by_id "$apply_os" "$id" | head -n 1)
         IFS=$'\t' read -r _ _ _ presence custody _ <<<"$result"
@@ -1787,9 +1954,7 @@ apply_plan() {
     export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a GIT_TERMINAL_PROMPT=0
     exec </dev/null
     trap 'interrupted=1' INT TERM
-    event_total=0; event_settled=0
-    for index in "${!apply_step_ids[@]}"; do [[ "${apply_step_states[$index]}" != on ]] || event_total=$((event_total + 1)); done
-    for app_index in "${!apply_app_ids[@]}"; do [[ "${apply_app_outcomes[$app_index]}" == leave ]] || event_total=$((event_total + 1)); done
+    initialize_event_operations
     emit_event run-start "$event_total"
 
     index=0
@@ -1799,7 +1964,7 @@ apply_plan() {
             index=$((index + 1)); continue
         fi
         if [[ "$interrupted" == 1 ]]; then step_failed=1; break; fi
-        emit_event operation-start "step:$step_id" "${apply_step_labels[$index]}" indeterminate
+        [[ "$step_id" == dependencies ]] || start_registered_operation "step:$index"
         if [[ "$step_id" == dependencies ]]; then
             execute_action_batches "$operation"
             app_index=0

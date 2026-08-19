@@ -121,11 +121,11 @@ The non-replayable expansion of desired outcomes into validated providers, targe
 _Avoid_: Plan record, installation plan
 
 **Logical operation**:
-A schedulable unit of inspection, installation, removal, managed effect, or verification in a prepared run. Retries are attempts within one logical operation, and a shared transaction remains one operation regardless of how many applications observe it.
+A separately reported unit of inspection, installation, removal, managed effect, or verification in a prepared run. Each selected package-manager entry, declared phase inside a direct installer, standalone setup step, and application verification is its own logical operation. One shared transaction may execute several logical operations together, and retries remain attempts within their original operations.
 _Avoid_: Command, process, task
 
 **Settled operation**:
-A logical operation that reached any terminal outcome, including success, failure, partial completion, blocking, skipping, or cancellation. Overall progress measures settled operations rather than elapsed time or successful operations.
+A logical operation that reached any terminal outcome, including success, failure, partial completion, blocking, skipping, or cancellation. Operations executed by one shared package-manager transaction may settle together. Overall progress measures settled operations rather than elapsed time or successful operations.
 _Avoid_: Completed operation, percent complete
 
 **Selection defaults**:
