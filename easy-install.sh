@@ -78,7 +78,7 @@ run_install_with_inhibitors() {
 }
 
 launch_ghostty_with_zsh() {
-    local ghostty_command login_shell user
+    local ghostty_command launch_attempt launch_pid launch_ready login_shell user
     [[ "$mode" == visual && -t 1 ]] || return 0
 
     user=$(dotfiles_target_user)
@@ -106,8 +106,23 @@ launch_ghostty_with_zsh() {
         setsid -f env SHELL="$login_shell" "$ghostty_command" \
             -e "$login_shell" -l >/dev/null 2>&1
     else
-        nohup env SHELL="$login_shell" "$ghostty_command" -e "$login_shell" -l \
-            >/dev/null 2>&1 &
+        launch_ready=$(mktemp "${TMPDIR:-/tmp}/dotfiles-ghostty-ready.XXXXXX") || return 0
+        rm -f "$launch_ready"
+        (
+            trap '' HUP
+            : >"$launch_ready"
+            exec </dev/null
+            exec env SHELL="$login_shell" "$ghostty_command" -e "$login_shell" -l \
+                >/dev/null 2>&1
+        ) &
+        launch_pid=$!
+        launch_attempt=0
+        while [[ ! -e "$launch_ready" && "$launch_attempt" -lt 100 ]]; do
+            kill -0 "$launch_pid" 2>/dev/null || break
+            sleep 0.01
+            launch_attempt=$((launch_attempt + 1))
+        done
+        rm -f "$launch_ready"
     fi
 }
 

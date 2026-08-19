@@ -221,6 +221,7 @@ rm -f "$fixture_dir/launch.ghostty" "$fixture_dir/launch.sudo-ready"
 : >"$fixture_dir/launch.systemd-inhibit.log"
 : >"$fixture_dir/launch.gnome-inhibit.log"
 TEST_FIXTURE_DIR="$fixture_dir" TEST_ENTRY_BASH="${EASY_INSTALL_TEST_ENTRY_BASH:-$BASH}" python3 <<'PY'
+import fcntl
 import os
 import pty
 import time
@@ -250,8 +251,14 @@ if pid == 0:
     os.execve(shell, [shell, fixture + "/easy-install.sh"], environment)
 
 status = None
+flags = fcntl.fcntl(descriptor, fcntl.F_GETFL)
+fcntl.fcntl(descriptor, fcntl.F_SETFL, flags | os.O_NONBLOCK)
 deadline = time.time() + 10
 while time.time() < deadline:
+    try:
+        os.read(descriptor, 65536)
+    except OSError:
+        pass
     finished, child_status = os.waitpid(pid, os.WNOHANG)
     if finished:
         status = child_status
