@@ -12,8 +12,8 @@ export XDG_STATE_HOME="$fixture/state"
 cat >"$fixture/observations.tsv" <<'EOF'
 format	1
 os	macos
-observation	foundation.git	available	present	managed	required	disabled	disabled	foundation	Git	registered by Homebrew
-observation	editors.neovim	available	partial	managed	optional	enabled	disabled	editors	Neovim	package present; launcher missing
+observation	foundation.git	available	present	managed	required	disabled	disabled	foundation	Git (2.43.0 -> 2.45.1)	registered by Homebrew
+observation	editors.neovim	available	partial	managed	optional	enabled	disabled	editors	Neovim (0.11.0)	package present; launcher missing
 observation	communication.discord	available	present	unverified	optional	disabled	enabled	communication	Discord	found without receipt
 observation	gaming.steam	available	absent	unverified	optional	disabled	disabled	gaming	Steam	not registered
 EOF
@@ -64,9 +64,9 @@ if grep -Fq 'Evidence:' "$fixture/compact" || grep -Fq 'package present; launche
     echo 'Compact mode must hide per-application evidence' >&2
     exit 1
 fi
-grep -Fq 'Git · present' "$fixture/compact"
-grep -Fq 'Neovim · partial -> present' "$fixture/compact"
-if grep -F 'Git · present' "$fixture/compact" | grep -Fq -- '->'; then
+grep -Fq 'Git (2.43.0 -> 2.45.1) · present' "$fixture/compact"
+grep -Fq 'Neovim (0.11.0) · partial -> present' "$fixture/compact"
+if grep -F 'Git (2.43.0 -> 2.45.1) · present' "$fixture/compact" | grep -Fq -- 'present ->'; then
     echo 'Compact mode must omit transitions when current and desired states match' >&2
     exit 1
 fi

@@ -39,15 +39,26 @@ case "$2" in
 esac
 EOF
 chmod +x "$fixture/inspect"
+cat >"$fixture/inspect-version" <<'EOF'
+#!/usr/bin/env bash
+case "$2" in
+    git) printf '2.43.0\t2.45.1\tupdate\n' ;;
+    steam) printf '1.0\t1.0\tcurrent\n' ;;
+    mystery) printf '1.0\t-\tunknown\n' ;;
+    *) printf -- '-\t-\tunknown\n' ;;
+esac
+EOF
+chmod +x "$fixture/inspect-version"
 
 DOTFILES_CATALOG_DIR="$catalog" DOTFILES_INSTALL_PLAN_INSPECTOR="$fixture/inspect" \
+    DOTFILES_INSTALL_PLAN_VERSION_INSPECTOR="$fixture/inspect-version" \
     "$repo_dir/lib/install-plan" inspect --os macos --output "$fixture/observations.tsv"
 
 grep -Fxq $'format\t1' "$fixture/observations.tsv"
 grep -Fxq $'os\tmacos' "$fixture/observations.tsv"
-grep -Fxq $'observation\tfoundation.git\tavailable\tpresent\tmanaged\trequired\tdisabled\tdisabled\tfoundation\tGit\tgit is registered' "$fixture/observations.tsv"
-grep -Fxq $'observation\tgaming.steam\tavailable\tpresent\tmanaged\toptional\tenabled\tdisabled\tgaming\tSteam\tsteam is registered' "$fixture/observations.tsv"
-grep -Fxq $'observation\tgaming.mystery\tavailable\tpresent\tunverified\toptional\tdisabled\tenabled\tgaming\tMystery\tmystery found without a receipt' "$fixture/observations.tsv"
+grep -Fxq $'observation\tfoundation.git\tavailable\tpresent\tmanaged\trequired\tdisabled\tdisabled\tfoundation\tGit (2.43.0 -> 2.45.1)\tgit is registered' "$fixture/observations.tsv"
+grep -Fxq $'observation\tgaming.steam\tavailable\tpresent\tmanaged\toptional\tenabled\tdisabled\tgaming\tSteam (1.0)\tsteam is registered' "$fixture/observations.tsv"
+grep -Fxq $'observation\tgaming.mystery\tavailable\tpresent\tunverified\toptional\tdisabled\tenabled\tgaming\tMystery (1.0)\tmystery found without a receipt' "$fixture/observations.tsv"
 grep -Fxq $'observation\tgaming.unknown\tavailable\tunknown\tunverified\toptional\tdisabled\tdisabled\tgaming\tUnknown\tinspection failed' "$fixture/observations.tsv"
 grep -Fxq $'observation\tgaming.unavailable\tunavailable\tunknown\tunverified\toptional\tdisabled\tdisabled\tgaming\tUnavailable\tno provider on macos' "$fixture/observations.tsv"
 
@@ -58,8 +69,36 @@ if command -v sha256sum >/dev/null; then digest=$(sha256sum "$fixture/bin/myster
 printf 'format\t1\napp\tgaming.mystery\ninstaller\tmystery\nversion\t1.0\ntarget\t%s\nsha256\t%s\neffect\tcatalog-installer\n' \
     "$fixture/bin/mystery" "$digest" >"$fixture/state/dotfiles/receipts/macos/gaming.mystery.tsv"
 XDG_STATE_HOME="$fixture/state" DOTFILES_CATALOG_DIR="$catalog" DOTFILES_INSTALL_PLAN_INSPECTOR="$fixture/inspect" \
+    DOTFILES_INSTALL_PLAN_VERSION_INSPECTOR="$fixture/inspect-version" \
     "$repo_dir/lib/install-plan" inspect --os macos --output "$fixture/receipted.tsv"
-grep -Fxq $'observation\tgaming.mystery\tavailable\tpresent\tmanaged\toptional\tenabled\tenabled\tgaming\tMystery\tvalidated installation receipt for '"$fixture/bin/mystery" "$fixture/receipted.tsv"
+grep -Fxq $'observation\tgaming.mystery\tavailable\tpresent\tmanaged\toptional\tenabled\tenabled\tgaming\tMystery (1.0)\tvalidated installation receipt for '"$fixture/bin/mystery" "$fixture/receipted.tsv"
 grep -Fxq $'mechanism\tgaming.mystery\treceipt\t'"$fixture/bin/mystery"$'\tmystery' "$fixture/receipted.tsv"
 
-printf 'Application observation and receipt contract tests passed.\n'
+# Real package-manager inspection snapshots installed and candidate versions once.
+cp "$catalog/platforms/macos.tsv" "$catalog/platforms/debian.tsv"
+printf 'foundation.git\tapt\tpayload\tapt-package\tgit\n' >"$catalog/platforms/debian.tsv"
+mkdir -p "$fixture/package-bin"
+cat >"$fixture/package-bin/dpkg-query" <<'EOF'
+#!/usr/bin/env bash
+printf 'dpkg-query\n' >>"$VERSION_COMMAND_LOG"
+case "$*" in
+    *Status-Abbrev*git) printf 'ii  \n' ;;
+    *) printf 'git\t2.43.0\n' ;;
+esac
+EOF
+cat >"$fixture/package-bin/apt" <<'EOF'
+#!/usr/bin/env bash
+printf 'apt\n' >>"$VERSION_COMMAND_LOG"
+printf 'Listing...\ngit/stable 2.45.1 amd64 [upgradable from: 2.43.0]\n'
+EOF
+chmod +x "$fixture/package-bin/dpkg-query" "$fixture/package-bin/apt"
+: >"$fixture/version-command.log"
+VERSION_COMMAND_LOG="$fixture/version-command.log" PATH="$fixture/package-bin:$PATH" \
+    DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" \
+    inspect --os debian --output "$fixture/package-observations.tsv"
+grep -Fxq $'observation\tfoundation.git\tavailable\tpresent\tmanaged\trequired\tdisabled\tdisabled\tfoundation\tGit (2.43.0 -> 2.45.1)\tgit is registered by dpkg' \
+    "$fixture/package-observations.tsv"
+[[ $(grep -c '^apt$' "$fixture/version-command.log") == 1 ]]
+[[ $(grep -c '^dpkg-query$' "$fixture/version-command.log") == 1 ]]
+
+printf 'Application observation, version, update, and receipt contract tests passed.\n'

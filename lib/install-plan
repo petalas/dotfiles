@@ -10,6 +10,9 @@ root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 catalog_dir=${DOTFILES_CATALOG_DIR:-$root_dir/catalog}
 state_home=${XDG_STATE_HOME:-$HOME/.local/state}
 default_record=${DOTFILES_PLAN_RECORD:-$state_home/dotfiles/installation-plan}
+collect_versions=0
+version_inventory_ready=0
+version_inventory_dir=
 
 fail() {
     echo "install-plan: $*" >&2
@@ -437,7 +440,9 @@ save_default_record() {
 write_observation_snapshot() {
     local os=$1 output=$2 index=0 total=0 settled=0
     total=${#app_ids[@]}
+    collect_versions=1
     emit_event run-start "$total"
+    prepare_version_inventory "$os"
     { printf 'format\t1\n'; printf 'os\t%s\n' "$os"; } >"$output"
     index=0
     while ((index < ${#app_ids[@]})); do
@@ -454,6 +459,10 @@ write_observation_snapshot() {
         index=$((index + 1))
     done
     emit_event run-settled succeeded "$settled" "$total"
+    collect_versions=0
+    [[ -z "$version_inventory_dir" ]] || rm -rf "$version_inventory_dir"
+    version_inventory_dir=
+    version_inventory_ready=0
 }
 
 write_outcome_selection_draft() {
@@ -569,28 +578,310 @@ installer_receipt_version() {
     printf '%s\n' "${version//$'\t'/ }"
 }
 
+catalog_uses_action_kind() {
+    local expected=$1 kind
+    for kind in "${action_kinds[@]}"; do [[ "$kind" != "$expected" ]] || return 0; done
+    return 1
+}
+
+inventory_lookup() {
+    local file=$1 key=$2
+    [[ -r "$file" ]] || return 1
+    awk -F '\t' -v key="$key" '$1 == key { print $2; found=1; exit } END { if (!found) exit 1 }' "$file"
+}
+
+inventory_known() {
+    [[ -e "$version_inventory_dir/$1-known" ]]
+}
+
+parse_npm_inventory() {
+    local input=$1 output=$2
+    command -v node >/dev/null 2>&1 || return 1
+    node -e '
+const fs = require("fs");
+const data = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+for (const [name, details] of Object.entries(data.dependencies || {})) {
+  if (details && details.version) console.log(`${name}\t${details.version}`);
+}
+' "$input" >"$output"
+}
+
+parse_npm_updates() {
+    local input=$1 output=$2
+    command -v node >/dev/null 2>&1 || return 1
+    node -e '
+const fs = require("fs");
+const data = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+for (const [name, details] of Object.entries(data || {})) {
+  if (details && details.latest) console.log(`${name}\t${details.latest}`);
+}
+' "$input" >"$output"
+}
+
+refresh_npm_update_inventory() {
+    local output=$1 raw pid attempts=0 limit=${DOTFILES_UPDATE_CHECK_TIMEOUT_TENTHS:-30} status=0
+    [[ "$limit" =~ ^[0-9]+$ ]] || limit=30
+    raw=$(mktemp "$version_inventory_dir/npm-outdated.XXXXXX")
+    (
+        if npm outdated --global --json >"$raw" 2>/dev/null; then
+            exit 0
+        else
+            status=$?
+            [[ "$status" == 1 ]]
+        fi
+    ) &
+    pid=$!
+    while kill -0 "$pid" 2>/dev/null && ((attempts < limit)); do
+        sleep 0.1
+        attempts=$((attempts + 1))
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+        kill "$pid" 2>/dev/null || true
+        wait "$pid" 2>/dev/null || true
+        rm -f "$raw"
+        return 1
+    fi
+    if ! wait "$pid" || ! parse_npm_updates "$raw" "$output"; then
+        rm -f "$raw"
+        return 1
+    fi
+    rm -f "$raw"
+}
+
+prepare_npm_update_inventory() {
+    local output=$1 cache_dir cache_file temporary ttl=${DOTFILES_UPDATE_CACHE_MINUTES:-360}
+    [[ "$ttl" =~ ^[0-9]+$ ]] || ttl=360
+    cache_dir=$state_home/dotfiles/update-cache
+    cache_file=$cache_dir/npm.tsv
+    if [[ -f "$cache_file" ]] && find "$cache_file" -mmin "-$ttl" -print 2>/dev/null | grep -q .; then
+        cp "$cache_file" "$output"
+        return 0
+    fi
+    mkdir -p "$cache_dir"
+    chmod 700 "$cache_dir" 2>/dev/null || true
+    temporary=$(mktemp "$cache_dir/.npm.XXXXXX")
+    if refresh_npm_update_inventory "$temporary"; then
+        chmod 600 "$temporary"
+        mv -f "$temporary" "$cache_file"
+        cp "$cache_file" "$output"
+        return 0
+    fi
+    rm -f "$temporary"
+    [[ -f "$cache_file" ]] || return 1
+    cp "$cache_file" "$output"
+}
+
+prepare_version_inventory() {
+    local os=$1 raw file
+    [[ "$version_inventory_ready" == 0 ]] || return 0
+    version_inventory_dir=$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-version-inventory.XXXXXX")
+    for file in apt-installed apt-updates pacman-installed pacman-updates brew-installed brew-updates npm-installed npm-updates cargo-installed; do
+        : >"$version_inventory_dir/$file"
+    done
+    if [[ -n "${DOTFILES_INSTALL_PLAN_VERSION_INSPECTOR:-}" ]]; then
+        version_inventory_ready=1
+        return 0
+    fi
+
+    if catalog_uses_action_kind apt-package && command -v dpkg-query >/dev/null 2>&1; then
+        raw=$version_inventory_dir/dpkg.raw
+        if dpkg-query -W -f='${binary:Package}\t${Version}\n' >"$raw" 2>/dev/null; then
+            awk -F '\t' '{ sub(/:[^:]+$/, "", $1); print $1 "\t" $2 }' "$raw" >"$version_inventory_dir/apt-installed"
+            : >"$version_inventory_dir/apt-installed-known"
+        fi
+        if command -v apt >/dev/null 2>&1 && LC_ALL=C apt list --upgradable >"$raw" 2>/dev/null; then
+            awk '$1 != "Listing..." { split($1, name, "/"); if (name[1] && $2) print name[1] "\t" $2 }' \
+                "$raw" >"$version_inventory_dir/apt-updates"
+            : >"$version_inventory_dir/apt-updates-known"
+        fi
+    fi
+
+    if catalog_uses_action_kind pacman-package && command -v pacman >/dev/null 2>&1; then
+        if LC_ALL=C pacman -Q >"$version_inventory_dir/pacman-installed.raw" 2>/dev/null; then
+            awk '{ print $1 "\t" $2 }' "$version_inventory_dir/pacman-installed.raw" >"$version_inventory_dir/pacman-installed"
+            : >"$version_inventory_dir/pacman-installed-known"
+        fi
+        if LC_ALL=C pacman -Qu >"$version_inventory_dir/pacman-updates.raw" 2>/dev/null; then
+            awk '{ print $1 "\t" $4 }' "$version_inventory_dir/pacman-updates.raw" >"$version_inventory_dir/pacman-updates"
+            : >"$version_inventory_dir/pacman-updates-known"
+        fi
+    fi
+
+    if { catalog_uses_action_kind brew-formula || catalog_uses_action_kind brew-cask; } && command -v brew >/dev/null 2>&1; then
+        if HOMEBREW_NO_AUTO_UPDATE=1 brew list --formula --versions >"$version_inventory_dir/brew-formula.raw" 2>/dev/null; then
+            awk '{ print $1 "\t" $NF }' "$version_inventory_dir/brew-formula.raw" >>"$version_inventory_dir/brew-installed"
+            : >"$version_inventory_dir/brew-installed-known"
+        fi
+        if HOMEBREW_NO_AUTO_UPDATE=1 brew list --cask --versions >"$version_inventory_dir/brew-cask.raw" 2>/dev/null; then
+            awk '{ print $1 "\t" $NF }' "$version_inventory_dir/brew-cask.raw" >>"$version_inventory_dir/brew-installed"
+            : >"$version_inventory_dir/brew-installed-known"
+        fi
+        if LC_ALL=C HOMEBREW_NO_AUTO_UPDATE=1 brew outdated --verbose >"$version_inventory_dir/brew-outdated.raw" 2>/dev/null; then
+            awk 'NF >= 4 && ($(NF-1) == "<" || $(NF-1) == "!=") { print $1 "\t" $NF }' \
+                "$version_inventory_dir/brew-outdated.raw" >"$version_inventory_dir/brew-updates"
+            : >"$version_inventory_dir/brew-updates-known"
+        fi
+    fi
+
+    if catalog_uses_action_kind npm-package && command -v npm >/dev/null 2>&1; then
+        raw=$version_inventory_dir/npm-list.raw
+        npm list --global --depth=0 --json >"$raw" 2>/dev/null || true
+        if [[ -s "$raw" ]] && parse_npm_inventory "$raw" "$version_inventory_dir/npm-installed"; then
+            : >"$version_inventory_dir/npm-installed-known"
+        fi
+        if prepare_npm_update_inventory "$version_inventory_dir/npm-updates"; then
+            : >"$version_inventory_dir/npm-updates-known"
+        fi
+    fi
+
+    if catalog_uses_action_kind cargo-package && command -v cargo >/dev/null 2>&1; then
+        if cargo install --list >"$version_inventory_dir/cargo-list.raw" 2>/dev/null; then
+            awk '/^[^[:space:]].* v[^:]+:$/ { version=$2; sub(/^v/, "", version); sub(/:$/, "", version); print $1 "\t" version }' \
+                "$version_inventory_dir/cargo-list.raw" >"$version_inventory_dir/cargo-installed"
+            : >"$version_inventory_dir/cargo-installed-known"
+        fi
+    fi
+    version_inventory_ready=1
+}
+
+receipt_version_for_app() {
+    local os=$1 app=$2 installer=$3 receipt type first second
+    validated_receipt_target "$os" "$app" "$installer" >/dev/null 2>&1 || return 1
+    receipt=$(receipt_path_for_app "$os" "$app")
+    while IFS=$'\t' read -r type first second; do
+        if [[ "$type" == version && -n "$first" && -z "${second:-}" && "$first" != unknown ]]; then
+            printf '%s\n' "$first"
+            return 0
+        fi
+    done <"$receipt"
+    return 1
+}
+
+sanitize_version() {
+    LC_ALL=C printf '%s' "$1" | LC_ALL=C tr -cd '[:print:]'
+}
+
+real_action_version() {
+    local os=$1 app=$2 kind=$3 value=$4 option=$5 installed='' latest='' status=unknown target package output
+    case "$kind" in
+        apt-package)
+            installed=$(inventory_lookup "$version_inventory_dir/apt-installed" "$value" 2>/dev/null || true)
+            latest=$(inventory_lookup "$version_inventory_dir/apt-updates" "$value" 2>/dev/null || true)
+            inventory_known apt-updates && status=current
+            ;;
+        pacman-package)
+            installed=$(inventory_lookup "$version_inventory_dir/pacman-installed" "$value" 2>/dev/null || true)
+            latest=$(inventory_lookup "$version_inventory_dir/pacman-updates" "$value" 2>/dev/null || true)
+            inventory_known pacman-updates && status=current
+            ;;
+        brew-formula|brew-cask)
+            installed=$(inventory_lookup "$version_inventory_dir/brew-installed" "$value" 2>/dev/null || true)
+            latest=$(inventory_lookup "$version_inventory_dir/brew-updates" "$value" 2>/dev/null || true)
+            inventory_known brew-updates && status=current
+            ;;
+        npm-package)
+            installed=$(inventory_lookup "$version_inventory_dir/npm-installed" "$value" 2>/dev/null || true)
+            latest=$(inventory_lookup "$version_inventory_dir/npm-updates" "$value" 2>/dev/null || true)
+            inventory_known npm-updates && status=current
+            ;;
+        cargo-package)
+            installed=$(inventory_lookup "$version_inventory_dir/cargo-installed" "$value" 2>/dev/null || true)
+            ;;
+        installer)
+            installed=$(receipt_version_for_app "$os" "$app" "$value" 2>/dev/null || true)
+            if [[ -z "$installed" ]]; then
+                package=$(installer_receipt_package "$os" "$value" 2>/dev/null || true)
+                if [[ -n "$package" ]]; then
+                    installed=$(inventory_lookup "$version_inventory_dir/apt-installed" "$package" 2>/dev/null || true)
+                    latest=$(inventory_lookup "$version_inventory_dir/apt-updates" "$package" 2>/dev/null || true)
+                    inventory_known apt-updates && status=current
+                elif target=$(command -v "$(installer_probe_command "$value")" 2>/dev/null); then
+                    output=$(installer_receipt_version "$os" "$value" "$target")
+                    [[ "$output" == unknown ]] || installed=$output
+                fi
+            fi
+            ;;
+        provided)
+            case "$value" in
+                bash) installed=$BASH_VERSION ;;
+                curl|git|zsh)
+                    if target=$(command -v "$value" 2>/dev/null); then
+                        output=$("$target" --version 2>/dev/null || true)
+                        installed=${output%%$'\n'*}
+                    fi ;;
+            esac
+            ;;
+    esac
+    if [[ -n "$latest" && "$latest" != "$installed" ]]; then status=update; else latest=; fi
+    installed=$(sanitize_version "$installed")
+    latest=$(sanitize_version "$latest")
+    printf '%s\t%s\t%s\n' "${installed:--}" "${latest:--}" "$status"
+}
+
+inspect_action_version() {
+    local os=$1 app=$2 kind=$3 value=$4 option=$5
+    if [[ -n "${DOTFILES_INSTALL_PLAN_VERSION_INSPECTOR:-}" ]]; then
+        "$DOTFILES_INSTALL_PLAN_VERSION_INSPECTOR" "$kind" "$value" "$option" "$os" "$app"
+    else
+        real_action_version "$os" "$app" "$kind" "$value" "$option"
+    fi
+}
+
+# Enrich the existing label field so observation format 1 stays compatible with
+# the pinned TUI release while the Plan tree gains version information.
+versioned_application_label() {
+    local label=$1 installed=$2 latest=$3 status=$4
+    if [[ "$status" == update && -n "$installed" && -n "$latest" ]]; then
+        printf '%s (%s -> %s)\n' "$label" "$installed" "$latest"
+    elif [[ -n "$installed" ]]; then
+        printf '%s (%s)\n' "$label" "$installed"
+    else
+        printf '%s\n' "$label"
+    fi
+}
+
 inspect_real_action() {
     local kind=$1 value=$2 option=$3 binary
     case "$kind" in
         provided) printf 'present\tprovided\t%s is provided externally\n' "$value" ;;
         apt-package)
-            if dpkg-query -W -f='${db:Status-Abbrev}' "$value" 2>/dev/null | grep -q '^ii '; then
+            if [[ "$version_inventory_ready" == 1 ]] && inventory_known apt-installed; then
+                if inventory_lookup "$version_inventory_dir/apt-installed" "$value" >/dev/null 2>&1; then
+                    printf 'present\tmanaged\t%s is registered by dpkg\n' "$value"
+                else printf 'absent\tunverified\t%s is not registered by dpkg\n' "$value"; fi
+            elif dpkg-query -W -f='${db:Status-Abbrev}' "$value" 2>/dev/null | grep -q '^ii '; then
                 printf 'present\tmanaged\t%s is registered by dpkg\n' "$value"
             else printf 'absent\tunverified\t%s is not registered by dpkg\n' "$value"; fi ;;
         pacman-package)
-            if pacman -Q "$value" >/dev/null 2>&1; then printf 'present\tmanaged\t%s is registered by pacman\n' "$value"
+            if [[ "$version_inventory_ready" == 1 ]] && inventory_known pacman-installed; then
+                if inventory_lookup "$version_inventory_dir/pacman-installed" "$value" >/dev/null 2>&1; then
+                    printf 'present\tmanaged\t%s is registered by pacman\n' "$value"
+                else printf 'absent\tunverified\t%s is not registered by pacman\n' "$value"; fi
+            elif pacman -Q "$value" >/dev/null 2>&1; then printf 'present\tmanaged\t%s is registered by pacman\n' "$value"
             else printf 'absent\tunverified\t%s is not registered by pacman\n' "$value"; fi ;;
         brew-formula|brew-cask)
             if [[ "$kind" == brew-cask ]]; then option=--cask; else option=--formula; fi
-            if command -v brew >/dev/null 2>&1 && brew list "$option" "$value" >/dev/null 2>&1; then
+            if [[ "$version_inventory_ready" == 1 ]] && inventory_known brew-installed; then
+                if inventory_lookup "$version_inventory_dir/brew-installed" "$value" >/dev/null 2>&1; then
+                    printf 'present\tmanaged\t%s is registered by Homebrew\n' "$value"
+                else printf 'absent\tunverified\t%s is not registered by Homebrew\n' "$value"; fi
+            elif command -v brew >/dev/null 2>&1 && brew list "$option" "$value" >/dev/null 2>&1; then
                 printf 'present\tmanaged\t%s is registered by Homebrew\n' "$value"
             else printf 'absent\tunverified\t%s is not registered by Homebrew\n' "$value"; fi ;;
         npm-package)
-            if command -v npm >/dev/null 2>&1 && npm list --global --depth=0 "$value" >/dev/null 2>&1; then
+            if [[ "$version_inventory_ready" == 1 ]] && inventory_known npm-installed; then
+                if inventory_lookup "$version_inventory_dir/npm-installed" "$value" >/dev/null 2>&1; then
+                    printf 'present\tmanaged\t%s is registered by npm\n' "$value"
+                else printf 'absent\tunverified\t%s is not registered by npm\n' "$value"; fi
+            elif command -v npm >/dev/null 2>&1 && npm list --global --depth=0 "$value" >/dev/null 2>&1; then
                 printf 'present\tmanaged\t%s is registered by npm\n' "$value"
             else printf 'absent\tunverified\t%s is not registered by npm\n' "$value"; fi ;;
         cargo-package)
-            if command -v cargo >/dev/null 2>&1 && cargo install --list 2>/dev/null | grep -Eq "^${value//./\\.} v[^:]+:$"; then
+            if [[ "$version_inventory_ready" == 1 ]] && inventory_known cargo-installed; then
+                if inventory_lookup "$version_inventory_dir/cargo-installed" "$value" >/dev/null 2>&1; then
+                    printf 'present\tmanaged\t%s is registered by Cargo\n' "$value"
+                else printf 'absent\tunverified\t%s is not registered by Cargo\n' "$value"; fi
+            elif command -v cargo >/dev/null 2>&1 && cargo install --list 2>/dev/null | grep -Eq "^${value//./\\.} v[^:]+:$"; then
                 printf 'present\tmanaged\t%s is registered by Cargo\n' "$value"
             else printf 'absent\tunverified\t%s is not registered by Cargo\n' "$value"; fi ;;
         installer)
@@ -675,11 +966,13 @@ record_inspection_mechanism() {
 
 inspect_app() {
     local os=$1 app_index=$2 id action_index=0 result presence custody evidence receipt_target
+    local version_result installed latest action_status formatted_label
     local -a mechanism_kinds=() mechanism_targets=() mechanism_options=()
     id=${app_ids[$app_index]}
     local present_count=0 partial_count=0 absent_count=0 unknown_count=0 managed_count=0 provided_count=0 unverified_count=0 exact_method=0
     local present_managed=0 present_provided=0 present_unverified=0
     local first_evidence='' app_presence app_custody policy exact_capability=disabled force_capability=disabled mechanism_index recipe_index
+    local app_installed='' app_latest='' app_update=unknown
     while ((action_index < ${#action_apps[@]})); do
         if [[ "${action_apps[$action_index]}" == "$id" && "${action_roles[$action_index]}" == payload ]]; then
             if result=$(inspect_action "${action_kinds[$action_index]}" "${action_values[$action_index]}" \
@@ -689,6 +982,24 @@ inspect_app() {
                 presence=unknown; custody=unverified; evidence="inspection adapter failed"
             fi
             case "$presence" in present) present_count=$((present_count + 1)) ;; partial) partial_count=$((partial_count + 1)) ;; absent) absent_count=$((absent_count + 1)) ;; *) unknown_count=$((unknown_count + 1)) ;; esac
+            if [[ "$collect_versions" == 1 && ( "$presence" == present || "$presence" == partial ) ]]; then
+                if version_result=$(inspect_action_version "$os" "$id" "${action_kinds[$action_index]}" \
+                    "${action_values[$action_index]}" "${action_options[$action_index]}" 2>/dev/null); then
+                    IFS=$'\t' read -r installed latest action_status <<<"$version_result"
+                    [[ "$installed" == - ]] && installed=
+                    [[ "$latest" == - ]] && latest=
+                    installed=$(sanitize_version "$installed")
+                    latest=$(sanitize_version "$latest")
+                    case "$action_status" in update|current|unknown) ;; *) action_status=unknown ;; esac
+                    if [[ "$action_status" == update && -n "$installed" && -n "$latest" ]]; then
+                        app_installed=$installed; app_latest=$latest; app_update=update
+                    elif [[ -z "$app_installed" && -n "$installed" ]]; then
+                        app_installed=$installed; app_latest=; app_update=$action_status
+                    elif [[ "$app_update" == unknown && "$action_status" == current ]]; then
+                        app_update=current
+                    fi
+                fi
+            fi
             if [[ "$presence" == present && "$custody" == unverified && "${action_kinds[$action_index]}" == installer ]] &&
                 receipt_target=$(validated_receipt_target "$os" "$id" "${action_values[$action_index]}"); then
                 custody=managed; evidence="validated installation receipt for $receipt_target"
@@ -752,9 +1063,10 @@ inspect_app() {
     if [[ "$policy" == optional && ( "$app_presence" == present || "$app_presence" == partial ) ]] && app_has_force_recipe "$os" "$id"; then
         force_capability=enabled
     fi
+    formatted_label=$(versioned_application_label "${app_labels[$app_index]}" "$app_installed" "$app_latest" "$app_update")
     printf 'observation\t%s\tavailable\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$app_presence" \
         "$app_custody" "$policy" "$exact_capability" "$force_capability" "${app_groups[$app_index]}" \
-        "${app_labels[$app_index]}" "${first_evidence:-no payload action}"
+        "$formatted_label" "${first_evidence:-no payload action}"
     for action_index in "${!mechanism_kinds[@]}"; do
         printf 'mechanism\t%s\t%s\t%s\t%s\n' "$id" "${mechanism_kinds[$action_index]}" \
             "${mechanism_targets[$action_index]}" "${mechanism_options[$action_index]}"
