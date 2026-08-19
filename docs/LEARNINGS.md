@@ -48,8 +48,8 @@ Gotchas and insights discovered while maintaining these dotfiles.
 ## Debian availability should use guest-native providers, not host assumptions
 
 - Debian 13 carries many applications that were accidentally macOS-only in the catalog (`fastfetch`, `glab`, `git-delta`, `hyperfine`, Poppler tools, GIMP, VLC, OpenSCAD, and others). Treat absence of a platform row as a catalog gap, not evidence that upstream lacks Linux support.
-- Prefer Debian package registrations when trixie owns the package. For `dust` and `bottom`, use the projects' documented Cargo packages and declare the Rust application prerequisite, preserving exact custody through Cargo.
-- WSL2 supports Debian GUI packages through WSLg, but it does not make VPNs, emulators, hardware tools, game clients, or host desktop utilities safe guest defaults. Keep those unavailable until a specific WSL policy and receipt-aware adapter exist. See `docs/research/debian-unavailable-applications.md`.
+- Prefer Debian package registrations when trixie owns the package. For `dust` and `bottom`, use the projects' documented Cargo packages and declare the Rust application prerequisite, preserving exact custody through Cargo. First-party direct providers are also valid when they have verified artifacts, same-run command activation, custody receipts, bounded cleanup, and deterministic tests; uv and Zed now establish that boundary.
+- WSL2 supports Debian GUI packages through WSLg, but it does not make VPNs, emulators, hardware tools, game clients, or host desktop utilities safe guest defaults. Zed can be installed from its verified Linux release, but its Vulkan requirement remains a runtime capability rather than catalog availability. Keep the other hardware- or host-sensitive applications unavailable until a specific WSL policy and receipt-aware adapter exist. See `docs/research/debian-unavailable-applications.md`.
 
 ## Required language toolchains need managed providers and same-run activation
 
@@ -271,6 +271,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Cause: `install` uses `set -euo pipefail` and sources `source_installers.sh`. `detect_os` both treated the optional `VERSION_CODENAME` field as mandatory and ended with an ArchARM normalization check joined by `&&`; either false status could trigger `set -e` before dispatch.
 - Fix: optional `/etc/os-release` fields tolerate absence, and detection helpers explicitly `return 0` after identifying a supported OS. Do not let an optional lookup or final conditional determine a sourced setup file's status.
 - Installer modules are not standalone executables. Source them through `installers/source_installers.sh` (or invoke the public `./install NAME` dispatcher) so the explicit platform, download, and package APIs are available. Focused tests must use the loader too; sourcing one installer directly recreates hidden dependencies.
+- A helper called as `helper || return` executes in a conditional context where Bash can suppress `errexit` throughout the helper, including a subshell with `set -e`. Do not rely on an intermediate failing command to stop an installer transaction: join required operations with explicit `if ! command` checks (or `&&`) and test a late failure to prove the previous installation is restored.
 
 ---
 

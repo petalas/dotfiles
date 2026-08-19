@@ -26,6 +26,12 @@ for os in macos ubuntu debian; do
     grep -Fxq "$os"$'\tcli.yazi\tpath\t~/.local/bin/yazi' "$repo_dir/catalog/removals.tsv"
     grep -Fxq "$os"$'\tcli.yazi\tpayload-tree\t~/.local/share/yazi-release' "$repo_dir/catalog/removals.tsv"
 done
+for os in ubuntu debian; do
+    grep -Fxq "$os"$'\tlanguages.uv\tpath\t~/.local/bin/uv' "$repo_dir/catalog/removals.tsv"
+    grep -Fxq "$os"$'\tlanguages.uv\tpath\t~/.local/bin/uvx' "$repo_dir/catalog/removals.tsv"
+    grep -Fxq "$os"$'\teditors.zed\tpath\t~/.local/bin/zed' "$repo_dir/catalog/removals.tsv"
+    grep -Fxq "$os"$'\teditors.zed\tpayload-tree\t~/.local/zed.app' "$repo_dir/catalog/removals.tsv"
+done
 if grep -Fq $'cli.yazi\tcargo-package\tyazi-build' "$repo_dir/catalog/removals.tsv"; then
     echo "The obsolete yazi-build meta-package still owns Yazi cleanup." >&2
     exit 1
@@ -82,6 +88,11 @@ grep -Fxq $'action\tcli.dust\tcargo-package\tdu-dust\tmissing-only' "$fixture/de
 grep -Fxq $'dependency\tcli.bottom\tlanguages.rust' "$fixture/debian.plan"
 grep -Fxq $'dependency\tcli.dust\tlanguages.rust' "$fixture/debian.plan"
 grep -Fxq $'action\teditors.code\tinstaller\tcode\t' "$fixture/ubuntu.plan"
+for os in ubuntu debian; do
+    grep -Fxq $'action\tlanguages.uv\tinstaller\tuv\t' "$fixture/$os.plan"
+    grep -Fxq $'dependency\tlanguages.uv\tlanguages.python' "$fixture/$os.plan"
+    grep -Fxq $'action\teditors.zed\tinstaller\tzed\t' "$fixture/$os.plan"
+done
 for os in macos ubuntu debian arch; do
     grep -Fxq $'action\teditors.neovim\tinstaller\tneovim\t' "$fixture/$os.plan"
     if grep -Eq $'^action\teditors\.neovim\t(apt-package|pacman-package|brew-formula)\t' "$fixture/$os.plan"; then

@@ -10,11 +10,13 @@ Applications	lazygit
 Applications	neovim
 Applications	obsidian
 Applications	yazi
+Applications	zed
 Toolchains and add-ons	bun
 Toolchains and add-ons	node
 Toolchains and add-ons	node_deps
 Toolchains and add-ons	rust
 Toolchains and add-ons	rust_deps
+Toolchains and add-ons	uv
 Toolchains and add-ons	claude_code
 System setup	audio
 System setup	locale

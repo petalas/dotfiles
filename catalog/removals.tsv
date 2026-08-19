@@ -295,6 +295,12 @@ ubuntu	containers.lazydocker	path	~/.local/bin/lazydocker
 ubuntu	cli.yazi	path	~/.local/bin/ya
 ubuntu	cli.yazi	path	~/.local/bin/yazi
 ubuntu	cli.yazi	payload-tree	~/.local/share/yazi-release
+ubuntu	languages.uv	path	~/.local/bin/uv
+ubuntu	languages.uv	path	~/.local/bin/uvx
+ubuntu	languages.uv	path	~/.config/uv/uv-receipt.json
+ubuntu	editors.zed	path	~/.local/bin/zed
+ubuntu	editors.zed	payload-tree	~/.local/zed.app
+ubuntu	editors.zed	path	~/.local/share/applications/dev.zed.Zed.desktop
 debian	productivity.bitwarden	apt-package	bitwarden
 debian	communication.chrome	apt-package	google-chrome-stable
 debian	editors.code	apt-package	code
@@ -313,6 +319,12 @@ debian	containers.lazydocker	path	~/.local/bin/lazydocker
 debian	cli.yazi	path	~/.local/bin/ya
 debian	cli.yazi	path	~/.local/bin/yazi
 debian	cli.yazi	payload-tree	~/.local/share/yazi-release
+debian	languages.uv	path	~/.local/bin/uv
+debian	languages.uv	path	~/.local/bin/uvx
+debian	languages.uv	path	~/.config/uv/uv-receipt.json
+debian	editors.zed	path	~/.local/bin/zed
+debian	editors.zed	payload-tree	~/.local/zed.app
+debian	editors.zed	path	~/.local/share/applications/dev.zed.Zed.desktop
 arch	ai.claude-code	path	~/.local/bin/claude
 arch	ai.claude-code	payload-tree	~/.local/share/claude
 arch	ai.herdr	path	~/.local/bin/herdr
@@ -367,6 +379,11 @@ ubuntu	ai.herdr	retain	~/.config/herdr	user-data
 ubuntu	containers.lazydocker	retain	~/.config/lazydocker	user-data
 ubuntu	cli.yazi	retain	~/.config/yazi	user-data
 ubuntu	cli.yazi	retain	~/.local/share/yazi	user-data
+ubuntu	languages.uv	retain	~/.cache/uv	user-data
+ubuntu	languages.uv	retain	~/.local/share/uv	user-data
+ubuntu	languages.uv	retain	~/.config/uv	user-data
+ubuntu	editors.zed	retain	~/.config/zed	user-data
+ubuntu	editors.zed	retain	~/.local/share/zed	user-data
 debian	productivity.bitwarden	retain	~/.config/Bitwarden	user-data
 debian	communication.chrome	retain	~/.config/google-chrome	user-data
 debian	editors.code	retain	~/.config/Code	user-data
@@ -388,6 +405,11 @@ debian	ai.herdr	retain	~/.config/herdr	user-data
 debian	containers.lazydocker	retain	~/.config/lazydocker	user-data
 debian	cli.yazi	retain	~/.config/yazi	user-data
 debian	cli.yazi	retain	~/.local/share/yazi	user-data
+debian	languages.uv	retain	~/.cache/uv	user-data
+debian	languages.uv	retain	~/.local/share/uv	user-data
+debian	languages.uv	retain	~/.config/uv	user-data
+debian	editors.zed	retain	~/.config/zed	user-data
+debian	editors.zed	retain	~/.local/share/zed	user-data
 arch	productivity.bitwarden	retain	~/.config/Bitwarden	user-data
 arch	communication.chrome	retain	~/.config/google-chrome	user-data
 arch	editors.code	retain	~/.config/Code	user-data

@@ -34,6 +34,7 @@ tests=(
     tests/test-setup-tools.sh
     tests/test-update-install-plan.sh
     tests/test-yazi.sh
+    tests/test-zed-install.sh
     tests/test-zsh-startup.sh
 )
 

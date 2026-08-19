@@ -28,8 +28,9 @@ source "$repo_dir/installers/source_installers.sh"
 run_downloaded_script() {
     local interpreter=$1 url=$2
     shift 2
-    printf 'download profile=%s interpreter=%s url=%s args=%s\n' \
-        "${PROFILE:-}" "$interpreter" "$url" "$*" >>"$MANAGED_TOOLCHAIN_TEST_LOG"
+    printf 'download profile=%s interpreter=%s url=%s args=%s uv_install_dir=%s uv_no_modify_path=%s\n' \
+        "${PROFILE:-}" "$interpreter" "$url" "$*" "${UV_INSTALL_DIR:-}" "${UV_NO_MODIFY_PATH:-}" \
+        >>"$MANAGED_TOOLCHAIN_TEST_LOG"
     case "$url" in
         https://raw.githubusercontent.com/nvm-sh/nvm/*/install.sh)
             mkdir -p "$NVM_DIR"
@@ -72,6 +73,13 @@ EOF
             printf '#!/usr/bin/env bash\nprintf "1.2.0\\n"\n' >"$HOME/.bun/bin/bun"
             chmod +x "$HOME/.bun/bin/bun"
             ;;
+        https://astral.sh/uv/install.sh)
+            mkdir -p "$UV_INSTALL_DIR"
+            for tool in uv uvx; do
+                printf '#!/usr/bin/env bash\nprintf "uv 0.12.5\\n"\n' >"$UV_INSTALL_DIR/$tool"
+                chmod +x "$UV_INSTALL_DIR/$tool"
+            done
+            ;;
         *) return 1 ;;
     esac
 }
@@ -97,5 +105,12 @@ PATH="$fixture/bin:/usr/bin:/bin"
 : >"$log"
 install_bun
 [[ $(command -v bun) == "$HOME/.bun/bin/bun" ]]
+
+PATH="$fixture/bin:/usr/bin:/bin"
+: >"$log"
+install_uv
+[[ $(command -v uv) == "$HOME/.local/bin/uv" ]]
+[[ -x "$HOME/.local/bin/uvx" ]]
+grep -Fq 'interpreter=sh url=https://astral.sh/uv/install.sh args= uv_install_dir='"$HOME/.local/bin"' uv_no_modify_path=1' "$log"
 
 printf 'Managed toolchain installer tests passed.\n'

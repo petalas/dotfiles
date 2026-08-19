@@ -559,7 +559,7 @@ installer_receipt_version() {
         version=$(dpkg-query -W -f='${Version}' "$package" 2>/dev/null || true)
     else
         case "$installer" in
-            bun|chrome|claude_code|code|docker|ghostty|herdr|lazydocker|lazygit|locale|neovim|node|rust|yazi)
+            bun|chrome|claude_code|code|docker|ghostty|herdr|lazydocker|lazygit|locale|neovim|node|rust|uv|yazi|zed)
                 output=$("$target" --version 2>/dev/null || true)
                 version=${output%%$'\n'*}
                 ;;

@@ -19,12 +19,14 @@ development.wasm-bindgen	cargo	payload	cargo-package	wasm-bindgen-cli	missing-on
 development.watchexec	cargo	payload	cargo-package	watchexec-cli	missing-only
 editors.code	direct	payload	installer	code
 editors.neovim	direct	payload	installer	neovim
+editors.zed	direct	payload	installer	zed
 foundation.locale	apt	effect	installer	locale
 languages.bun	direct	payload	installer	bun
 languages.node	direct	payload	installer	node
 languages.rust	direct	payload	installer	rust
 languages.typescript	npm	payload	npm-package	typescript
 languages.typescript	npm	payload	npm-package	typescript-language-server
+languages.uv	direct	payload	installer	uv
 productivity.bitwarden	direct	payload	installer	bitwarden
 productivity.obsidian	direct	payload	installer	obsidian
 terminal.ghostty	direct	payload	installer	ghostty
