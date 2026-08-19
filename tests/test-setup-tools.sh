@@ -6,6 +6,7 @@ fixture=$(mktemp -d /tmp/dotfiles-setup-tools.XXXXXX)
 trap 'rm -rf "$fixture"' EXIT
 mkdir -p "$fixture/bin" "$fixture/home" "$fixture/unauthenticated-home" \
     "$fixture/invalid-home/git/notes"
+touch "$fixture/home/.tmux.conf" "$fixture/unauthenticated-home/.tmux.conf"
 
 cat >"$fixture/bin/gh" <<'EOF'
 #!/usr/bin/env bash
@@ -37,6 +38,11 @@ if [[ "${1:-}" == clone ]]; then
     mkdir -p "$destination/.git"
     printf '%s\n' "$repository" >"$destination/.git/fixture-origin"
     printf '%s\n' "$branch" >"$destination/.git/fixture-branch"
+    if [[ "$repository" == https://github.com/tmux-plugins/tpm.git ]]; then
+        mkdir -p "$destination/bin"
+        printf '#!/usr/bin/env bash\nexit 0\n' >"$destination/bin/install_plugins"
+        chmod +x "$destination/bin/install_plugins"
+    fi
     exit 0
 fi
 
@@ -54,7 +60,12 @@ fi
 printf 'Unexpected fake git invocation: %s\n' "$*" >&2
 exit 2
 EOF
-chmod +x "$fixture/bin/gh" "$fixture/bin/git"
+
+cat >"$fixture/bin/tmux" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "$fixture/bin/gh" "$fixture/bin/git" "$fixture/bin/tmux"
 
 export GIT_LOG="$fixture/git.log"
 test_path="$fixture/bin:/usr/bin:/bin"

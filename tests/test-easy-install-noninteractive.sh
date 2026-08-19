@@ -57,7 +57,15 @@ if [[ "${1:-}" == --list ]]; then
         "${TEST_SCENARIO:-}" != inhibitors_unavailable ]]
     exit
 fi
-while [[ "${1:-}" == --* ]]; do shift; done
+# Debian's gnome-session-inhibit parser accepts these options only as separate
+# argument/value pairs; --option=value is treated as the child command.
+for option in --app-id --reason --inhibit; do
+    [[ "${1:-}" == "$option" && -n "${2:-}" ]] || {
+        printf 'Failed to execute %s\n' "${1:-}" >&2
+        exit 1
+    }
+    shift 2
+done
 export TEST_GNOME_INHIBITOR_ACTIVE=1
 exec "$@"
 EOF
@@ -150,7 +158,8 @@ run_install visual
 [[ "$(sed -n '2p' "$steps")" == prepare*'--mode visual'* ]]
 [[ "$(sed -n '3p' "$steps")" == execute*'--operation install'* ]]
 grep -Fq -- '--what=idle:sleep --mode=block' "$fixture_dir/visual.systemd-inhibit.log"
-grep -Fq -- '--inhibit=idle:suspend' "$fixture_dir/visual.gnome-inhibit.log"
+grep -Fq -- '--app-id dotfiles-installer --reason Machine setup is running --inhibit idle:suspend' \
+    "$fixture_dir/visual.gnome-inhibit.log"
 
 run_install gnome_unavailable --unattended
 grep -Fq -- '--what=idle:sleep --mode=block' "$fixture_dir/gnome_unavailable.systemd-inhibit.log"

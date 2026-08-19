@@ -59,9 +59,9 @@ run_install_with_inhibitors() {
         gnome-session-inhibit --list >/dev/null 2>&1; then
         inhibited_command=(
             gnome-session-inhibit
-            --app-id=dotfiles-installer
-            --reason="Machine setup is running"
-            --inhibit=idle:suspend
+            --app-id dotfiles-installer
+            --reason "Machine setup is running"
+            --inhibit idle:suspend
             "${inhibited_command[@]}"
         )
         inhibitor_found=1
