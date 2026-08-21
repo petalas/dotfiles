@@ -35,7 +35,7 @@ cat >"$fixture/expected.log" <<'EOF'
 --yes	skills	add	https://github.com/agentspace-so/agent-skills.git	--skill	gpt-image-2	--global	--agent	*	--yes
 --yes	skills	add	https://github.com/cursor/plugins.git	--skill	unslop	--global	--agent	*	--yes
 --yes	skills	add	https://github.com/mattpocock/skills.git	--skill	ask-matt	code-review	codebase-design	diagnosing-bugs	domain-modeling	grill-me	grill-with-docs	grilling	handoff	implement	improve-codebase-architecture	prototype	research	resolving-merge-conflicts	setup-matt-pocock-skills	tdd	teach	to-spec	to-tickets	triage	wayfinder	wizard	--global	--agent	*	--yes
---yes	skills	add	https://github.com/petalas/skills.git	--skill	fix-all-issues	safe-refactor	--global	--agent	*	--yes
+--yes	skills	add	https://github.com/petalas/skills.git	--skill	commit-guidelines	fix-all-issues	safe-refactor	--global	--agent	*	--yes
 EOF
 cmp -s "$fixture/expected.log" "$log" || {
     diff -u "$fixture/expected.log" "$log" >&2 || true
@@ -48,7 +48,7 @@ if NPX_FAIL_SOURCE=https://github.com/cursor/plugins.git install_ai_skills >/dev
     exit 1
 fi
 grep -Fq 'Failed to install AI skills from https://github.com/cursor/plugins.git' "$fixture/failure.err"
-grep -Fq $'https://github.com/petalas/skills.git\t--skill\tfix-all-issues\tsafe-refactor' "$log"
+grep -Fq $'https://github.com/petalas/skills.git\t--skill\tcommit-guidelines\tfix-all-issues\tsafe-refactor' "$log"
 
 cat >"$fixture/duplicate.tsv" <<'EOF'
 https://github.com/example/one.git	duplicated
