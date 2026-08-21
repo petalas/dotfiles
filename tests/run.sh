@@ -6,6 +6,7 @@ root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root_dir"
 
 tests=(
+    tests/test-ai-skills.sh
     tests/test-bootstrap-contract.sh
     tests/test-dependency-wrapper.sh
     tests/test-easy-install-noninteractive.sh

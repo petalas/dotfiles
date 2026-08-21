@@ -13,6 +13,8 @@ for os in macos ubuntu debian arch; do
     for required in foundation.bootstrap foundation.git foundation.locale languages.bun languages.node languages.rust; do
         grep -Fq $'app\t'"$required"$'\ton\trequired\t' "$fixture/$os.plan"
     done
+    grep -Fxq $'step\tai-skills\ton\t15\tInstall AI skills' "$fixture/$os.plan"
+    grep -Fxq $'step-action\tai-skills\tinstaller\tai_skills\t' "$fixture/$os.plan"
     grep -Fxq $'action\tlanguages.node\tinstaller\tnode\t' "$fixture/$os.plan"
     grep -Fxq $'action\tlanguages.rust\tinstaller\trust\t' "$fixture/$os.plan"
     for sdkman_candidate in java gradle kotlin maven; do
