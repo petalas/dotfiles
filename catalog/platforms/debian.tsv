@@ -59,9 +59,10 @@ development.tree-sitter	apt	payload	apt-package	tree-sitter-cli
 cli.xclip	apt	payload	apt-package	xclip
 desktop.integration	apt	payload	apt-package	xdg-utils
 cli.xh	apt	payload	apt-package	xh
-languages.java	apt	payload	apt-package	default-jdk
-languages.gradle	apt	payload	apt-package	gradle
-languages.kotlin	apt	payload	apt-package	kotlin
+languages.java	direct	payload	installer	java
+languages.gradle	direct	payload	installer	gradle
+languages.kotlin	direct	payload	installer	kotlin
+languages.maven	direct	payload	installer	maven
 languages.elixir	apt	payload	apt-package	elixir
 languages.luarocks	apt	payload	apt-package	luarocks
 creative.gimp	apt	payload	apt-package	gimp

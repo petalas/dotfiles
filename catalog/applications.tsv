@@ -54,6 +54,7 @@ languages.elixir	languages	Elixir	on
 languages.gradle	languages	Gradle	on	languages.java
 languages.kotlin	languages	Kotlin	on	languages.java
 languages.java	languages	Java	on
+languages.maven	languages	Maven	on	languages.java
 languages.luarocks	languages	LuaRocks	on
 languages.python	languages	Python	on
 languages.uv	languages	uv	on	languages.python

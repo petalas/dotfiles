@@ -9,7 +9,6 @@ ca-certificates
 clang
 cmake
 curl
-default-jdk
 elixir
 eza
 fastfetch
@@ -22,13 +21,11 @@ git
 git-delta
 glab
 gnupg
-gradle
 htop
 hyperfine
 imagemagick
 iperf3
 jq
-kotlin
 lazygit
 locales
 luarocks

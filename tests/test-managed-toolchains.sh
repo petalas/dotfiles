@@ -7,7 +7,7 @@ trap 'rm -rf "$fixture"' EXIT
 mkdir -p "$fixture/bin" "$fixture/home"
 log="$fixture/commands"
 
-for tool in node npm cargo rustc; do
+for tool in node npm cargo rustc java gradle kotlin mvn; do
     cat >"$fixture/bin/$tool" <<EOF
 #!/usr/bin/env bash
 printf 'system $tool\n'
@@ -80,6 +80,25 @@ EOF
                 chmod +x "$UV_INSTALL_DIR/$tool"
             done
             ;;
+        'https://get.sdkman.io?ci=true&rcupdate=false')
+            mkdir -p "$SDKMAN_DIR/bin" "$SDKMAN_DIR/etc"
+            printf 'sdkman_auto_answer=false\n' >"$SDKMAN_DIR/etc/config"
+            cat >"$SDKMAN_DIR/bin/sdkman-init.sh" <<'EOF'
+case $- in *u*) return 91 ;; esac
+sdk() {
+    case $- in *u*) return 92 ;; esac
+    printf 'sdk %s\n' "$*" >>"$MANAGED_TOOLCHAIN_TEST_LOG"
+    [[ "$1" == install ]] || return 0
+    local candidate=$2 executable=$2
+    [[ "$candidate" != maven ]] || executable=mvn
+    mkdir -p "$SDKMAN_DIR/candidates/$candidate/current/bin"
+    printf '#!/usr/bin/env bash\nprintf "%s managed\\n"\n' "$candidate" \
+        >"$SDKMAN_DIR/candidates/$candidate/current/bin/$executable"
+    chmod +x "$SDKMAN_DIR/candidates/$candidate/current/bin/$executable"
+    export PATH="$SDKMAN_DIR/candidates/$candidate/current/bin:$PATH"
+}
+EOF
+            ;;
         *) return 1 ;;
     esac
 }
@@ -114,5 +133,22 @@ install_uv
 [[ $(command -v uv) == "$HOME/.local/bin/uv" ]]
 [[ -x "$HOME/.local/bin/uvx" ]]
 grep -Fq 'interpreter=sh url=https://astral.sh/uv/install.sh args= uv_install_dir='"$HOME/.local/bin"' uv_no_modify_path=1' "$log"
+
+PATH="$fixture/bin:/usr/bin:/bin"
+unset SDKMAN_DIR
+: >"$log"
+for candidate in java gradle kotlin maven; do
+    "install_$candidate"
+done
+grep -Fq 'interpreter=bash url=https://get.sdkman.io?ci=true&rcupdate=false' "$log"
+for candidate in java gradle kotlin maven; do
+    grep -Fxq "sdk install $candidate" "$log"
+done
+grep -Fxq 'sdkman_auto_answer=true' "$SDKMAN_DIR/etc/config"
+[[ $(command -v java) == "$SDKMAN_DIR/candidates/java/current/bin/java" ]]
+[[ $(command -v gradle) == "$SDKMAN_DIR/candidates/gradle/current/bin/gradle" ]]
+[[ $(command -v kotlin) == "$SDKMAN_DIR/candidates/kotlin/current/bin/kotlin" ]]
+[[ $(command -v mvn) == "$SDKMAN_DIR/candidates/maven/current/bin/mvn" ]]
+[[ $- == *u* ]]
 
 printf 'Managed toolchain installer tests passed.\n'

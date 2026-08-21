@@ -12,6 +12,10 @@ Applications	obsidian
 Applications	yazi
 Applications	zed
 Toolchains and add-ons	bun
+Toolchains and add-ons	gradle
+Toolchains and add-ons	java
+Toolchains and add-ons	kotlin
+Toolchains and add-ons	maven
 Toolchains and add-ons	node
 Toolchains and add-ons	node_deps
 Toolchains and add-ons	rust

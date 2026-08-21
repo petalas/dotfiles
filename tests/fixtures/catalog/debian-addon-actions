@@ -22,6 +22,10 @@ editors.neovim	direct	payload	installer	neovim
 editors.zed	direct	payload	installer	zed
 foundation.locale	apt	effect	installer	locale
 languages.bun	direct	payload	installer	bun
+languages.gradle	direct	payload	installer	gradle
+languages.java	direct	payload	installer	java
+languages.kotlin	direct	payload	installer	kotlin
+languages.maven	direct	payload	installer	maven
 languages.node	direct	payload	installer	node
 languages.rust	direct	payload	installer	rust
 languages.typescript	npm	payload	npm-package	typescript

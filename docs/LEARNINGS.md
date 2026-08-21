@@ -56,6 +56,8 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Debian's `nodejs`/`npm` and `cargo`/`rustc` packages can satisfy a command-presence probe while being too old for the current npm and Cargo applications. This caused global npm permission failures under `/usr/local`, Pi's Node version rejection, and Cargo packages rejecting the system compiler.
 - Node is therefore owned by the pinned nvm installer and tracks nvm's `node` alias (the latest release); Rust is owned by rustup and tracks the stable channel. Keep the native package rows out of every platform catalog so one application has one toolchain owner.
 - User-scoped installers must activate their bin directories in the current catalog process, not only modify a future login shell. The dependent npm/Cargo actions run immediately afterward. Keep nvm loading in `dot/zshrc`, Cargo's bin directory in `PATH`, and the Bun installer's same-run PATH refresh covered by `tests/test-managed-toolchains.sh`.
+- JVM toolchains are likewise owned by SDKMAN rather than native packages: Java, Gradle, Kotlin, and Maven install their latest stable candidate and activate it in the current catalog process. Keep SDKMAN loading in `dot/zshrc` and its non-interactive candidate installs covered by `tests/test-managed-toolchains.sh`.
+- SDKMAN's Bash loader and functions read unset internal variables, so sourcing or running them under `set -u` fails with errors such as `SDKMAN_CANDIDATES_API: unbound variable`. The shared installer suspends nounset only around SDKMAN initialization and candidate installation, then restores the caller's setting. Keep both halves of that boundary in the managed-toolchain test.
 
 ## Platform catalog schema changes must include language-addon readers
 

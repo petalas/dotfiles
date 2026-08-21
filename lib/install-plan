@@ -543,6 +543,7 @@ installer_probe_command() {
         discord) echo discord ;; docker) echo docker ;; ghostty) echo ghostty ;;
         lazygit) echo lazygit ;; neovim) echo nvim ;; obsidian) echo obsidian ;;
         bun) echo bun ;; node) echo node ;; rust) echo rustc ;;
+        java) echo java ;; gradle) echo gradle ;; kotlin) echo kotlin ;; maven) echo mvn ;;
         claude_code) echo claude ;; herdr) echo herdr ;;
         lazydocker) echo lazydocker ;; yazi) echo yazi ;; locale) echo locale ;;
         *) echo "$1" ;;
@@ -568,7 +569,7 @@ installer_receipt_version() {
         version=$(dpkg-query -W -f='${Version}' "$package" 2>/dev/null || true)
     else
         case "$installer" in
-            bun|chrome|claude_code|code|docker|ghostty|herdr|lazydocker|lazygit|locale|neovim|node|rust|uv|yazi|zed)
+            bun|chrome|claude_code|code|docker|ghostty|gradle|herdr|java|kotlin|lazydocker|lazygit|locale|maven|neovim|node|rust|uv|yazi|zed)
                 output=$("$target" --version 2>/dev/null || true)
                 version=${output%%$'\n'*}
                 ;;

@@ -43,9 +43,10 @@ languages.luarocks	brew	payload	brew-formula	luarocks
 desktop.mas	brew	payload	brew-formula	mas
 development.shellcheck	brew	payload	brew-formula	shellcheck
 languages.elixir	brew	payload	brew-formula	elixir
-languages.gradle	brew	payload	brew-formula	gradle
-languages.kotlin	brew	payload	brew-formula	kotlin
-languages.java	brew	payload	brew-formula	openjdk
+languages.gradle	direct	payload	installer	gradle
+languages.kotlin	direct	payload	installer	kotlin
+languages.java	direct	payload	installer	java
+languages.maven	direct	payload	installer	maven
 languages.python	brew	payload	brew-formula	python@3.14
 languages.python	brew	payload	brew-formula	python-setuptools
 languages.uv	brew	payload	brew-formula	uv

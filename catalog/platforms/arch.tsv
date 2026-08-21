@@ -41,12 +41,13 @@ media.ffmpeg	pacman	payload	pacman-package	ffmpeg
 cli.fzf	pacman	payload	pacman-package	fzf
 terminal.ghostty	pacman	payload	pacman-package	ghostty
 development.gh	pacman	payload	pacman-package	github-cli
-languages.gradle	pacman	payload	pacman-package	gradle
+languages.gradle	direct	payload	installer	gradle
 cli.htop	pacman	payload	pacman-package	htop
 media.imagemagick	pacman	payload	pacman-package	imagemagick
 cli.iperf3	pacman	payload	pacman-package	iperf3
-languages.java	pacman	payload	pacman-package	jdk-openjdk
-languages.kotlin	pacman	payload	pacman-package	kotlin
+languages.java	direct	payload	installer	java
+languages.kotlin	direct	payload	installer	kotlin
+languages.maven	direct	payload	installer	maven
 containers.lazydocker	pacman	payload	pacman-package	lazydocker
 development.lazygit	pacman	payload	pacman-package	lazygit
 desktop.integration	pacman	payload	pacman-package	libnotify

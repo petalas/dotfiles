@@ -15,7 +15,10 @@ for os in macos ubuntu debian arch; do
     done
     grep -Fxq $'action\tlanguages.node\tinstaller\tnode\t' "$fixture/$os.plan"
     grep -Fxq $'action\tlanguages.rust\tinstaller\trust\t' "$fixture/$os.plan"
-    if grep -Eq $'^action\tlanguages\.(node|rust)\t(apt-package|pacman-package|brew-formula)\t' "$fixture/$os.plan"; then
+    for sdkman_candidate in java gradle kotlin maven; do
+        grep -Fxq $'action\tlanguages.'"$sdkman_candidate"$'\tinstaller\t'"$sdkman_candidate"$'\t' "$fixture/$os.plan"
+    done
+    if grep -Eq $'^action\tlanguages\.(node|rust|java|gradle|kotlin|maven)\t(apt-package|pacman-package|brew-formula)\t' "$fixture/$os.plan"; then
         echo "Native package unexpectedly owns a managed toolchain on $os." >&2
         exit 1
     fi

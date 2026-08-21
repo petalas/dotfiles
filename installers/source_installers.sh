@@ -8,6 +8,8 @@ source "$DOTFILES_ROOT/lib/platform.sh"
 source "$DOTFILES_ROOT/lib/download.sh"
 # shellcheck source=../lib/packages.sh
 source "$DOTFILES_ROOT/lib/packages.sh"
+# shellcheck source=sdkman.sh disable=SC1091
+source "$SCRIPT_DIR/sdkman.sh"
 
 # The catalog engine overrides this hook to expose installer-owned operations
 # in run progress. Direct installer calls retain the same behavior without
