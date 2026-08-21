@@ -13,7 +13,7 @@ _ai_skill_valid_source() {
 }
 
 _ai_skill_valid_name() {
-    [[ "$1" =~ ^[a-z0-9][a-z0-9._-]*$ ]]
+    [[ "$1" =~ ^[a-z0-9][a-z0-9.-]*$ ]]
 }
 
 _ai_skill_source_seen() {

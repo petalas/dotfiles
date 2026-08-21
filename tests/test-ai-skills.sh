@@ -60,4 +60,64 @@ if DOTFILES_AI_SKILLS_CATALOG="$fixture/duplicate.tsv" install_ai_skills >/dev/n
 fi
 grep -Fq 'Duplicate AI skill in catalog: duplicated' "$fixture/duplicate.err"
 
+skill_catalog="$fixture/catalog"
+mkdir -p "$skill_catalog/platforms"
+cat >"$skill_catalog/steps.tsv" <<'EOF'
+10	dependencies	Install dependencies	on	dependencies
+EOF
+cat >"$skill_catalog/groups.tsv" <<'EOF'
+10	languages	Languages	on
+20	ai-skills	AI skills	on
+EOF
+cat >"$skill_catalog/applications.tsv" <<'EOF'
+languages.node	languages	Node	required
+EOF
+cat >"$skill_catalog/platforms/macos.tsv" <<'EOF'
+languages.node	provided	payload	provided	node
+EOF
+cat >"$skill_catalog/ai-skills.tsv" <<'EOF'
+https://github.com/cursor/plugins.git	unslop
+EOF
+
+DOTFILES_CATALOG_DIR="$skill_catalog" "$repo_dir/lib/install-plan" prepare \
+    --mode full --os macos --output "$fixture/skill.plan" >/dev/null
+grep -Fxq $'group\tai-skills\ton\t20\tAI skills\tavailable' "$fixture/skill.plan"
+grep -Fxq $'app\tai-skills.unslop\ton\toptional\tai-skills\tAI skill: unslop' "$fixture/skill.plan"
+grep -Fxq $'dependency\tai-skills.unslop\tlanguages.node' "$fixture/skill.plan"
+grep -Fxq $'action\tai-skills.unslop\tai-skill\thttps://github.com/cursor/plugins.git\tunslop' "$fixture/skill.plan"
+
+: >"$log"
+DOTFILES_CATALOG_DIR="$skill_catalog" DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN=1 \
+    "$repo_dir/lib/install-plan" execute --operation install --plan "$fixture/skill.plan" >/dev/null
+cat >"$fixture/expected-ai-skill-install.log" <<'EOF'
+--yes	skills	add	https://github.com/cursor/plugins.git	--skill	unslop	--global	--agent	*	--yes
+EOF
+cmp -s "$fixture/expected-ai-skill-install.log" "$log"
+
+cat >"$fixture/observations.tsv" <<'EOF'
+format	1
+os	macos
+observation	languages.node	available	present	provided	required	disabled	disabled	languages	Node	node is present
+observation	ai-skills.unslop	available	present	managed	optional	enabled	disabled	ai-skills	AI skill: unslop	unslop is installed
+mechanism	ai-skills.unslop	ai-skill	https://github.com/cursor/plugins.git	unslop
+EOF
+cat >"$fixture/selection.tsv" <<'EOF'
+format	1
+outcome	ai-skills.unslop	remove
+EOF
+DOTFILES_CATALOG_DIR="$skill_catalog" "$repo_dir/lib/install-plan" prepare --mode outcomes --os macos \
+    --selection "$fixture/selection.tsv" --observations "$fixture/observations.tsv" \
+    --output "$fixture/remove.plan" >/dev/null
+grep -Fxq $'app\tai-skills.unslop\tremove\toptional\tai-skills\tAI skill: unslop\tpresent\tmanaged' \
+    "$fixture/remove.plan"
+grep -Fxq $'removal\tai-skills.unslop\texact\tai-skill\thttps://github.com/cursor/plugins.git\tunslop' \
+    "$fixture/remove.plan"
+: >"$log"
+DOTFILES_CATALOG_DIR="$skill_catalog" DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN=1 \
+    "$repo_dir/lib/install-plan" execute --operation install --plan "$fixture/remove.plan" >/dev/null
+cat >"$fixture/expected-ai-skill-remove.log" <<'EOF'
+--yes	skills	remove	--global	--skill	unslop	--agent	*	--yes
+EOF
+cmp -s "$fixture/expected-ai-skill-remove.log" "$log"
+
 printf 'AI skills installer tests passed.\n'

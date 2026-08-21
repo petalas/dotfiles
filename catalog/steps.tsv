@@ -1,5 +1,4 @@
 10	dependencies	Install selected dependencies	on	dependencies
-15	ai-skills	Install AI skills	on	installer	ai_skills
 20	zsh-plugins	Configure Zsh plugins	on	command	./configure-zsh.sh
 30	links	Link dotfiles	on	command	./link-dotfiles.sh
 40	tool-state	Restore generated tool state	on	command	./setup-tools.sh

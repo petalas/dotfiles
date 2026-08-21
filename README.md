@@ -32,7 +32,7 @@ Replay a saved plan without prompting, or explicitly install everything:
 ./easy-install.sh --unattended
 ```
 
-The most recently confirmed visual selection is saved under `${XDG_STATE_HOME:-~/.local/state}/dotfiles/installation-plan` and becomes the next visual run's defaults. Missing or invalid saved defaults safely fall back to repository defaults.
+The most recently confirmed visual selection is saved under `${XDG_STATE_HOME:-~/.local/state}/dotfiles/installation-plan` and becomes the next visual run's defaults. Missing or invalid saved defaults safely fall back to repository defaults. The **AI skills** group lists curated global agent skills individually, so each skill can be ensured, left unchanged, or removed with the same `e`/`u`/`r` controls as applications.
 
 After a pull, relink managed files without downloads or package/plugin installation:
 
@@ -62,7 +62,7 @@ Only wanted/not-wanted defaults are saved in `${XDG_STATE_HOME:-~/.local/state}/
 ./install docker       # install Docker (Linux)
 ./install locale       # repair/reconfigure UTF-8 locale manually
 ./install ssh_keys     # generate ed25519 key + copy pubkey to clipboard
-./install ai_skills    # install curated global AI agent skills
+./install ai_skills    # install every curated global AI agent skill
 ./install list         # show all available installers
 ```
 

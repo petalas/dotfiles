@@ -9,12 +9,14 @@ trap 'rm -rf "$fixture"' EXIT
 for os in macos ubuntu debian arch; do
     "$repo_dir/lib/install-plan" prepare --mode full --os "$os" \
         --output "$fixture/$os.plan" >"$fixture/$os.out"
-    [[ "$(grep -c $'^group\t' "$fixture/$os.plan")" == 16 ]]
+    [[ "$(grep -c $'^group\t' "$fixture/$os.plan")" == 17 ]]
     for required in foundation.bootstrap foundation.git foundation.locale languages.bun languages.node languages.rust; do
         grep -Fq $'app\t'"$required"$'\ton\trequired\t' "$fixture/$os.plan"
     done
-    grep -Fxq $'step\tai-skills\ton\t15\tInstall AI skills' "$fixture/$os.plan"
-    grep -Fxq $'step-action\tai-skills\tinstaller\tai_skills\t' "$fixture/$os.plan"
+    grep -Fxq $'group\tai-skills\ton\t135\tAI skills\tavailable' "$fixture/$os.plan"
+    grep -Fxq $'app\tai-skills.unslop\ton\toptional\tai-skills\tAI skill: unslop' "$fixture/$os.plan"
+    grep -Fxq $'dependency\tai-skills.unslop\tlanguages.node' "$fixture/$os.plan"
+    grep -Fxq $'action\tai-skills.unslop\tai-skill\thttps://github.com/cursor/plugins.git\tunslop' "$fixture/$os.plan"
     grep -Fxq $'action\tlanguages.node\tinstaller\tnode\t' "$fixture/$os.plan"
     grep -Fxq $'action\tlanguages.rust\tinstaller\trust\t' "$fixture/$os.plan"
     for sdkman_candidate in java gradle kotlin maven; do

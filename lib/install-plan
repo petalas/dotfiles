@@ -27,6 +27,18 @@ valid_id() {
     [[ "$1" =~ ^[a-z0-9][a-z0-9.-]*$ ]]
 }
 
+valid_ai_skill_source() {
+    case "$1" in
+        ''|-*|*[[:space:]]*) return 1 ;;
+        http://*|https://*|git@*:*|[A-Za-z0-9_.-]*/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+valid_ai_skill_name() {
+    valid_id "$1"
+}
+
 find_value_index() {
     local needle=$1
     shift
@@ -41,12 +53,42 @@ find_value_index() {
     return 1
 }
 
+load_ai_skill_applications() {
+    local path line_number=0 source skill extra id prerequisite
+    ai_skill_sources=(); ai_skill_names=()
+    path="$catalog_dir/ai-skills.tsv"
+    [[ -r "$path" ]] || return 0
+    find_value_index ai-skills "${group_ids[@]}" >/dev/null 2>&1 ||
+        fail "AI skills catalog requires group ai-skills"
+    if find_value_index languages.node "${app_ids[@]}" >/dev/null 2>&1; then
+        prerequisite=languages.node
+    else
+        prerequisite=
+    fi
+    while IFS=$'\t' read -r source skill extra; do
+        line_number=$((line_number + 1))
+        [[ -n "$source$skill${extra:-}" ]] || continue
+        case "$source" in \#*) continue ;; esac
+        [[ -n "$source" && -n "$skill" && -z "${extra:-}" ]] ||
+            fail "malformed AI skills catalog row $line_number"
+        valid_ai_skill_source "$source" || fail "invalid AI skill source on row $line_number: $source"
+        valid_ai_skill_name "$skill" || fail "invalid AI skill name on row $line_number: $skill"
+        id="ai-skills.$skill"
+        find_value_index "$id" "${app_ids[@]}" >/dev/null 2>&1 && fail "duplicate application id: $id"
+        find_value_index "$skill" "${ai_skill_names[@]}" >/dev/null 2>&1 && fail "duplicate AI skill: $skill"
+        app_ids+=("$id"); app_groups+=(ai-skills); app_labels+=("AI skill: $skill")
+        app_states+=(on); app_prerequisites+=("$prerequisite")
+        ai_skill_sources+=("$source"); ai_skill_names+=("$skill")
+    done <"$path"
+}
+
 load_catalog() {
     local os=$1 order id label default adapter argument group state prerequisites
-    local action_provider action_role action_kind action_value action_option removal_index
+    local action_provider action_role action_kind action_value action_option action_index removal_index
     step_orders=(); step_ids=(); step_labels=(); step_defaults=(); step_adapters=(); step_arguments=()
     group_orders=(); group_ids=(); group_labels=(); group_defaults=()
     app_ids=(); app_groups=(); app_labels=(); app_states=(); app_prerequisites=()
+    ai_skill_sources=(); ai_skill_names=()
     action_apps=(); action_providers=(); action_roles=(); action_kinds=(); action_values=(); action_options=()
     removal_oses=(); removal_apps=(); removal_methods=(); removal_targets=(); removal_options=()
 
@@ -86,6 +128,7 @@ load_catalog() {
         app_ids+=("$id"); app_groups+=("$group"); app_labels+=("$label")
         app_states+=("$state"); app_prerequisites+=("${prerequisites:-}")
     done <"$catalog_dir/applications.tsv"
+    load_ai_skill_applications
 
     [[ -r "$catalog_dir/platforms/$os.tsv" ]] || fail "unsupported catalog platform: $os"
     while IFS=$'\t' read -r id action_provider action_role action_kind action_value action_option; do
@@ -105,6 +148,9 @@ load_catalog() {
             cargo-package)
                 [[ -z "${action_option:-}" || "$action_option" == missing-only ]] ||
                     fail "invalid option for $action_kind on $id: $action_option" ;;
+            ai-skill)
+                valid_ai_skill_source "$action_value" || fail "invalid AI skill source for $id: $action_value"
+                valid_ai_skill_name "${action_option:-}" || fail "invalid AI skill name for $id: ${action_option:-}" ;;
             *) fail "unsupported adapter $action_kind for $id" ;;
         esac
         action_apps+=("$id"); action_providers+=("$action_provider"); action_roles+=("$action_role")
@@ -112,13 +158,20 @@ load_catalog() {
         action_options+=("${action_option:-}")
     done <"$catalog_dir/platforms/$os.tsv"
 
+    for action_index in "${!ai_skill_names[@]}"; do
+        action_apps+=("ai-skills.${ai_skill_names[$action_index]}")
+        action_providers+=(skills); action_roles+=(payload); action_kinds+=(ai-skill)
+        action_values+=("${ai_skill_sources[$action_index]}")
+        action_options+=("${ai_skill_names[$action_index]}")
+    done
+
     if [[ -r "$catalog_dir/removals.tsv" ]]; then
         while IFS=$'\t' read -r removal_os id removal_method removal_target removal_option; do
             [[ -n "$removal_os$id$removal_method$removal_target${removal_option:-}" ]] || continue
             case "$removal_os" in macos|ubuntu|debian|arch) ;; *) fail "invalid removal platform: $removal_os" ;; esac
             find_value_index "$id" "${app_ids[@]}" >/dev/null 2>&1 || fail "unknown removal application: $id"
             case "$removal_method" in
-                apt-package|pacman-package|brew-formula|brew-cask|npm-package|cargo-package|path|payload-tree|service|managed-file|alias|retain|retain-effect) ;;
+                apt-package|pacman-package|brew-formula|brew-cask|npm-package|cargo-package|ai-skill|path|payload-tree|service|managed-file|alias|retain|retain-effect) ;;
                 *) fail "unsupported removal method $removal_method for $id" ;;
             esac
             if [[ "$removal_method" == path || "$removal_method" == payload-tree || "$removal_method" == managed-file || "$removal_method" == alias || "$removal_method" == retain ]]; then
@@ -676,7 +729,7 @@ prepare_version_inventory() {
     local os=$1 raw file
     [[ "$version_inventory_ready" == 0 ]] || return 0
     version_inventory_dir=$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-version-inventory.XXXXXX")
-    for file in apt-installed apt-updates pacman-installed pacman-updates brew-installed brew-updates npm-installed npm-updates cargo-installed; do
+    for file in apt-installed apt-updates pacman-installed pacman-updates brew-installed brew-updates npm-installed npm-updates cargo-installed ai-skills-installed; do
         : >"$version_inventory_dir/$file"
     done
     if [[ -n "${DOTFILES_INSTALL_PLAN_VERSION_INSPECTOR:-}" ]]; then
@@ -740,6 +793,12 @@ prepare_version_inventory() {
             awk '/^[^[:space:]].* v[^:]+:$/ { version=$2; sub(/^v/, "", version); sub(/:$/, "", version); print $1 "\t" version }' \
                 "$version_inventory_dir/cargo-list.raw" >"$version_inventory_dir/cargo-installed"
             : >"$version_inventory_dir/cargo-installed-known"
+        fi
+    fi
+
+    if catalog_uses_action_kind ai-skill; then
+        if write_ai_skill_inventory "$version_inventory_dir/ai-skills-installed"; then
+            : >"$version_inventory_dir/ai-skills-installed-known"
         fi
     fi
     version_inventory_ready=1
@@ -828,6 +887,68 @@ inspect_action_version() {
     fi
 }
 
+ai_skill_lock_path() {
+    printf '%s\n' "${DOTFILES_AI_SKILLS_LOCK:-$HOME/.agents/.skill-lock.json}"
+}
+
+write_ai_skill_inventory() {
+    local output=$1 lock
+    lock=$(ai_skill_lock_path)
+    [[ -r "$lock" ]] || return 1
+    if command -v node >/dev/null 2>&1; then
+        node -e '
+const fs = require("fs");
+const lockPath = process.argv[1];
+const data = JSON.parse(fs.readFileSync(lockPath, "utf8"));
+for (const [name, details] of Object.entries(data.skills || {})) {
+  const sourceUrl = String((details && details.sourceUrl) || "");
+  if (sourceUrl && /^[a-z0-9][a-z0-9.-]*$/.test(name)) {
+    console.log(`${sourceUrl}\t${name}`);
+  }
+}
+' "$lock" >"$output"
+    elif command -v python3 >/dev/null 2>&1; then
+        python3 - "$lock" >"$output" <<'PY'
+import json
+import re
+import sys
+with open(sys.argv[1], encoding="utf-8") as fh:
+    data = json.load(fh)
+for name, details in (data.get("skills") or {}).items():
+    source_url = str((details or {}).get("sourceUrl") or "")
+    if source_url and re.match(r"^[a-z0-9][a-z0-9.-]*$", name):
+        print(f"{source_url}\t{name}")
+PY
+    else
+        return 1
+    fi
+}
+
+ai_skill_inventory_has() {
+    local source=$1 skill=$2 file=$3 row_source row_skill
+    [[ -r "$file" ]] || return 1
+    while IFS=$'\t' read -r row_source row_skill; do
+        if [[ "$row_skill" == "$skill" && "${row_source%.git}" == "${source%.git}" ]]; then
+            return 0
+        fi
+    done <"$file"
+    return 1
+}
+
+ai_skill_is_installed() {
+    local source=$1 skill=$2 temporary result=1
+    if [[ "$version_inventory_ready" == 1 ]] && inventory_known ai-skills-installed; then
+        ai_skill_inventory_has "$source" "$skill" "$version_inventory_dir/ai-skills-installed"
+        return $?
+    fi
+    temporary=$(mktemp "${TMPDIR:-/tmp}/dotfiles-ai-skills.XXXXXX") || return 1
+    if write_ai_skill_inventory "$temporary" && ai_skill_inventory_has "$source" "$skill" "$temporary"; then
+        result=0
+    fi
+    rm -f "$temporary"
+    return "$result"
+}
+
 # Enrich the existing label field so observation format 1 stays compatible with
 # the pinned TUI release while the Plan tree gains version information.
 versioned_application_label() {
@@ -885,6 +1006,12 @@ inspect_real_action() {
             elif command -v cargo >/dev/null 2>&1 && cargo install --list 2>/dev/null | grep -Eq "^${value//./\\.} v[^:]+:$"; then
                 printf 'present\tmanaged\t%s is registered by Cargo\n' "$value"
             else printf 'absent\tunverified\t%s is not registered by Cargo\n' "$value"; fi ;;
+        ai-skill)
+            if ai_skill_is_installed "$value" "$option"; then
+                printf 'present\tmanaged\t%s is installed from %s\n' "$option" "$value"
+            else
+                printf 'absent\tunverified\t%s is not installed from %s\n' "$option" "$value"
+            fi ;;
         installer)
             binary=$(installer_probe_command "$value")
             if command -v "$binary" >/dev/null 2>&1; then
@@ -1024,7 +1151,7 @@ inspect_app() {
     while ((action_index < ${#removal_apps[@]})); do
         if [[ "${removal_oses[$action_index]}" == "$os" && "${removal_apps[$action_index]}" == "$id" ]]; then
             case "${removal_methods[$action_index]}" in
-                apt-package|pacman-package|brew-formula|brew-cask|npm-package|cargo-package)
+                apt-package|pacman-package|brew-formula|brew-cask|npm-package|cargo-package|ai-skill)
                     if result=$(inspect_action "${removal_methods[$action_index]}" "${removal_targets[$action_index]}" \
                         "${removal_options[$action_index]}"); then
                         IFS=$'\t' read -r presence custody evidence <<<"$result"
@@ -1051,7 +1178,7 @@ inspect_app() {
     if [[ "${app_states[$app_index]}" == required ]]; then policy=required; else policy=optional; fi
     for mechanism_index in "${!mechanism_kinds[@]}"; do
         case "${mechanism_kinds[$mechanism_index]}" in
-            apt-package|pacman-package|brew-formula|brew-cask|npm-package|cargo-package) exact_method=1 ;;
+            apt-package|pacman-package|brew-formula|brew-cask|npm-package|cargo-package|ai-skill) exact_method=1 ;;
             receipt)
                 for recipe_index in "${!removal_apps[@]}"; do
                     if [[ "${removal_oses[$recipe_index]}" == "$os" && "${removal_apps[$recipe_index]}" == "$id" ]]; then
@@ -1230,7 +1357,7 @@ write_outcome_plan() {
         observation_index=$(observation_index_for_app "${app_ids[$app_index]}") || fail "missing observation for ${app_ids[$app_index]}"
         [[ "${observation_presence[$observation_index]}" != absent && "${observation_exact[$observation_index]}" == enabled ]] || continue
         case "${mechanism_kinds[$index]}" in
-            apt-package|pacman-package|brew-formula|brew-cask|npm-package|cargo-package)
+            apt-package|pacman-package|brew-formula|brew-cask|npm-package|cargo-package|ai-skill)
                 printf 'removal\t%s\texact\t%s\t%s\t%s\n' "${mechanism_apps[$index]}" "${mechanism_kinds[$index]}" \
                     "${mechanism_targets[$index]}" "${mechanism_options[$index]}" >>"$output" ;;
             receipt)
@@ -1519,6 +1646,9 @@ run_real_adapter() {
             brew-cask) brew uninstall --cask "$value"; return ;;
             npm-package) npm uninstall --global "$value" </dev/null; return ;;
             cargo-package) cargo uninstall "$value" </dev/null; return ;;
+            ai-skill)
+                command -v npx >/dev/null 2>&1 || { echo "AI skills removal requires npx; install Node first." >&2; return 1; }
+                npx --yes skills remove --global --skill "$option" --agent '*' --yes </dev/null; return ;;
             *) echo "Unsupported exact removal adapter: $kind" >&2; return 1 ;;
         esac
     fi
@@ -1542,6 +1672,10 @@ run_real_adapter() {
             binary=$(cargo_package_binary "$value")
             [[ "$option" != missing-only ]] || ! command -v "$binary" >/dev/null 2>&1 || return 0
             cargo install --locked "$value" </dev/null
+            ;;
+        ai-skill)
+            command -v npx >/dev/null 2>&1 || { echo "AI skills installation requires npx; install Node first." >&2; return 1; }
+            npx --yes skills add "$value" --skill "$option" --global --agent '*' --yes </dev/null
             ;;
         installer)
             ensure_installers_loaded
@@ -1719,8 +1853,8 @@ register_event_operation() {
 }
 
 action_operation_label() {
-    local index app_index kind value
-    index=$1; kind=${apply_action_kinds[$index]}; value=${apply_action_values[$index]}
+    local index app_index kind value option
+    index=$1; kind=${apply_action_kinds[$index]}; value=${apply_action_values[$index]}; option=${apply_action_options[$index]}
     app_index=$(find_value_index "${apply_action_apps[$index]}" "${apply_app_ids[@]}") || return 1
     case "$kind" in
         apt-package) printf 'APT package %s\n' "$value" ;;
@@ -1730,6 +1864,7 @@ action_operation_label() {
         brew-cask) printf 'Homebrew cask %s\n' "$value" ;;
         npm-package) printf 'npm package %s\n' "$value" ;;
         cargo-package) printf 'Cargo package %s\n' "$value" ;;
+        ai-skill) printf 'AI skill %s\n' "$option" ;;
         command-alias) printf 'Command alias for %s\n' "${apply_app_labels[$app_index]}" ;;
         provided) printf 'Provided dependency %s\n' "${apply_app_labels[$app_index]}" ;;
         installer) printf 'Install %s\n' "${apply_app_labels[$app_index]}" ;;
@@ -1753,6 +1888,14 @@ register_action_operations() {
     fi
 }
 
+removal_operation_label() {
+    local index=$1
+    case "${apply_removal_kinds[$index]}" in
+        ai-skill) printf 'Remove AI skill %s\n' "${apply_removal_options[$index]}" ;;
+        *) printf 'Remove %s\n' "${apply_removal_targets[$index]}" ;;
+    esac
+}
+
 initialize_event_operations() {
     local index app_index outcome dependencies_enabled=0
     event_operation_ids=(); event_operation_labels=(); event_operation_states=()
@@ -1771,7 +1914,7 @@ initialize_event_operations() {
         for index in "${!apply_removal_apps[@]}"; do
             app_index=$(find_value_index "${apply_removal_apps[$index]}" "${apply_app_ids[@]}") || continue
             case "${apply_app_outcomes[$app_index]}" in remove|force)
-                register_event_operation "removal:$index" "Remove ${apply_removal_targets[$index]}" ;;
+                register_event_operation "removal:$index" "$(removal_operation_label "$index")" ;;
             esac
         done
         for app_index in "${!apply_app_ids[@]}"; do
@@ -2052,7 +2195,7 @@ prepared_removal_is_catalogued() {
     local os=$1 app=$2 mode=$3 kind=$4 target=$5 option=$6 index=0
     if [[ "$mode" == exact ]]; then
         case "$kind" in
-            apt-package|pacman-package|brew-formula|brew-cask|npm-package|cargo-package)
+            apt-package|pacman-package|brew-formula|brew-cask|npm-package|cargo-package|ai-skill)
                 catalog_has_action "$app" "$kind" "$target" "$option" && return 0 ;;
             path|payload-tree) app_has_valid_receipt "$os" "$app" || return 1 ;;
             *) return 1 ;;
