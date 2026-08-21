@@ -45,6 +45,8 @@ if [[ "${1:-}" == --list ]]; then
     exit
 fi
 while [[ "${1:-}" == --* ]]; do shift; done
+[[ "${TEST_SCENARIO:-}" != inhibitor_acquisition_denied &&
+    "${TEST_SCENARIO:-}" != inhibitors_unavailable ]]
 export TEST_SYSTEMD_INHIBITOR_ACTIVE=1
 exec "$@"
 EOF
@@ -66,6 +68,9 @@ for option in --app-id --reason --inhibit; do
     }
     shift 2
 done
+[[ "${TEST_SCENARIO:-}" != inhibitor_acquisition_denied &&
+    "${TEST_SCENARIO:-}" != gnome_unavailable &&
+    "${TEST_SCENARIO:-}" != inhibitors_unavailable ]]
 export TEST_GNOME_INHIBITOR_ACTIVE=1
 exec "$@"
 EOF
@@ -112,10 +117,12 @@ case "$command" in
     execute|apply)
         [[ "${NONINTERACTIVE:-}" == 1 ]]
         [[ "${DOTFILES_NONINTERACTIVE:-}" == 1 ]]
-        if [[ "${TEST_SCENARIO:-}" != inhibitors_unavailable ]]; then
+        if [[ "${TEST_SCENARIO:-}" != inhibitor_acquisition_denied &&
+            "${TEST_SCENARIO:-}" != inhibitors_unavailable ]]; then
             [[ "${TEST_SYSTEMD_INHIBITOR_ACTIVE:-}" == 1 ]]
         fi
-        if [[ "${TEST_SCENARIO:-}" != gnome_unavailable &&
+        if [[ "${TEST_SCENARIO:-}" != inhibitor_acquisition_denied &&
+            "${TEST_SCENARIO:-}" != gnome_unavailable &&
             "${TEST_SCENARIO:-}" != inhibitors_unavailable ]]; then
             [[ "${TEST_GNOME_INHIBITOR_ACTIVE:-}" == 1 ]]
         fi
@@ -168,6 +175,14 @@ grep -Fq -- '--what=idle:sleep --mode=block' "$fixture_dir/gnome_unavailable.sys
 run_install inhibitors_unavailable --unattended
 [[ "$(wc -l <"$fixture_dir/inhibitors_unavailable.systemd-inhibit.log")" == 1 ]]
 [[ "$(wc -l <"$fixture_dir/inhibitors_unavailable.gnome-inhibit.log")" == 1 ]]
+
+# Listing inhibitors can succeed even when acquiring one is denied, notably in
+# WSL2 sessions that run systemd without an active logind seat. Setup must still
+# run, without either optional inhibitor.
+run_install inhibitor_acquisition_denied --unattended
+[[ "$(wc -l <"$fixture_dir/inhibitor_acquisition_denied.systemd-inhibit.log")" == 1 ]]
+[[ "$(wc -l <"$fixture_dir/inhibitor_acquisition_denied.gnome-inhibit.log")" == 1 ]]
+grep -Fq 'execute --operation install' "$steps"
 
 run_install unattended --unattended
 grep -Fq 'prepare --mode full' "$steps"

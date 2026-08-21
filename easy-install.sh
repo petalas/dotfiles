@@ -43,9 +43,12 @@ run_install_with_inhibitors() {
     fi
 
     if command -v systemd-inhibit >/dev/null 2>&1 &&
-        systemd-inhibit --list >/dev/null 2>&1; then
+        systemd-inhibit --no-ask-password --what=idle:sleep --mode=block \
+            --who="dotfiles installer" --why="Machine setup is running" \
+            true >/dev/null 2>&1; then
         inhibited_command=(
             systemd-inhibit
+            --no-ask-password
             --what=idle:sleep
             --mode=block
             --who="dotfiles installer"
@@ -56,7 +59,9 @@ run_install_with_inhibitors() {
     fi
 
     if command -v gnome-session-inhibit >/dev/null 2>&1 &&
-        gnome-session-inhibit --list >/dev/null 2>&1; then
+        gnome-session-inhibit --app-id dotfiles-installer \
+            --reason "Machine setup is running" --inhibit idle:suspend \
+            true >/dev/null 2>&1; then
         inhibited_command=(
             gnome-session-inhibit
             --app-id dotfiles-installer
