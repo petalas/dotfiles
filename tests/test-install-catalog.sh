@@ -29,6 +29,12 @@ for os in macos ubuntu debian; do
     grep -Fxq "$os"$'\tcli.yazi\tpath\t~/.local/bin/yazi' "$repo_dir/catalog/removals.tsv"
     grep -Fxq "$os"$'\tcli.yazi\tpayload-tree\t~/.local/share/yazi-release' "$repo_dir/catalog/removals.tsv"
 done
+for os in macos ubuntu debian arch; do
+    for sdkman_candidate in java gradle kotlin maven; do
+        grep -Fxq "$os"$'\tlanguages.'"$sdkman_candidate"$'\tpayload-tree\t~/.sdkman/candidates/'"$sdkman_candidate" \
+            "$repo_dir/catalog/removals.tsv"
+    done
+done
 for os in ubuntu debian; do
     grep -Fxq "$os"$'\tlanguages.uv\tpath\t~/.local/bin/uv' "$repo_dir/catalog/removals.tsv"
     grep -Fxq "$os"$'\tlanguages.uv\tpath\t~/.local/bin/uvx' "$repo_dir/catalog/removals.tsv"

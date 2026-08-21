@@ -99,6 +99,10 @@ macos	development.tree-sitter	cargo-package	tree-sitter-cli	missing-only
 macos	development.cargo-edit	cargo-package	cargo-edit	missing-only
 macos	development.wasm-bindgen	cargo-package	wasm-bindgen-cli	missing-only
 macos	development.watchexec	cargo-package	watchexec-cli	missing-only
+macos	languages.java	payload-tree	~/.sdkman/candidates/java
+macos	languages.gradle	payload-tree	~/.sdkman/candidates/gradle
+macos	languages.kotlin	payload-tree	~/.sdkman/candidates/kotlin
+macos	languages.maven	payload-tree	~/.sdkman/candidates/maven
 ubuntu	terminal.mosh	apt-package	mosh
 ubuntu	terminal.tmux	apt-package	tmux
 ubuntu	terminal.zsh	apt-package	zsh
@@ -301,6 +305,10 @@ ubuntu	languages.uv	path	~/.config/uv/uv-receipt.json
 ubuntu	editors.zed	path	~/.local/bin/zed
 ubuntu	editors.zed	payload-tree	~/.local/zed.app
 ubuntu	editors.zed	path	~/.local/share/applications/dev.zed.Zed.desktop
+ubuntu	languages.java	payload-tree	~/.sdkman/candidates/java
+ubuntu	languages.gradle	payload-tree	~/.sdkman/candidates/gradle
+ubuntu	languages.kotlin	payload-tree	~/.sdkman/candidates/kotlin
+ubuntu	languages.maven	payload-tree	~/.sdkman/candidates/maven
 debian	productivity.bitwarden	apt-package	bitwarden
 debian	communication.chrome	apt-package	google-chrome-stable
 debian	editors.code	apt-package	code
@@ -325,9 +333,17 @@ debian	languages.uv	path	~/.config/uv/uv-receipt.json
 debian	editors.zed	path	~/.local/bin/zed
 debian	editors.zed	payload-tree	~/.local/zed.app
 debian	editors.zed	path	~/.local/share/applications/dev.zed.Zed.desktop
+debian	languages.java	payload-tree	~/.sdkman/candidates/java
+debian	languages.gradle	payload-tree	~/.sdkman/candidates/gradle
+debian	languages.kotlin	payload-tree	~/.sdkman/candidates/kotlin
+debian	languages.maven	payload-tree	~/.sdkman/candidates/maven
 arch	ai.claude-code	path	~/.local/bin/claude
 arch	ai.claude-code	payload-tree	~/.local/share/claude
 arch	ai.herdr	path	~/.local/bin/herdr
+arch	languages.java	payload-tree	~/.sdkman/candidates/java
+arch	languages.gradle	payload-tree	~/.sdkman/candidates/gradle
+arch	languages.kotlin	payload-tree	~/.sdkman/candidates/kotlin
+arch	languages.maven	payload-tree	~/.sdkman/candidates/maven
 ubuntu	containers.docker	service	docker
 ubuntu	terminal.ghostty	managed-file	~/.config/xdg-terminals.list	com.mitchellh.ghostty.desktop
 debian	containers.docker	service	docker

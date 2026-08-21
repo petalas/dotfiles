@@ -25,6 +25,17 @@ unset NVM_DIR CARGO_HOME RUSTUP_HOME
 # shellcheck disable=SC1091
 source "$repo_dir/installers/source_installers.sh"
 
+run_installer_operation() {
+    local sub_id=$1 label=$2 operation_result=0
+    shift 2
+
+    printf 'operation start %s %s\n' "$sub_id" "$label" >>"$MANAGED_TOOLCHAIN_TEST_LOG"
+    "$@" || operation_result=$?
+    printf 'operation settled %s %s %s\n' "$sub_id" "$label" "$operation_result" \
+        >>"$MANAGED_TOOLCHAIN_TEST_LOG"
+    return "$operation_result"
+}
+
 run_downloaded_script() {
     local interpreter=$1 url=$2
     shift 2
@@ -140,8 +151,19 @@ unset SDKMAN_DIR
 for candidate in java gradle kotlin maven; do
     "install_$candidate"
 done
-grep -Fq 'interpreter=bash url=https://get.sdkman.io?ci=true&rcupdate=false' "$log"
+[[ $(grep -Fc 'interpreter=bash url=https://get.sdkman.io?ci=true&rcupdate=false' "$log") == 1 ]]
+[[ $(grep -Fc 'operation start sdkman Ensure SDKMAN' "$log") == 4 ]]
+[[ $(grep -Fc 'operation settled sdkman Ensure SDKMAN 0' "$log") == 4 ]]
 for candidate in java gradle kotlin maven; do
+    case "$candidate" in
+        java) label=Java ;;
+        gradle) label=Gradle ;;
+        kotlin) label=Kotlin ;;
+        maven) label=Maven ;;
+    esac
+    [[ "$("install_${candidate}_operations")" == $'sdkman\tEnsure SDKMAN\n'"$candidate"$'\tEnsure '"$label" ]]
+    grep -Fxq "operation start $candidate Ensure $label" "$log"
+    grep -Fxq "operation settled $candidate Ensure $label 0" "$log"
     grep -Fxq "sdk install $candidate" "$log"
 done
 grep -Fxq 'sdkman_auto_answer=true' "$SDKMAN_DIR/etc/config"
