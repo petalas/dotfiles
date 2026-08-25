@@ -53,6 +53,7 @@ Before modifying code, find the matching file pattern and **read the linked doc 
 | `dot/*.zsh` | Existing shell theme files and [LEARNINGS.md](docs/LEARNINGS.md) |
 | `lib/*.sh` | Callers and [LEARNINGS.md](docs/LEARNINGS.md); preserve advertised Bash/Zsh compatibility |
 | `.github/workflows/**` | README.md and [LEARNINGS.md](docs/LEARNINGS.md) |
+| `tests/test-update-install-plan.sh` | [LEARNINGS.md](docs/LEARNINGS.md); use the host's Zsh path and respect its `OSTYPE` branch |
 | `dot/.config/**` | App's official docs for config syntax |
 | `dot/.pi/**` | Pi's installed docs (`docs/extensions.md`, plus linked TUI docs) and [LEARNINGS.md](docs/LEARNINGS.md) — global extensions affect every project |
 | `dot/claude/**` | This is GLOBAL Claude config — changes affect all projects |

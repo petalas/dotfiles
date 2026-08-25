@@ -94,6 +94,76 @@ cat >"$fixture/expected-ai-skill-install.log" <<'EOF'
 EOF
 cmp -s "$fixture/expected-ai-skill-install.log" "$log"
 
+# Installation plans group selected skills by source so one repository is
+# fetched once even when it provides several skills.
+batch_catalog="$fixture/batch-catalog"
+mkdir -p "$batch_catalog/platforms"
+cp "$skill_catalog/steps.tsv" "$batch_catalog/steps.tsv"
+cp "$skill_catalog/groups.tsv" "$batch_catalog/groups.tsv"
+cp "$skill_catalog/applications.tsv" "$batch_catalog/applications.tsv"
+cp "$skill_catalog/platforms/macos.tsv" "$batch_catalog/platforms/macos.tsv"
+cat >"$batch_catalog/ai-skills.tsv" <<'EOF'
+https://github.com/example/one.git	alpha
+https://github.com/example/one.git	beta
+https://github.com/example/two.git	gamma
+EOF
+DOTFILES_CATALOG_DIR="$batch_catalog" "$repo_dir/lib/install-plan" prepare \
+    --mode full --os macos --output "$fixture/batch-skills.plan" >/dev/null
+: >"$log"
+DOTFILES_CATALOG_DIR="$batch_catalog" DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN=1 \
+    "$repo_dir/lib/install-plan" execute --operation install --plan "$fixture/batch-skills.plan" >/dev/null
+cat >"$fixture/expected-batch-skill-install.log" <<'EOF'
+--yes	skills	add	https://github.com/example/one.git	--skill	alpha	beta	--global	--agent	*	--yes
+--yes	skills	add	https://github.com/example/two.git	--skill	gamma	--global	--agent	*	--yes
+EOF
+cmp -s "$fixture/expected-batch-skill-install.log" "$log" || {
+    diff -u "$fixture/expected-batch-skill-install.log" "$log" >&2 || true
+    exit 1
+}
+
+# A failed repository batch is reported for its skills without retrying each
+# skill as another repository fetch. Independent source batches still run.
+: >"$log"
+if NPX_FAIL_SOURCE=https://github.com/example/one.git \
+    DOTFILES_CATALOG_DIR="$batch_catalog" DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN=1 \
+    "$repo_dir/lib/install-plan" execute --operation install --plan "$fixture/batch-skills.plan" \
+    >"$fixture/batch-failure.out" 2>"$fixture/batch-failure.err"; then
+    echo "Expected a failed AI skill source batch to fail the installation plan" >&2
+    exit 1
+fi
+cmp -s "$fixture/expected-batch-skill-install.log" "$log" || {
+    diff -u "$fixture/expected-batch-skill-install.log" "$log" >&2 || true
+    exit 1
+}
+grep -Fq 'failed: ai-skills.alpha' "$fixture/batch-failure.err"
+grep -Fq 'failed: ai-skills.beta' "$fixture/batch-failure.err"
+grep -Fq 'succeeded: ai-skills.gamma' "$fixture/batch-failure.out"
+
+# Reconciliation does not fetch a source when every selected skill from that
+# source is already recorded in the global skill lock.
+cat >"$fixture/installed-skill-lock.json" <<'EOF'
+{
+  "skills": {
+    "alpha": { "sourceUrl": "https://github.com/example/one.git" },
+    "beta": { "sourceUrl": "https://github.com/example/one.git" },
+    "gamma": { "sourceUrl": "https://github.com/example/two.git" }
+  }
+}
+EOF
+: >"$log"
+DOTFILES_AI_SKILLS_LOCK="$fixture/installed-skill-lock.json" \
+DOTFILES_CATALOG_DIR="$batch_catalog" DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN=1 \
+    "$repo_dir/lib/install-plan" execute --operation reconcile --plan "$fixture/batch-skills.plan" \
+    >"$fixture/batch-reconcile.out" 2>"$fixture/batch-reconcile.err"
+if [[ -s "$log" ]]; then
+    echo "Expected installed AI skill sources to require no reconciliation fetch" >&2
+    cat "$log" >&2
+    exit 1
+fi
+grep -Fq 'succeeded: ai-skills.alpha' "$fixture/batch-reconcile.out"
+grep -Fq 'succeeded: ai-skills.beta' "$fixture/batch-reconcile.out"
+grep -Fq 'succeeded: ai-skills.gamma' "$fixture/batch-reconcile.out"
+
 cat >"$fixture/observations.tsv" <<'EOF'
 format	1
 os	macos

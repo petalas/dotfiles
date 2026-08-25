@@ -4,6 +4,14 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Updater integration tests must follow the host's shell and OS branch
+
+- macOS provides Zsh at `/bin/zsh`, while Linux distributions may use `/usr/bin/zsh`. Tests must resolve it with `command -v zsh` rather than hard-coding either path.
+- Mocking `dotfiles_os` controls installation-plan resolution but does not change Zsh's `OSTYPE`. `update-dotfiles` chooses its system-package upgrade branch from the real host, so assertions for `linux_packages_upgrade` must remain conditional on a Linux test host.
+- A restricted updater test `PATH` still needs `/usr/bin` on macOS for system commands such as `mktemp`.
+
+---
+
 ## Zsh substitution replacements preserve unnecessary backslashes
 
 - In zsh `${value//pattern/replacement}`, a backslash needed to quote the pattern is not also needed before an ordinary `%` in the replacement.

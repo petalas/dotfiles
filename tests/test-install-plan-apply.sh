@@ -220,4 +220,61 @@ if DOTFILES_INSTALL_PLAN_ADAPTER="$fixture/fake-adapter" INSTALL_PLAN_TEST_LOG="
 fi
 grep -Fq 'resolved plan action is absent from catalog' "$fixture/tampered.err"
 
+# Once an installation plan receives an interrupt, it must not dispatch another
+# dependency action after the active adapter settles.
+cat >"$fixture/interrupt-plan" <<'EOF'
+format	1
+os	debian
+step	dependencies	on	10	Install dependencies
+app	interrupt.one	on	optional	cli	Interrupt one
+app	interrupt.two	on	optional	cli	Interrupt two
+action	interrupt.one	installer	interrupt-one
+action	interrupt.two	installer	interrupt-two
+EOF
+cat >"$fixture/interrupt-adapter" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$3" >>"$INSTALL_PLAN_TEST_LOG"
+if [[ "$3" == interrupt-one ]]; then
+    : >"$INTERRUPT_READY"
+    sleep 1
+fi
+EOF
+chmod +x "$fixture/interrupt-adapter"
+: >"$log"
+INSTALL_PLAN_TEST_LOG="$log" INTERRUPT_READY="$fixture/interrupt-ready" \
+DOTFILES_INSTALL_PLAN_ADAPTER="$fixture/interrupt-adapter" DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN=1 \
+    "$repo_dir/lib/install-plan" apply --operation install --plan "$fixture/interrupt-plan" \
+    >"$fixture/interrupt.out" 2>"$fixture/interrupt.err" &
+interrupt_pid=$!
+interrupt_wait_attempts=0
+while [[ ! -e "$fixture/interrupt-ready" ]]; do
+    if ! kill -0 "$interrupt_pid" 2>/dev/null; then
+        wait "$interrupt_pid" || true
+        echo 'Installation plan exited before the interrupt adapter started' >&2
+        exit 1
+    fi
+    if ((interrupt_wait_attempts >= 500)); then
+        kill -TERM "$interrupt_pid" 2>/dev/null || true
+        wait "$interrupt_pid" || true
+        echo 'Timed out waiting for the interrupt adapter to start' >&2
+        exit 1
+    fi
+    sleep 0.01
+    interrupt_wait_attempts=$((interrupt_wait_attempts + 1))
+done
+kill -TERM "$interrupt_pid"
+if wait "$interrupt_pid"; then
+    echo 'Expected interrupted installation plan to fail' >&2
+    exit 1
+else
+    interrupt_status=$?
+fi
+[[ "$interrupt_status" == 130 ]]
+grep -Fxq 'interrupt-one' "$log"
+if grep -Fxq 'interrupt-two' "$log"; then
+    echo 'Installation plan dispatched another dependency after interruption' >&2
+    exit 1
+fi
+grep -Fq 'Installation interrupted.' "$fixture/interrupt.err"
+
 printf 'Installation plan apply tests passed.\n'

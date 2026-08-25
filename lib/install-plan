@@ -1700,8 +1700,8 @@ run_plan_adapter() {
 }
 
 run_real_batch() {
-    local operation=$1 kind=$2 entries=$3 _app value option brewfile result=0
-    local -a values=() normal=() scriptless=()
+    local operation=$1 kind=$2 entries=$3 _app value option brewfile result=0 source inventory='' inventory_ready=0
+    local -a values=() normal=() scriptless=() source_skills=()
     case "$kind" in
         apt-package|pacman-package)
             while IFS=$'\t' read -r _app value option; do values+=("$value"); done <"$entries"
@@ -1751,6 +1751,33 @@ run_real_batch() {
             done <"$entries"
             ((${#values[@]} == 0)) || cargo install --locked "${values[@]}" </dev/null
             ;;
+        ai-skill)
+            command -v npx >/dev/null 2>&1 || {
+                echo "AI skills installation requires npx; install Node first." >&2
+                return 1
+            }
+            if [[ "$operation" == reconcile ]]; then
+                inventory=$(mktemp "${TMPDIR:-/tmp}/dotfiles-ai-skills.XXXXXX")
+                if write_ai_skill_inventory "$inventory"; then inventory_ready=1; fi
+            fi
+            while IFS=$'\t' read -r _app value option; do
+                if [[ -z "$source" ]]; then
+                    source=$value
+                elif [[ "$source" != "$value" ]]; then
+                    echo "AI skill batch contains more than one source" >&2
+                    [[ -z "$inventory" ]] || rm -f "$inventory"
+                    return 1
+                fi
+                if [[ "$inventory_ready" != 1 ]] || ! ai_skill_inventory_has "$source" "$option" "$inventory"; then
+                    source_skills+=("$option")
+                fi
+            done <"$entries"
+            if ((${#source_skills[@]})); then
+                npx --yes skills add "$source" --skill "${source_skills[@]}" --global --agent '*' --yes </dev/null || result=1
+            fi
+            [[ -z "$inventory" ]] || rm -f "$inventory"
+            return "$result"
+            ;;
     esac
 }
 
@@ -1772,15 +1799,75 @@ execute_batch_prerequisites() {
     return "$result"
 }
 
+execute_ai_skill_source_batches() {
+    local operation=$1 source action_index scan_index entries batch_result app_index
+    local -a handled_sources=()
+    action_index=0
+    while ((action_index < ${#apply_action_apps[@]})); do
+        [[ "${interrupted:-0}" != 1 ]] || break
+        if [[ "${apply_action_kinds[$action_index]}" != ai-skill ]]; then
+            action_index=$((action_index + 1))
+            continue
+        fi
+        source=${apply_action_values[$action_index]}
+        if find_value_index "$source" "${handled_sources[@]}" >/dev/null 2>&1; then
+            action_index=$((action_index + 1))
+            continue
+        fi
+        handled_sources+=("$source")
+        entries=$(mktemp "${TMPDIR:-/tmp}/dotfiles-action-batch.XXXXXX")
+        scan_index=0
+        while ((scan_index < ${#apply_action_apps[@]})); do
+            if [[ "${apply_action_kinds[$scan_index]}" == ai-skill &&
+                  "${apply_action_values[$scan_index]}" == "$source" ]]; then
+                printf '%s\t%s\t%s\n' "${apply_action_apps[$scan_index]}" \
+                    "${apply_action_values[$scan_index]}" "${apply_action_options[$scan_index]}" >>"$entries"
+                start_action_operation "$scan_index"
+            fi
+            scan_index=$((scan_index + 1))
+        done
+        batch_result=0
+        if [[ -n "${DOTFILES_INSTALL_PLAN_BATCH_ADAPTER:-}" ]]; then
+            "$DOTFILES_INSTALL_PLAN_BATCH_ADAPTER" "$operation" ai-skill "$entries" || batch_result=$?
+        else
+            run_real_batch "$operation" ai-skill "$entries" || batch_result=$?
+        fi
+        rm -f "$entries"
+        scan_index=0
+        while ((scan_index < ${#apply_action_apps[@]})); do
+            if [[ "${apply_action_kinds[$scan_index]}" == ai-skill &&
+                  "${apply_action_values[$scan_index]}" == "$source" ]]; then
+                apply_action_done[scan_index]=1
+                if [[ "$batch_result" == 0 ]]; then
+                    settle_action_operation "$scan_index" succeeded
+                else
+                    app_index=$(find_value_index "${apply_action_apps[$scan_index]}" "${apply_app_ids[@]}") ||
+                        fail "AI skill batch action has no application: ${apply_action_apps[$scan_index]}"
+                    settle_app_operation "$app_index" failed
+                fi
+            fi
+            scan_index=$((scan_index + 1))
+        done
+        [[ "${interrupted:-0}" != 1 ]] || break
+        action_index=$((action_index + 1))
+    done
+}
+
 execute_action_batches() {
     local operation=$1 kind index entries batch_result prerequisite_batch_failed=0
     [[ -z "${DOTFILES_INSTALL_PLAN_ADAPTER:-}" || -n "${DOTFILES_INSTALL_PLAN_BATCH_ADAPTER:-}" ]] || return 0
-    for kind in apt-package pacman-package brew-tap brew-formula brew-cask npm-package cargo-package; do
-        if [[ "$prerequisite_batch_failed" == 1 && ( "$kind" == npm-package || "$kind" == cargo-package ) ]]; then
+    for kind in apt-package pacman-package brew-tap brew-formula brew-cask npm-package cargo-package ai-skill; do
+        [[ "${interrupted:-0}" != 1 ]] || break
+        if [[ "$prerequisite_batch_failed" == 1 &&
+              ( "$kind" == npm-package || "$kind" == cargo-package || "$kind" == ai-skill ) ]]; then
             continue
         fi
-        if [[ "$kind" == npm-package || "$kind" == cargo-package ]]; then
+        if [[ "$kind" == npm-package || "$kind" == cargo-package || "$kind" == ai-skill ]]; then
             execute_batch_prerequisites "$operation" "$kind" || continue
+        fi
+        if [[ "$kind" == ai-skill ]]; then
+            execute_ai_skill_source_batches "$operation"
+            continue
         fi
         entries=$(mktemp "${TMPDIR:-/tmp}/dotfiles-action-batch.XXXXXX")
         index=0
@@ -1817,6 +1904,7 @@ execute_action_batches() {
                 "$kind" == brew-tap || "$kind" == brew-formula || "$kind" == brew-cask ]]; then
             prerequisite_batch_failed=1
         fi
+        [[ "${interrupted:-0}" != 1 ]] || break
     done
 }
 
@@ -2074,6 +2162,7 @@ execute_plan_removal() {
 execute_plan_app() {
     local id=$1 operation=$2 path=${3:-} index status dependency_index prerequisite prerequisite_index
     local action_index had_failure=0 adapter_failed installer_before installer_before_digest installer_after installer_after_digest receipt_before result presence custody
+    [[ "${interrupted:-0}" != 1 ]] || return 130
     index=$(find_value_index "$id" "${apply_app_ids[@]}") || return 1
     status=${apply_app_statuses[$index]}
     case "$status" in succeeded) return 0 ;; failed|partial|blocked) return 1 ;; running) return 1 ;; esac
@@ -2095,6 +2184,7 @@ execute_plan_app() {
     done
     action_index=0
     while ((action_index < ${#apply_action_apps[@]})); do
+        [[ "${interrupted:-0}" != 1 ]] || break
         if [[ "${apply_action_apps[$action_index]}" == "$id" && "${apply_action_done[$action_index]}" != 1 ]]; then
             installer_before=''; installer_before_digest=''; receipt_before=''; adapter_failed=0
             if [[ "${apply_action_kinds[$action_index]}" == installer ]]; then
@@ -2130,6 +2220,10 @@ execute_plan_app() {
         fi
         action_index=$((action_index + 1))
     done
+    if [[ "${interrupted:-0}" == 1 ]]; then
+        settle_app_operation "$index" failed
+        return 130
+    fi
     if [[ "$had_failure" == 1 ]]; then settle_app_operation "$index" failed; return 1; fi
     start_registered_operation "verify:$index"
     if [[ "${DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN:-0}" != 1 ]]; then
@@ -2425,6 +2519,7 @@ apply_plan() {
             execute_action_batches "$operation"
             app_index=0
             while ((app_index < ${#apply_app_ids[@]})); do
+                [[ "$interrupted" != 1 ]] || break
                 if [[ "${apply_app_outcomes[$app_index]}" == ensure ]]; then
                     execute_plan_app "${apply_app_ids[$app_index]}" "$operation" || true
                 fi
@@ -2432,12 +2527,14 @@ apply_plan() {
             done
             app_index=0
             while ((app_index < ${#apply_app_ids[@]})); do
+                [[ "$interrupted" != 1 ]] || break
                 case "${apply_app_outcomes[$app_index]}" in
                     remove|force) execute_plan_removal "${apply_app_ids[$app_index]}" || true ;;
                 esac
                 app_index=$((app_index + 1))
             done
             dependency_failed=0
+            [[ "$interrupted" != 1 ]] || dependency_failed=1
             for app_index in "${!apply_app_statuses[@]}"; do
                 case "${apply_app_statuses[$app_index]}" in failed|partial|blocked) dependency_failed=1 ;; esac
             done
@@ -2447,6 +2544,7 @@ apply_plan() {
             step_action_failed=0
             action_index=0
             while ((action_index < ${#apply_step_action_ids[@]})); do
+                [[ "$interrupted" != 1 ]] || break
                 if [[ "${apply_step_action_ids[$action_index]}" == "$step_id" ]]; then
                     run_plan_adapter "$operation" "${apply_step_action_kinds[$action_index]}" \
                         "${apply_step_action_values[$action_index]}" "${apply_step_action_options[$action_index]}" || step_action_failed=1

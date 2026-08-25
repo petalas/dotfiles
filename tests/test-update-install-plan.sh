@@ -33,12 +33,21 @@ EOF
 chmod +x "$fixture/repo/update-dotfiles" "$fixture/repo/lib/install-plan" "$fixture/bin/git"
 
 log="$fixture/update.log"
-UPDATE_TEST_LOG="$log" DOTFILES_DIR="$fixture/repo" HOME="$fixture/home" \
-    PATH="$fixture/bin:/bin" /usr/bin/zsh "$fixture/repo/update-dotfiles" \
-    >"$fixture/out" 2>"$fixture/err"
+zsh_bin=$(command -v zsh)
+if ! UPDATE_TEST_LOG="$log" DOTFILES_DIR="$fixture/repo" HOME="$fixture/home" \
+    PATH="$fixture/bin:/bin:/usr/bin" "$zsh_bin" "$fixture/repo/update-dotfiles" \
+    >"$fixture/out" 2>"$fixture/err"; then
+    cat "$fixture/out" >&2
+    cat "$fixture/err" >&2
+    exit 1
+fi
 grep -Fq 'plan prepare --mode defaults' "$log"
 grep -Fq 'plan apply --operation reconcile' "$log"
-grep -Fxq 'system upgrade' "$log"
+if [[ "$OSTYPE" == linux* ]]; then
+    grep -Fxq 'system upgrade' "$log"
+else
+    ! grep -Fq 'system upgrade' "$log"
+fi
 [[ "$(grep -c '^plan apply ' "$log")" == 1 ]]
 
 printf 'Update plan integration tests passed.\n'
