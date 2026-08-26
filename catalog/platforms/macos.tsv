@@ -87,7 +87,7 @@ editors.code	brew	payload	brew-cask	visual-studio-code
 editors.zed	brew	payload	brew-cask	zed
 containers.docker	brew	payload	brew-cask	docker-desktop
 ai.herdr	brew	payload	brew-formula	herdr
-ai.claude-code	brew	payload	brew-cask	claude-code
+ai.claude-code	brew	payload	brew-cask	claude-code@latest
 ai.lm-studio	brew	payload	brew-cask	lm-studio
 mobile.applesimutils	brew	support	brew-tap	mobile-dev-inc/tap
 mobile.applesimutils	brew	payload	brew-formula	wix-incubator/brew/applesimutils	trusted=true

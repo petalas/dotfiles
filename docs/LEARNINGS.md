@@ -146,6 +146,14 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Homebrew cask repairs may require macOS App Management permission
+
+- A failed Google Chrome cask upgrade left a real app bundle at the old Caskroom staging path where Homebrew expected a symlink. Chrome's self-updated `/Applications/Google Chrome.app` was also root-owned, so even `sudo` could not repair or replace it without macOS App Management permission.
+- Quit Chrome, grant the hosting terminal application App Management access in System Settings, then run `brew upgrade --cask --force google-chrome`. The force flag is a one-time repair for the stale cask state, not an updater default; unattended upgrades must not overwrite arbitrary conflicting applications automatically.
+- Homebrew may lose the old app's quarantine approval while replacing it, so macOS can prompt once when Chrome next launches.
+
+---
+
 ## Vite+ npm shims prompt on TTYs
 
 - Vite+ places its `npm` shim before npm in `PATH`. After `npm install -g`, the shim checks whether each package binary is reachable and prompts once per invocation before linking it into `~/.vite-plus/bin`.

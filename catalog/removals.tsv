@@ -74,7 +74,7 @@ macos	editors.code	brew-cask	visual-studio-code
 macos	editors.zed	brew-cask	zed
 macos	containers.docker	brew-cask	docker-desktop
 macos	ai.herdr	brew-formula	herdr
-macos	ai.claude-code	brew-cask	claude-code
+macos	ai.claude-code	brew-cask	claude-code@latest
 macos	ai.lm-studio	brew-cask	lm-studio
 macos	mobile.applesimutils	brew-formula	wix-incubator/brew/applesimutils	trusted=true
 macos	mobile.bundletool	brew-formula	bundletool

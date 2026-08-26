@@ -71,6 +71,8 @@ grep -Fxq $'action\tterminal.zsh\tprovided\tzsh\t' "$fixture/macos.plan"
 grep -Fxq $'action\tcli.ripgrep\tcargo-package\tripgrep\tmissing-only' "$fixture/macos.plan"
 grep -Fxq $'action\tgaming.steam\tbrew-cask\tsteam\t' "$fixture/macos.plan"
 grep -Fxq $'action\tcad.bambu-studio\tbrew-cask\tbambu-studio\t' "$fixture/macos.plan"
+grep -Fxq $'action\tai.claude-code\tbrew-cask\tclaude-code@latest\t' "$fixture/macos.plan"
+grep -Fxq $'macos\tai.claude-code\tbrew-cask\tclaude-code@latest' "$repo_dir/catalog/removals.tsv"
 grep -Fxq $'action\tmobile.maestro\tbrew-formula\tmobile-dev-inc/tap/maestro\ttrusted=true' "$fixture/macos.plan"
 grep -Fxq $'dependency\tmobile.maestro\tmobile.java17' "$fixture/macos.plan"
 grep -Fxq $'action\tfoundation.locale\tapt-package\tlocales\t' "$fixture/debian.plan"
@@ -125,5 +127,6 @@ cmp -s "$fixture/Brewfile" "$repo_dir/Brewfile" || {
     exit 1
 }
 grep -Fxq 'brew "wix-incubator/brew/applesimutils", trusted: true' "$fixture/Brewfile"
+grep -Fxq 'cask "claude-code@latest"' "$fixture/Brewfile"
 
 printf 'Installation catalog parity tests passed.\n'

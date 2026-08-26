@@ -82,7 +82,7 @@ cask "visual-studio-code"
 cask "zed"
 cask "docker-desktop"
 brew "herdr"
-cask "claude-code"
+cask "claude-code@latest"
 cask "lm-studio"
 tap "mobile-dev-inc/tap"
 brew "wix-incubator/brew/applesimutils", trusted: true
