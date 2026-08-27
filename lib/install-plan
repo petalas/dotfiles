@@ -648,6 +648,33 @@ inventory_known() {
     [[ -e "$version_inventory_dir/$1-known" ]]
 }
 
+write_homebrew_inventory_aliases() {
+    local json=$1 output=$2
+    awk '
+        $1 == "\"formulae\":" { kind="brew-formula" }
+        $1 == "\"casks\":" { kind="brew-cask" }
+        $1 == "\"name\":" || $1 == "\"token\":" {
+            short_name=$2; gsub(/^\"|\",?$/, "", short_name)
+        }
+        $1 == "\"full_name\":" || $1 == "\"full_token\":" {
+            full_name=$2; gsub(/^\"|\",?$/, "", full_name)
+            if (kind != "" && short_name != "" && full_name != short_name) {
+                print kind "\t" full_name "\t" short_name
+            }
+        }
+    ' "$json" >"$output"
+}
+
+append_homebrew_inventory_aliases() {
+    local aliases=$1 inventory=$2 kind full_name short_name version
+    [[ -r "$aliases" && -r "$inventory" ]] || return 0
+    while IFS=$'\t' read -r kind full_name short_name; do
+        [[ -n "$kind" && -n "$full_name" && -n "$short_name" ]] || continue
+        version=$(inventory_lookup "$inventory" "$kind:$short_name" 2>/dev/null || true)
+        [[ -z "$version" ]] || printf '%s:%s\t%s\n' "$kind" "$full_name" "$version" >>"$inventory"
+    done <"$aliases"
+}
+
 parse_npm_inventory() {
     local input=$1 output=$2
     command -v node >/dev/null 2>&1 || return 1
@@ -762,17 +789,25 @@ prepare_version_inventory() {
     fi
 
     if { catalog_uses_action_kind brew-formula || catalog_uses_action_kind brew-cask; } && command -v brew >/dev/null 2>&1; then
+        if HOMEBREW_NO_AUTO_UPDATE=1 brew info --json=v2 --installed >"$version_inventory_dir/brew-info.raw" 2>/dev/null; then
+            write_homebrew_inventory_aliases "$version_inventory_dir/brew-info.raw" "$version_inventory_dir/brew-aliases"
+        fi
         if HOMEBREW_NO_AUTO_UPDATE=1 brew list --formula --versions >"$version_inventory_dir/brew-formula.raw" 2>/dev/null; then
-            awk '{ print $1 "\t" $NF }' "$version_inventory_dir/brew-formula.raw" >>"$version_inventory_dir/brew-installed"
+            awk '{ print "brew-formula:" $1 "\t" $NF }' "$version_inventory_dir/brew-formula.raw" >>"$version_inventory_dir/brew-installed"
             : >"$version_inventory_dir/brew-installed-known"
         fi
         if HOMEBREW_NO_AUTO_UPDATE=1 brew list --cask --versions >"$version_inventory_dir/brew-cask.raw" 2>/dev/null; then
-            awk '{ print $1 "\t" $NF }' "$version_inventory_dir/brew-cask.raw" >>"$version_inventory_dir/brew-installed"
+            awk '{ print "brew-cask:" $1 "\t" $NF }' "$version_inventory_dir/brew-cask.raw" >>"$version_inventory_dir/brew-installed"
             : >"$version_inventory_dir/brew-installed-known"
         fi
-        if LC_ALL=C HOMEBREW_NO_AUTO_UPDATE=1 brew outdated --verbose >"$version_inventory_dir/brew-outdated.raw" 2>/dev/null; then
-            awk 'NF >= 4 && ($(NF-1) == "<" || $(NF-1) == "!=") { print $1 "\t" $NF }' \
-                "$version_inventory_dir/brew-outdated.raw" >"$version_inventory_dir/brew-updates"
+        append_homebrew_inventory_aliases "$version_inventory_dir/brew-aliases" "$version_inventory_dir/brew-installed"
+        if LC_ALL=C HOMEBREW_NO_AUTO_UPDATE=1 brew outdated --formula --verbose >"$version_inventory_dir/brew-formula-outdated.raw" 2>/dev/null &&
+           LC_ALL=C HOMEBREW_NO_AUTO_UPDATE=1 brew outdated --cask --verbose >"$version_inventory_dir/brew-cask-outdated.raw" 2>/dev/null; then
+            awk 'NF >= 4 && ($(NF-1) == "<" || $(NF-1) == "!=") { print "brew-formula:" $1 "\t" $NF }' \
+                "$version_inventory_dir/brew-formula-outdated.raw" >"$version_inventory_dir/brew-updates"
+            awk 'NF >= 4 && ($(NF-1) == "<" || $(NF-1) == "!=") { print "brew-cask:" $1 "\t" $NF }' \
+                "$version_inventory_dir/brew-cask-outdated.raw" >>"$version_inventory_dir/brew-updates"
+            append_homebrew_inventory_aliases "$version_inventory_dir/brew-aliases" "$version_inventory_dir/brew-updates"
             : >"$version_inventory_dir/brew-updates-known"
         fi
     fi
@@ -835,8 +870,8 @@ real_action_version() {
             inventory_known pacman-updates && status=current
             ;;
         brew-formula|brew-cask)
-            installed=$(inventory_lookup "$version_inventory_dir/brew-installed" "$value" 2>/dev/null || true)
-            latest=$(inventory_lookup "$version_inventory_dir/brew-updates" "$value" 2>/dev/null || true)
+            installed=$(inventory_lookup "$version_inventory_dir/brew-installed" "$kind:$value" 2>/dev/null || true)
+            latest=$(inventory_lookup "$version_inventory_dir/brew-updates" "$kind:$value" 2>/dev/null || true)
             inventory_known brew-updates && status=current
             ;;
         npm-package)
@@ -962,6 +997,19 @@ versioned_application_label() {
     fi
 }
 
+homebrew_registration_exists() {
+    local kind=$1 value=$2 flag=--formula identity_key=full_name info short_name
+    [[ "$kind" != brew-cask ]] || { flag=--cask; identity_key=full_token; }
+    if [[ "$value" == */* ]]; then
+        info=$(HOMEBREW_NO_AUTO_UPDATE=1 brew info --json=v2 "$value" 2>/dev/null) || return 1
+        printf '%s\n' "$info" | grep -Fq "\"$identity_key\": \"$value\"" || return 1
+        short_name=${value##*/}
+        HOMEBREW_NO_AUTO_UPDATE=1 brew list "$flag" "$short_name" >/dev/null 2>&1
+    else
+        HOMEBREW_NO_AUTO_UPDATE=1 brew list "$flag" "$value" >/dev/null 2>&1
+    fi
+}
+
 inspect_real_action() {
     local kind=$1 value=$2 option=$3 binary
     case "$kind" in
@@ -984,10 +1032,10 @@ inspect_real_action() {
         brew-formula|brew-cask)
             if [[ "$kind" == brew-cask ]]; then option=--cask; else option=--formula; fi
             if [[ "$version_inventory_ready" == 1 ]] && inventory_known brew-installed; then
-                if inventory_lookup "$version_inventory_dir/brew-installed" "$value" >/dev/null 2>&1; then
+                if inventory_lookup "$version_inventory_dir/brew-installed" "$kind:$value" >/dev/null 2>&1; then
                     printf 'present\tmanaged\t%s is registered by Homebrew\n' "$value"
                 else printf 'absent\tunverified\t%s is not registered by Homebrew\n' "$value"; fi
-            elif command -v brew >/dev/null 2>&1 && brew list "$option" "$value" >/dev/null 2>&1; then
+            elif command -v brew >/dev/null 2>&1 && homebrew_registration_exists "$kind" "$value"; then
                 printf 'present\tmanaged\t%s is registered by Homebrew\n' "$value"
             else printf 'absent\tunverified\t%s is not registered by Homebrew\n' "$value"; fi ;;
         npm-package)

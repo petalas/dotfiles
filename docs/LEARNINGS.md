@@ -12,6 +12,14 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Updater diagnostics and GitHub-backed upgrades need explicit process boundaries
+
+- Start `${XDG_STATE_HOME:-~/.local/state}/dotfiles/latest-update.log` before `git pull` and preserve its redirections across the post-pull `exec`; starting it afterward loses the command that can replace the updater itself. Keep the state directory mode 0700 and the log mode 0600, mirror stdout and stderr without merging their terminal channels, and repeat the path beside a failed summary.
+- GitHub CLI credentials stored in the keychain are not environment variables, so Bun's self-updater otherwise uses GitHub's anonymous API and can exhaust the shared 60-request hourly allowance. Give only the Bun child a process-scoped token, preferring existing GitHub token variables and then `gh auth token --hostname github.com`. If no credential exists, skip Bun with login guidance rather than making an anonymous request or switching automatically to Bun's remote installer.
+- Updater tests must set `SDKMAN_DIR` to their fixture. Replacing `HOME` alone does not override an inherited SDKMAN path and can make a supposedly isolated test update the host's real candidates.
+
+---
+
 ## Zsh substitution replacements preserve unnecessary backslashes
 
 - In zsh `${value//pattern/replacement}`, a backslash needed to quote the pattern is not also needed before an ordinary `%` in the replacement.
@@ -124,6 +132,14 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - `brew bundle` evaluates the Brewfile as Ruby, but Homebrew sanitises arbitrary environment variables before evaluation. This made historical `SKIP_*` gates unreliable unless wrappers translated them to `HOMEBREW_*` names.
 - Installation-plan records now own group and application selection on every platform. `Brewfile` is a generated full compatibility artifact, while catalog reconciliation materializes a selected temporary Brewfile.
 - Do not reintroduce environment-variable selection gates in `Brewfile`; they create a second ownership surface and do not apply consistently to direct and wrapped Homebrew runs.
+
+---
+
+## Tap-qualified Homebrew registrations need canonical observation identities
+
+- A catalog install identity is not always accepted as a `brew list` argument after installation. `wix-incubator/brew/applesimutils` installs into the short `applesimutils` rack, and Homebrew may report a tap alias from `brew list --full-name` while `brew info --json=v2` retains the canonical `full_name`.
+- Snapshot `name`/`full_name` and `token`/`full_token` aliases from `brew info --json=v2 --installed`. Key the inventory by action kind as well as identity because a formula and cask can share one short name. For a direct post-operation check, first resolve a qualified identity through `brew info`, then verify its short registered rack or cask token.
+- Keep both inspection and reconciliation postconditions in the regression test. Fixing only the version inventory makes the visual plan accurate while unattended reconciliation still exits 1 after a successful Homebrew batch.
 
 ---
 

@@ -101,4 +101,76 @@ grep -Fxq $'observation\tfoundation.git\tavailable\tpresent\tmanaged\trequired\t
 [[ $(grep -c '^apt$' "$fixture/version-command.log") == 1 ]]
 [[ $(grep -c '^dpkg-query$' "$fixture/version-command.log") == 1 ]]
 
+# Homebrew observations match tap-qualified catalog identities against the
+# canonical full names reported by Homebrew, not only their short rack names.
+brew_catalog="$fixture/brew-catalog"
+mkdir -p "$brew_catalog/platforms" "$fixture/brew-bin"
+cat >"$brew_catalog/steps.tsv" <<'EOF'
+10	dependencies	Install dependencies	on	dependencies
+EOF
+cat >"$brew_catalog/groups.tsv" <<'EOF'
+10	mobile	Mobile	on
+EOF
+cat >"$brew_catalog/applications.tsv" <<'EOF'
+mobile.applesimutils	mobile	Apple simulator utilities	on
+mobile.shared-cask	mobile	Shared-name cask	on
+EOF
+cat >"$brew_catalog/platforms/macos.tsv" <<'EOF'
+mobile.applesimutils	brew	payload	brew-formula	wix-incubator/brew/applesimutils	trusted=true
+mobile.shared-cask	brew	payload	brew-cask	applesimutils
+EOF
+: >"$brew_catalog/removals.tsv"
+cat >"$fixture/brew-bin/brew" <<'EOF'
+#!/usr/bin/env bash
+case "$*" in
+    'list --formula --versions') printf 'applesimutils 0.9.12\n' ;;
+    'list --cask --versions') printf 'applesimutils 9.1\n' ;;
+    'outdated --formula --verbose'|'outdated --cask --verbose') : ;;
+    'info --json=v2 --installed'|'info --json=v2 wix-incubator/brew/applesimutils') cat <<'JSON'
+{
+  "formulae": [
+    {
+      "name": "applesimutils",
+      "full_name": "wix-incubator/brew/applesimutils",
+      "installed": [{"version": "0.9.12"}]
+    }
+  ],
+  "casks": [
+    {
+      "token": "applesimutils",
+      "full_token": "applesimutils",
+      "installed": "9.1"
+    }
+  ]
+}
+JSON
+        ;;
+    'list --formula applesimutils'|'list --cask applesimutils') : ;;
+    *) printf 'unexpected brew command: %s\n' "$*" >&2; exit 1 ;;
+esac
+EOF
+chmod +x "$fixture/brew-bin/brew"
+PATH="$fixture/brew-bin:$PATH" DOTFILES_CATALOG_DIR="$brew_catalog" \
+    "$repo_dir/lib/install-plan" inspect --os macos --output "$fixture/brew-observations.tsv"
+grep -Fxq $'observation\tmobile.applesimutils\tavailable\tpresent\tmanaged\toptional\tenabled\tdisabled\tmobile\tApple simulator utilities (0.9.12)\twix-incubator/brew/applesimutils is registered by Homebrew' \
+    "$fixture/brew-observations.tsv"
+grep -Fxq $'observation\tmobile.shared-cask\tavailable\tpresent\tmanaged\toptional\tenabled\tdisabled\tmobile\tShared-name cask (9.1)\tapplesimutils is registered by Homebrew' \
+    "$fixture/brew-observations.tsv"
+
+# Reconciliation uses the same identity rule for its post-operation check.
+cat >"$fixture/brew-batch" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "$fixture/brew-batch"
+XDG_STATE_HOME="$fixture/brew-state" DOTFILES_CATALOG_DIR="$brew_catalog" \
+    "$repo_dir/lib/install-plan" prepare --mode defaults --os macos --output "$fixture/brew-plan.tsv" \
+    >"$fixture/brew-prepare.out"
+PATH="$fixture/brew-bin:$PATH" XDG_STATE_HOME="$fixture/brew-state" DOTFILES_CATALOG_DIR="$brew_catalog" \
+    DOTFILES_INSTALL_PLAN_BATCH_ADAPTER="$fixture/brew-batch" \
+    "$repo_dir/lib/install-plan" apply --operation reconcile --plan "$fixture/brew-plan.tsv" \
+    >"$fixture/brew-apply.out" 2>"$fixture/brew-apply.err"
+grep -Fxq 'succeeded: mobile.applesimutils' "$fixture/brew-apply.out"
+grep -Fxq 'succeeded: mobile.shared-cask' "$fixture/brew-apply.out"
+
 printf 'Application observation, version, update, and receipt contract tests passed.\n'

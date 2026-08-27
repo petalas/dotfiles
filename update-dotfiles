@@ -12,6 +12,28 @@ if (( $# > 1 )) || { (( $# == 1 )) && [[ $1 != --after-dotfiles-pull ]]; }; then
   print -u2 "usage: update-dotfiles"
   exit 2
 fi
+start_update_log() {
+  local state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles
+  local candidate=$state_dir/latest-update.log
+  local previous_umask
+  previous_umask=$(umask)
+  umask 077
+  if mkdir -p "$state_dir" && chmod 700 "$state_dir" && : >"$candidate" && chmod 600 "$candidate"; then
+    umask "$previous_umask"
+    export DOTFILES_UPDATE_LOG_ACTIVE=1 DOTFILES_UPDATE_LOG=$candidate
+    update_log=$candidate
+    exec > >(tee -a "$update_log") 2> >(tee -a "$update_log" >&2)
+    print "Update log: $update_log"
+  else
+    umask "$previous_umask"
+    update_log=
+    print -u2 "Warning: cannot create a private update log at $candidate"
+  fi
+}
+
+update_log=${DOTFILES_UPDATE_LOG:-}
+[[ ${DOTFILES_UPDATE_LOG_ACTIVE:-0} == 1 ]] || start_update_log
+
 if [[ ${1:-} != --after-dotfiles-pull ]]; then
   [[ -d $DOTFILES_ROOT/.git ]] || {
     print -u2 "Not a Git checkout: $DOTFILES_ROOT"
@@ -56,6 +78,31 @@ update_skills() {
   print "Skills update failed; clearing Bun's temporary package cache and retrying."
   bunx_clean
   bunx skills update --global
+}
+
+bun_github_token() {
+  if [[ -n ${GITHUB_TOKEN:-} ]]; then
+    print -r -- "$GITHUB_TOKEN"
+  elif [[ -n ${GITHUB_ACCESS_TOKEN:-} ]]; then
+    print -r -- "$GITHUB_ACCESS_TOKEN"
+  elif [[ -n ${GH_TOKEN:-} ]]; then
+    print -r -- "$GH_TOKEN"
+  elif (( $+commands[gh] )); then
+    gh auth token --hostname github.com 2>/dev/null
+  else
+    return 1
+  fi
+}
+
+update_bun() {
+  local github_token
+  github_token=$(bun_github_token) || github_token=
+  if [[ -z $github_token ]]; then
+    print "Skipping Bun upgrade to avoid GitHub's anonymous API rate limit."
+    print "Authenticate with 'gh auth login' or set GITHUB_TOKEN to enable it."
+    return 0
+  fi
+  GITHUB_TOKEN=$github_token bun upgrade
 }
 
 plan_engine=$DOTFILES_ROOT/lib/install-plan
@@ -104,7 +151,7 @@ if [[ -s ${SDKMAN_DIR:-$HOME/.sdkman}/bin/sdkman-init.sh ]]; then
   run_step "SDKMAN candidates" sdk upgrade
 fi
 
-(( $+commands[bun] )) && run_step "Bun" bun upgrade
+(( $+commands[bun] )) && run_step "Bun" update_bun
 
 if (( $+commands[npm] )); then
   npm_packages=(${(f)"$(npm outdated -g --parseable 2>/dev/null | cut -d: -f4 | sed 's/@[^@]*$//' | grep -v '/\.' | sort -u)"})
@@ -141,6 +188,7 @@ fi
 print
 if (( ${#failures[@]} )); then
   print -P "%F{red}Failed: ${(j:, :)failures}%f" >&2
+  [[ -z $update_log ]] || print -u2 "Update log: $update_log"
   exit 1
 fi
 print -P "%F{green}Everything is up to date.%f"
