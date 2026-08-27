@@ -39,6 +39,11 @@ cat >"$fixture/bin/gh" <<'EOF'
 [[ "${GH_TEST_MODE:-authenticated}" != no-auth ]] || exit 1
 printf 'fixture-github-token\n'
 EOF
+cat >"$fixture/bin/pi" <<'EOF'
+#!/usr/bin/env bash
+printf 'pi %s\n' "$*" >>"$UPDATE_TEST_LOG"
+[[ "$*" == 'update --all' ]]
+EOF
 cat >"$fixture/bin/bun" <<'EOF'
 #!/usr/bin/env bash
 [[ "$*" == upgrade ]] || exit 2
@@ -51,7 +56,7 @@ printf 'bun diagnostic stdout\n'
 printf 'bun diagnostic stderr\n' >&2
 EOF
 chmod +x "$fixture/repo/update-dotfiles" "$fixture/repo/lib/install-plan" "$fixture/bin/git" \
-    "$fixture/bin/gh" "$fixture/bin/bun"
+    "$fixture/bin/gh" "$fixture/bin/pi" "$fixture/bin/bun"
 
 log="$fixture/update.log"
 zsh_bin=$(command -v zsh)
@@ -73,6 +78,7 @@ elif grep -Fq 'system upgrade' "$log"; then
 fi
 [[ "$(grep -c '^plan apply ' "$log")" == 1 ]]
 grep -Fxq 'bun upgrade' "$log"
+grep -Fxq 'pi update --all' "$log"
 
 latest_update_log="$fixture/state/dotfiles/latest-update.log"
 [[ -f "$latest_update_log" ]]

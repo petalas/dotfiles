@@ -68,6 +68,33 @@ if DOTFILES_DOWNLOAD_RETRIES=0 download_file https://example.invalid "$fixture/d
     exit 1
 fi
 
+# GitHub API metadata uses a process-scoped authenticated token when gh can
+# read one from the keychain. Other hosts must never receive that header.
+cat >"$fixture/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+[[ "$*" == 'auth token --hostname github.com' ]] || exit 1
+printf 'fixture-token\n'
+EOF
+cat >"$fixture/bin/curl" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$DOWNLOAD_TEST_LOG"
+printf '{}\n'
+EOF
+chmod +x "$fixture/bin/gh" "$fixture/bin/curl"
+: >"$fixture/download.log"
+env -u GITHUB_TOKEN -u GITHUB_ACCESS_TOKEN -u GH_TOKEN \
+    PATH="$fixture/bin:/usr/bin:/bin" DOWNLOAD_TEST_LOG="$fixture/download.log" \
+    bash -c 'source "$1"; download_stdout https://api.github.com/repos/example/tool/releases/latest >/dev/null' \
+    bash "$repo_dir/lib/download.sh"
+grep -Fq -- '--header Authorization: Bearer fixture-token' "$fixture/download.log"
+: >"$fixture/download.log"
+PATH="$fixture/bin:/usr/bin:/bin" DOWNLOAD_TEST_LOG="$fixture/download.log" \
+    download_stdout https://example.invalid/metadata >/dev/null
+if grep -Fq 'Authorization:' "$fixture/download.log"; then
+    echo 'Download helper sent GitHub authorization to another host' >&2
+    exit 1
+fi
+
 # Downloaded installers receive their non-secret CLI arguments after the
 # temporary script path (rustup uses this for its unattended profile/channel).
 download_file() {

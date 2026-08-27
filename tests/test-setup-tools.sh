@@ -65,11 +65,22 @@ cat >"$fixture/bin/tmux" <<'EOF'
 #!/usr/bin/env bash
 exit 0
 EOF
-chmod +x "$fixture/bin/gh" "$fixture/bin/git" "$fixture/bin/tmux"
+cat >"$fixture/bin/bat" <<'EOF'
+#!/usr/bin/env bash
+printf "No syntaxes were found in '%s/.config/bat/syntaxes', using the default set.\n" "$HOME"
+printf 'Writing theme set ... okay\n'
+EOF
+chmod +x "$fixture/bin/gh" "$fixture/bin/git" "$fixture/bin/tmux" "$fixture/bin/bat"
 
 export GIT_LOG="$fixture/git.log"
 test_path="$fixture/bin:/usr/bin:/bin"
-HOME="$fixture/home" PATH="$test_path" GH_AUTH_EXIT=0 "$repo_dir/setup-tools.sh" >/dev/null
+HOME="$fixture/home" PATH="$test_path" GH_AUTH_EXIT=0 "$repo_dir/setup-tools.sh" \
+    >"$fixture/setup.out" 2>"$fixture/setup.err"
+if grep -Fq 'No syntaxes were found' "$fixture/setup.out" "$fixture/setup.err"; then
+    echo 'Expected bat default-syntax notice to be omitted' >&2
+    exit 1
+fi
+grep -Fq 'Writing theme set ... okay' "$fixture/setup.out"
 [[ -d "$fixture/home/git/notes/.git" ]]
 [[ -L "$fixture/home/git/notes/.obsidian/app.json" ]]
 jq -e '.alwaysUpdateLinks == true' \

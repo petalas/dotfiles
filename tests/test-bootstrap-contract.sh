@@ -21,6 +21,10 @@ else
     exit 1
 fi
 EOF
+cat >"$fixture/bin/uname" <<'EOF'
+#!/usr/bin/env bash
+printf 'Linux\n'
+EOF
 cat >"$fixture/bin/git" <<'EOF'
 #!/usr/bin/env bash
 case "$*" in

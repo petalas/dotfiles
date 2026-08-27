@@ -74,9 +74,10 @@ _install_zed_release() (
     desktop_source="$staging/zed.app/share/applications/dev.zed.Zed.desktop"
     desktop_staged="$staging/dev.zed.Zed.desktop"
     [[ -f "$desktop_source" ]] || return 1
-    cp "$desktop_source" "$desktop_staged" || return 1
-    sed -i "s|Icon=zed|Icon=$HOME/.local/zed.app/share/icons/hicolor/512x512/apps/zed.png|g" "$desktop_staged" || return 1
-    sed -i "s|Exec=zed|Exec=$HOME/.local/zed.app/bin/zed|g" "$desktop_staged" || return 1
+    sed \
+        -e "s|Icon=zed|Icon=$HOME/.local/zed.app/share/icons/hicolor/512x512/apps/zed.png|g" \
+        -e "s|Exec=zed|Exec=$HOME/.local/zed.app/bin/zed|g" \
+        "$desktop_source" >"$desktop_staged" || return 1
 
     destination="$HOME/.local/zed.app"
     if [[ -e "$destination" || -L "$destination" ]]; then

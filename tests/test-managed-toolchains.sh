@@ -106,7 +106,12 @@ sdk() {
     printf '#!/usr/bin/env bash\nprintf "%s managed\\n"\n' "$candidate" \
         >"$SDKMAN_DIR/candidates/$candidate/current/bin/$executable"
     chmod +x "$SDKMAN_DIR/candidates/$candidate/current/bin/$executable"
-    export PATH="$SDKMAN_DIR/candidates/$candidate/current/bin:$PATH"
+    # Match SDKMAN's real behavior when the candidate path already exists
+    # later in PATH: leave it there instead of moving it to the front.
+    case ":$PATH:" in
+        *":$SDKMAN_DIR/candidates/$candidate/current/bin:"*) ;;
+        *) export PATH="$SDKMAN_DIR/candidates/$candidate/current/bin:$PATH" ;;
+    esac
 }
 EOF
             ;;
@@ -148,6 +153,14 @@ grep -Fq 'interpreter=sh url=https://astral.sh/uv/install.sh args= uv_install_di
 PATH="$fixture/bin:/usr/bin:/bin"
 unset SDKMAN_DIR
 : >"$log"
+# Inherited SDKMAN paths can sit behind system or Homebrew commands. Candidate
+# installation must promote the managed executable instead of trusting the
+# loader's path-presence check.
+export SDKMAN_DIR="$HOME/.sdkman"
+PATH="$fixture/bin:/usr/bin:/bin"
+for candidate in java gradle kotlin maven; do
+    PATH="$PATH:$SDKMAN_DIR/candidates/$candidate/current/bin"
+done
 for candidate in java gradle kotlin maven; do
     "install_$candidate"
 done

@@ -45,9 +45,22 @@ _install_sdkman_candidate() {
     if ((result == 0)); then sdk install "$candidate" || result=$?; fi
     if ((nounset_enabled == 1)); then set -u; fi
     ((result == 0)) || return "$result"
-    hash -r 2>/dev/null || true
 
     expected=$SDKMAN_DIR/candidates/$candidate/current/bin/$executable
+    [[ -x "$expected" ]] || {
+        echo "SDKMAN did not install $candidate at $expected" >&2
+        return 1
+    }
+    case ":$PATH:" in
+        *":$SDKMAN_DIR/candidates/$candidate/current/bin:"*)
+            PATH=$(printf '%s' "$PATH" | awk -v target="$SDKMAN_DIR/candidates/$candidate/current/bin" \
+                'BEGIN { RS=":"; ORS=":" } $0 != target { print }')
+            PATH=${PATH%:}
+            ;;
+    esac
+    export PATH="$SDKMAN_DIR/candidates/$candidate/current/bin:$PATH"
+    hash -r 2>/dev/null || true
+
     [[ "$(command -v "$executable" 2>/dev/null || true)" == "$expected" ]] || {
         echo "The SDKMAN-managed $candidate executable is not active" >&2
         return 1

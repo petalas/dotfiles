@@ -317,7 +317,12 @@ if [[ $OSTYPE == darwin* && -d /opt/homebrew/share/android-commandlinetools ]]; 
 fi
 
 export SDKMAN_DIR="$HOME/.sdkman"
-[[ -r "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"
+if [[ -r "$SDKMAN_DIR/bin/sdkman-init.sh" ]]; then
+  # SDKMAN does not promote candidate paths that already exist later in an
+  # inherited PATH. Remove stale positions so its loader can prepend them.
+  path=(${path:#$SDKMAN_DIR/candidates/*/current/bin})
+  source "$SDKMAN_DIR/bin/sdkman-init.sh"
+fi
 
 # Machine-specific secrets and overrides live outside this repository.
 [[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
