@@ -1696,7 +1696,8 @@ run_real_adapter() {
             cargo-package) cargo uninstall "$value" </dev/null; return ;;
             ai-skill)
                 command -v npx >/dev/null 2>&1 || { echo "AI skills removal requires npx; install Node first." >&2; return 1; }
-                npx --yes skills remove --global --skill "$option" --agent '*' --yes </dev/null; return ;;
+                ensure_installers_loaded
+                remove_ai_skill_global "$option"; return ;;
             *) echo "Unsupported exact removal adapter: $kind" >&2; return 1 ;;
         esac
     fi
@@ -1723,7 +1724,8 @@ run_real_adapter() {
             ;;
         ai-skill)
             command -v npx >/dev/null 2>&1 || { echo "AI skills installation requires npx; install Node first." >&2; return 1; }
-            npx --yes skills add "$value" --skill "$option" --global --agent '*' --yes </dev/null
+            ensure_installers_loaded
+            install_ai_skill_batch "$value" "$option"
             ;;
         installer)
             ensure_installers_loaded
@@ -1748,7 +1750,8 @@ run_plan_adapter() {
 }
 
 run_real_batch() {
-    local operation=$1 kind=$2 entries=$3 _app value option brewfile result=0 source inventory='' inventory_ready=0
+    local operation=$1 kind=$2 entries=$3 _app value option brewfile result=0 source='' inventory='' inventory_ready=0
+    local cargo_inventory='' installed_version latest_version
     local -a values=() normal=() scriptless=() source_skills=()
     case "$kind" in
         apt-package|pacman-package)
@@ -1785,6 +1788,10 @@ run_real_batch() {
             ;;
         npm-package)
             while IFS=$'\t' read -r _app value option; do
+                if [[ "$operation" == reconcile ]] &&
+                    npm list --global --depth=0 "$value" >/dev/null 2>&1; then
+                    continue
+                fi
                 if [[ "$option" == ignore-scripts ]]; then scriptless+=("$value"); else normal+=("$value"); fi
             done <"$entries"
             ((${#normal[@]} == 0)) || npm install --global "${normal[@]}" </dev/null || result=1
@@ -1792,10 +1799,22 @@ run_real_batch() {
             return "$result"
             ;;
         cargo-package)
+            if [[ "$operation" == reconcile ]]; then
+                cargo_inventory=$(cargo install --list 2>/dev/null || true)
+            fi
             while IFS=$'\t' read -r _app value option; do
-                if [[ "$option" != missing-only ]] || ! command -v "$(cargo_package_binary "$value")" >/dev/null 2>&1; then
-                    values+=("$value")
+                if [[ "$option" == missing-only ]] && command -v "$(cargo_package_binary "$value")" >/dev/null 2>&1; then
+                    continue
                 fi
+                if [[ "$operation" == reconcile && "$option" != missing-only && -n "$cargo_inventory" ]]; then
+                    installed_version=$(printf '%s\n' "$cargo_inventory" | awk -v package="$value" \
+                        '$1 == package && $2 ~ /^v/ { version=$2; sub(/^v/, "", version); sub(/:$/, "", version); print version; exit }')
+                    latest_version=$(cargo info "$value" 2>/dev/null | awk '$1 == "version:" { print $2; exit }')
+                    if [[ -n "$installed_version" && "$installed_version" == "$latest_version" ]]; then
+                        continue
+                    fi
+                fi
+                values+=("$value")
             done <"$entries"
             ((${#values[@]} == 0)) || cargo install --locked "${values[@]}" </dev/null
             ;;
@@ -1821,7 +1840,8 @@ run_real_batch() {
                 fi
             done <"$entries"
             if ((${#source_skills[@]})); then
-                npx --yes skills add "$source" --skill "${source_skills[@]}" --global --agent '*' --yes </dev/null || result=1
+                ensure_installers_loaded
+                install_ai_skill_batch "$source" "${source_skills[@]}" || result=1
             fi
             [[ -z "$inventory" ]] || rm -f "$inventory"
             return "$result"

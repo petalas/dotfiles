@@ -119,4 +119,8 @@ else
 fi
 
 cd "$TARGET"
-exec ./easy-install.sh "${installer_args[@]}"
+if ((${#installer_args[@]})); then
+    exec ./easy-install.sh "${installer_args[@]}"
+else
+    exec ./easy-install.sh
+fi

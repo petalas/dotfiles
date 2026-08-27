@@ -69,8 +69,11 @@ setup_tmux_plugins() {
 }
 
 rebuild_bat_cache() {
+    local output result=0
     command -v bat >/dev/null 2>&1 || return 0
-    bat cache --build
+    output=$(bat cache --build 2>&1) || result=$?
+    printf '%s\n' "$output" | awk '!/^No syntaxes were found in .*\/syntaxes.*, using the default set\.$/'
+    return "$result"
 }
 
 run_best_effort "Neovim configuration repository" setup_nvim_repository

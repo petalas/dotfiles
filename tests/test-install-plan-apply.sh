@@ -106,6 +106,100 @@ grep -Fxq $'ai.cli\t@example/cli\t' "$log"
 [[ "$(sed -n '5p' "$log")" == 'batch install cargo-package' ]]
 grep -Fxq $'development.tool\texample-tool\t' "$log"
 
+# Reconciliation installs only missing npm packages and only outdated Cargo
+# packages, avoiding no-op reinstalls while still updating tracked crates.
+package_bin="$fixture/package-bin"
+mkdir -p "$package_bin"
+cat >"$package_bin/node" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+cat >"$package_bin/npm" <<'EOF'
+#!/usr/bin/env bash
+printf 'npm %s\n' "$*" >>"$PACKAGE_BATCH_LOG"
+if [[ "$1" == list ]]; then
+    [[ "${*: -1}" == @example/present ]]
+fi
+EOF
+cat >"$package_bin/cargo" <<'EOF'
+#!/usr/bin/env bash
+printf 'cargo %s\n' "$*" >>"$PACKAGE_BATCH_LOG"
+case "$*" in
+    'install --list')
+        printf 'current-tool v1.0.0:\n    current-tool\noutdated-tool v1.0.0:\n    outdated-tool\n'
+        ;;
+    'info current-tool') printf 'version: 1.0.0\n' ;;
+    'info outdated-tool') printf 'version: 1.1.0\n' ;;
+esac
+EOF
+chmod +x "$package_bin/node" "$package_bin/npm" "$package_bin/cargo"
+package_catalog="$fixture/package-catalog"
+mkdir -p "$package_catalog/platforms"
+printf '10\tdependencies\tInstall dependencies\ton\tdependencies\n' >"$package_catalog/steps.tsv"
+printf '%s\n' $'10\tlanguages\tLanguages\ton' $'20\tai\tAI\ton' \
+    $'30\tdevelopment\tDevelopment\ton' >"$package_catalog/groups.tsv"
+printf '%s\n' \
+    $'languages.node\tlanguages\tNode\trequired' \
+    $'languages.rust\tlanguages\tRust\trequired' \
+    $'ai.present\tai\tPresent npm package\ton\tlanguages.node' \
+    $'ai.missing\tai\tMissing npm package\ton\tlanguages.node' \
+    $'development.current\tdevelopment\tCurrent Cargo package\ton\tlanguages.rust' \
+    $'development.outdated\tdevelopment\tOutdated Cargo package\ton\tlanguages.rust' \
+    >"$package_catalog/applications.tsv"
+printf '%s\n' \
+    $'languages.node\tprovided\tpayload\tprovided\tnode' \
+    $'languages.rust\tprovided\tpayload\tprovided\tcargo' \
+    $'ai.present\tnpm\tpayload\tnpm-package\t@example/present' \
+    $'ai.missing\tnpm\tpayload\tnpm-package\t@example/missing' \
+    $'development.current\tcargo\tpayload\tcargo-package\tcurrent-tool' \
+    $'development.outdated\tcargo\tpayload\tcargo-package\toutdated-tool' \
+    >"$package_catalog/platforms/debian.tsv"
+: >"$package_catalog/removals.tsv"
+cat >"$fixture/package-reconcile-plan" <<'EOF'
+format	1
+os	debian
+step	dependencies	on	10	Install dependencies
+app	languages.node	on	required	languages	Node
+app	languages.rust	on	required	languages	Rust
+app	ai.present	on	optional	ai	Present npm package
+app	ai.missing	on	optional	ai	Missing npm package
+app	development.current	on	optional	development	Current Cargo package
+app	development.outdated	on	optional	development	Outdated Cargo package
+dependency	ai.present	languages.node
+dependency	ai.missing	languages.node
+dependency	development.current	languages.rust
+dependency	development.outdated	languages.rust
+action	languages.node	provided	node
+action	languages.rust	provided	cargo
+action	ai.present	npm-package	@example/present
+action	ai.missing	npm-package	@example/missing
+action	development.current	cargo-package	current-tool
+action	development.outdated	cargo-package	outdated-tool
+EOF
+package_log="$fixture/package-batch.log"
+: >"$package_log"
+PATH="$package_bin:/usr/bin:/bin" PACKAGE_BATCH_LOG="$package_log" \
+DOTFILES_CATALOG_DIR="$package_catalog" DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN=1 \
+    "$repo_dir/lib/install-plan" apply --operation reconcile --plan "$fixture/package-reconcile-plan" \
+    >"$fixture/package-reconcile.out" 2>"$fixture/package-reconcile.err"
+grep -Fxq 'npm install --global @example/missing' "$package_log"
+if grep -Fq 'npm install --global @example/present' "$package_log"; then
+    echo 'Reconciliation reinstalled a present npm package' >&2
+    exit 1
+fi
+grep -Fxq 'cargo install --locked outdated-tool' "$package_log"
+if grep -Fq 'cargo install --locked current-tool' "$package_log"; then
+    echo 'Reconciliation reinstalled a current Cargo package' >&2
+    exit 1
+fi
+: >"$package_log"
+PATH="$package_bin:/usr/bin:/bin" PACKAGE_BATCH_LOG="$package_log" \
+DOTFILES_CATALOG_DIR="$package_catalog" DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN=1 \
+    "$repo_dir/lib/install-plan" apply --operation install --plan "$fixture/package-reconcile-plan" \
+    >"$fixture/package-install.out" 2>"$fixture/package-install.err"
+grep -Fxq 'npm install --global @example/present @example/missing' "$package_log"
+grep -Fxq 'cargo install --locked current-tool outdated-tool' "$package_log"
+
 # A successful direct installer may claim custody when it demonstrably changes
 # a pre-existing command. A no-op over an unreceipted command still may not.
 mkdir -p "$fixture/receipt-bin"

@@ -38,10 +38,14 @@ make_archive 1.16.1 "$archive"
     export ZED_TEST_ARCHIVE="$archive"
     # shellcheck source=../installers/source_installers.sh disable=SC1091
     source "$repo_dir/installers/source_installers.sh"
+    uname() {
+        [[ "${1:-}" == -m ]] && { printf 'x86_64\n'; return; }
+        command uname "$@"
+    }
 
     download_stdout() {
         local digest
-        digest=$(sha256sum "$ZED_TEST_ARCHIVE" | awk '{ print $1 }')
+        digest=$(_zed_sha256 "$ZED_TEST_ARCHIVE")
         printf '{"tag_name":"v1.16.1","assets":[{"name":"zed-linux-x86_64.tar.gz","browser_download_url":"https://github.com/zed-industries/zed/releases/download/v1.16.1/zed-linux-x86_64.tar.gz","digest":"sha256:%s"}]}' "$digest"
     }
     download_file() { cp "$ZED_TEST_ARCHIVE" "$2"; }

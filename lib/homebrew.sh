@@ -40,11 +40,31 @@ _homebrew_extract_entry() {
     ' "$brewfile" >"$destination"
 }
 
+_homebrew_migrate_claude_code_latest() {
+    local brewfile="$1"
+
+    _homebrew_extract_entry "$brewfile" cask claude-code@latest /dev/null 2>/dev/null || return 0
+    brew list --cask claude-code >/dev/null 2>&1 || return 0
+    brew list --cask claude-code@latest >/dev/null 2>&1 && return 0
+
+    printf 'Replacing the stable Claude Code cask with claude-code@latest...\n'
+    brew uninstall --cask --force claude-code || return 1
+    if brew install --cask --force claude-code@latest; then
+        return 0
+    fi
+
+    printf 'Latest Claude Code installation failed; restoring the stable cask.\n' >&2
+    brew install --cask claude-code ||
+        printf 'Warning: restoring the stable Claude Code cask also failed.\n' >&2
+    return 1
+}
+
 homebrew_bundle_install_resilient() {
     local brewfile="$1"
     local kind entries entry entry_file
     local failed=0
 
+    _homebrew_migrate_claude_code_latest "$brewfile" || return 1
     if brew bundle --no-upgrade --file="$brewfile"; then
         return 0
     fi
@@ -93,7 +113,7 @@ homebrew_upgrade_individually() {
         while IFS= read -r entry; do
             [[ -n "$entry" ]] || continue
             printf '\nUpgrading Homebrew %s %s...\n' "$kind" "$entry"
-            if ! brew upgrade "--$kind" "$entry"; then
+            if ! brew upgrade "--$kind" "$entry" </dev/null; then
                 _homebrew_report_failure "Homebrew $kind $entry"
                 failed=1
             fi

@@ -18,6 +18,20 @@ _download_validate_settings() {
     done
 }
 
+_download_github_api_token() {
+    if [[ -n ${GITHUB_TOKEN:-} ]]; then
+        printf '%s\n' "$GITHUB_TOKEN"
+    elif [[ -n ${GITHUB_ACCESS_TOKEN:-} ]]; then
+        printf '%s\n' "$GITHUB_ACCESS_TOKEN"
+    elif [[ -n ${GH_TOKEN:-} ]]; then
+        printf '%s\n' "$GH_TOKEN"
+    elif command -v gh >/dev/null 2>&1; then
+        gh auth token --hostname github.com 2>/dev/null
+    else
+        return 1
+    fi
+}
+
 download_file() {
     local url="$1"
     local destination="$2"
@@ -39,12 +53,25 @@ download_file() {
 }
 
 download_stdout() {
+    local url=$1 github_token=
     _download_validate_settings || return 1
-    curl --fail --location --silent --show-error \
-        --retry "${DOTFILES_DOWNLOAD_RETRIES:-3}" \
-        --connect-timeout "${DOTFILES_CONNECT_TIMEOUT:-15}" \
-        --max-time "${DOTFILES_DOWNLOAD_TIMEOUT:-600}" \
-        "$1"
+    case "$url" in
+        https://api.github.com/*) github_token=$(_download_github_api_token || true) ;;
+    esac
+    if [[ -n "$github_token" ]]; then
+        curl --fail --location --silent --show-error \
+            --retry "${DOTFILES_DOWNLOAD_RETRIES:-3}" \
+            --connect-timeout "${DOTFILES_CONNECT_TIMEOUT:-15}" \
+            --max-time "${DOTFILES_DOWNLOAD_TIMEOUT:-600}" \
+            --header "Authorization: Bearer $github_token" \
+            "$url"
+    else
+        curl --fail --location --silent --show-error \
+            --retry "${DOTFILES_DOWNLOAD_RETRIES:-3}" \
+            --connect-timeout "${DOTFILES_CONNECT_TIMEOUT:-15}" \
+            --max-time "${DOTFILES_DOWNLOAD_TIMEOUT:-600}" \
+            "$url"
+    fi
 }
 
 run_downloaded_script() {

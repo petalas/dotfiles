@@ -39,10 +39,14 @@ make_archive 0.13.0-dev "$archive"
     export NVIM_TEST_ARCHIVE="$archive"
     # shellcheck source=../installers/source_installers.sh
     source "$repo_dir/installers/source_installers.sh"
+    uname() {
+        [[ "${1:-}" == -m ]] && { printf 'x86_64\n'; return; }
+        command uname "$@"
+    }
 
     download_stdout() {
         local digest
-        digest=$(sha256sum "$NVIM_TEST_ARCHIVE" | awk '{ print $1 }')
+        digest=$(_neovim_sha256 "$NVIM_TEST_ARCHIVE")
         printf '{"assets":[{"name":"nvim-linux-x86_64.tar.gz","browser_download_url":"https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-x86_64.tar.gz","digest":"sha256:%s"}]}' "$digest"
     }
     download_file() { cp "$NVIM_TEST_ARCHIVE" "$2"; }

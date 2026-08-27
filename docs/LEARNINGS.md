@@ -15,7 +15,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 ## Updater diagnostics and GitHub-backed upgrades need explicit process boundaries
 
 - Start `${XDG_STATE_HOME:-~/.local/state}/dotfiles/latest-update.log` before `git pull` and preserve its redirections across the post-pull `exec`; starting it afterward loses the command that can replace the updater itself. Keep the state directory mode 0700 and the log mode 0600, mirror stdout and stderr without merging their terminal channels, and repeat the path beside a failed summary.
-- GitHub CLI credentials stored in the keychain are not environment variables, so Bun's self-updater otherwise uses GitHub's anonymous API and can exhaust the shared 60-request hourly allowance. Give only the Bun child a process-scoped token, preferring existing GitHub token variables and then `gh auth token --hostname github.com`. If no credential exists, skip Bun with login guidance rather than making an anonymous request or switching automatically to Bun's remote installer.
+- GitHub CLI credentials stored in the keychain are not environment variables, so Bun's self-updater and release-metadata requests otherwise use GitHub's anonymous API and can exhaust the shared 60-request hourly allowance. Give only the Bun child a process-scoped token. For `api.github.com`, add the authorization header only to that host. Prefer existing GitHub token variables and then `gh auth token --hostname github.com`; never expose the token in logs or send it to release-asset hosts. If no credential exists, skip Bun with login guidance rather than making an anonymous request or switching automatically to Bun's remote installer.
 - Updater tests must set `SDKMAN_DIR` to their fixture. Replacing `HOME` alone does not override an inherited SDKMAN path and can make a supposedly isolated test update the host's real candidates.
 
 ---
@@ -46,9 +46,13 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
-## Apple Bash 3.2 cannot combine nounset with empty catalog arrays
+## Apple Bash 3.2 differs at test process boundaries
 
-- Under Apple Bash 3.2, expanding a declared but empty array such as `"${step_ids[@]}"` still raises `unbound variable` when `set -u` is active. The live Homebrew adapter smoke reached the first catalog row and exposed this before any removal.
+- Under Apple Bash 3.2, expanding a declared but empty array such as `"${step_ids[@]}"` still raises `unbound variable` when `set -u` is active. This affects ordinary argument arrays too, including bootstrap's no-argument handoff. Branch on the array length before expansion. The live Homebrew adapter smoke reached the first catalog row and exposed the catalog form before any removal.
+- A fake executable that relies on `set -e` after a compound `[[ ... && ... ]]` condition can continue under Apple Bash 3.2 even when that condition is false. Use an explicit `if` plus `exit 1` when the fake's status is the behavior under test.
+- Restricted test paths must not call `sha256sum` directly. macOS may expose it under `/sbin`, outside the fixture path, while Linux puts it elsewhere. Call the installer's SHA-256 helper so tests exercise the same `sha256sum`/`shasum` fallback as production.
+- Release fixtures must control `uname -m`; an x86_64 asset fixture otherwise fails on Apple Silicon before it tests installation. BSD `wc -l` also pads its count, so compare it numerically rather than as an exact string.
+- Linux-only direct installers still run in deterministic tests on macOS. Avoid GNU-only mutations such as `sed -i`; write transformed output to a staged file so the same code works with BSD sed at the test boundary.
 - `lib/install-plan` keeps errexit and pipefail but disables nounset only on Bash versions older than 4. External catalog/protocol fields remain explicitly validated. Keep the macOS live adapter job because Linux Bash cannot reproduce this shell-runtime boundary.
 
 ## Pacman removal does not accept the APT-style `--` separator
@@ -73,6 +77,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Node is therefore owned by the pinned nvm installer and tracks nvm's `node` alias (the latest release); Rust is owned by rustup and tracks the stable channel. Keep the native package rows out of every platform catalog so one application has one toolchain owner.
 - User-scoped installers must activate their bin directories in the current catalog process, not only modify a future login shell. The dependent npm/Cargo actions run immediately afterward. Keep nvm loading in `dot/zshrc`, Cargo's bin directory in `PATH`, and the Bun installer's same-run PATH refresh covered by `tests/test-managed-toolchains.sh`.
 - JVM toolchains are likewise owned by SDKMAN rather than native packages: Java, Gradle, Kotlin, and Maven install their latest stable candidate and activate it in the current catalog process. Keep SDKMAN loading in `dot/zshrc`, expose the shared bootstrap and candidate install as progress operations, and remove only the selected candidate tree—not shared SDKMAN state. Keep those boundaries covered by `tests/test-managed-toolchains.sh` and `tests/test-install-catalog.sh`.
+- SDKMAN does not move a candidate directory to the front when that exact directory already exists later in an inherited `PATH`. A fresh shell can therefore keep `/usr/bin/java` or Homebrew Gradle active even though SDKMAN reports a current version. Remove inherited SDKMAN candidate directories before sourcing its shell loader, and explicitly promote a candidate after installation in the current catalog process.
 - SDKMAN's Bash loader and functions read unset internal variables, so sourcing or running them under `set -u` fails with errors such as `SDKMAN_CANDIDATES_API: unbound variable`. The shared installer suspends nounset only around SDKMAN initialization and candidate installation, then restores the caller's setting. Keep both halves of that boundary in the managed-toolchain test.
 
 ## Platform catalog schema changes must include language-addon readers
@@ -157,8 +162,16 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 - Symptom: `brew bundle` fetched several upgrades, then one cask checksum mismatch made the whole command fail and prevented `upd` from reaching `brew upgrade`. In July 2026, T3 Code 0.0.29's GitHub release asset had been replaced after the Homebrew cask recorded its SHA-256, so the downloaded file no longer matched Homebrew's expected checksum.
 - Never bypass a checksum mismatch or patch the cask automatically. It can indicate either an unsafe download or an upstream release that was mutated; Homebrew or the vendor must publish corrected metadata.
-- `brew bundle` upgrades declared entries by default. Use `--no-upgrade` to make it a reconciliation step, with a fallback that retries only missing entries individually if the batch fails.
+- `brew bundle` upgrades declared entries by default. Use `--no-upgrade` to make it a reconciliation step, with a fallback that retries only missing entries individually if the batch fails. npm reconciliation follows the same missing-only rule; `upd` handles available global npm upgrades afterward, while Pi updates itself and its packages with `pi update --all`.
 - The interactive `upd` shell function uses `lib/homebrew.sh` to isolate upgrades so one broken package does not hide later updates.
+- Commands started inside a `while read` loop inherit the loop's stdin. A source build during `brew upgrade` consumed the remaining `brew outdated` package names, printed them inside the build log, and silently skipped those upgrades. Redirect every isolated upgrade's stdin from `/dev/null`.
+
+---
+
+## Conflicting Homebrew cask channels need an explicit migration
+
+- Homebrew treats `claude-code` and `claude-code@latest` as conflicting casks. Changing the catalog declaration alone makes every reconciliation fail while the stable cask remains registered.
+- When the selected Brewfile requests `claude-code@latest`, uninstall the stable registration with `--force`, install the latest cask with `--force`, and restore stable if the new installation fails. Claude settings under `~/.claude` and `~/.claude.json` remain retained user data.
 
 ---
 
@@ -198,6 +211,13 @@ Gotchas and insights discovered while maintaining these dotfiles.
   2. The exact string `# bun completions\n`.
 - `$HOME/.bun/_bun` does **not** satisfy #1 — the search is on raw file text, no shell expansion.
 - Fix: keep the literal `# bun completions` comment inside our `# bun` block in `dot/zshrc`. That sentinel is portable across machines; the absolute path isn't.
+
+---
+
+## Global AI skill installs must exclude project-only agents
+
+- `skills add --global --agent '*'` includes Eve and PromptScript even though both have no global skill directory. The command can exit successfully while printing two failures for every installed skill, which makes the application summary misleading.
+- Pass the explicit global-capable agent list to add and remove operations. Keep the list synchronized with the `skills` CLI's supported-agent table and cover the absence of wildcard, Eve, and PromptScript arguments in `tests/test-ai-skills.sh`.
 
 ---
 

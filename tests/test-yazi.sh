@@ -81,6 +81,10 @@ export PATH="$fixture_dir/bin:$PATH"
 export DOTFILES_OS_OVERRIDE=debian
 # shellcheck source=../installers/source_installers.sh disable=SC1091
 source "$repo_dir/installers/source_installers.sh"
+uname() {
+	[[ "${1:-}" == -m ]] && { printf 'x86_64\n'; return; }
+	command uname "$@"
+}
 
 assert_log_line() {
 	local expected="$1"

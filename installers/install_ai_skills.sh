@@ -67,6 +67,35 @@ _load_ai_skills_catalog() {
     fi
 }
 
+_ai_skill_global_agents() {
+    printf '%s\n' \
+        aider-desk amp antigravity antigravity-cli astrbot autohand-code augment bob \
+        claude-code openclaw cline codearts-agent codebuddy codemaker codestudio codex \
+        command-code continue cortex crush cursor deepagents devin dexto droid firebender \
+        forgecode gemini-cli github-copilot goose grok hermes-agent inference-sh jazz junie \
+        iflow-cli kilo kimchi kimi-code-cli kiro-cli kode lingma loaf mcpjam minimax-code \
+        mistral-vibe moxby mux opencode openhands ona pi posit-assistant qoder qoder-cn \
+        qwen-code replit reasonix rovodev roo tabnine-cli terramind tinycloud trae trae-cn \
+        warp windsurf zed zcode zencoder zenflow neovate pochi adal universal
+}
+
+install_ai_skill_batch() {
+    local source=$1 agent
+    shift
+    local -a agents
+    agents=()
+    while IFS= read -r agent; do agents+=("$agent"); done < <(_ai_skill_global_agents)
+    npx --yes skills add "$source" --skill "$@" --global --agent "${agents[@]}" --yes </dev/null
+}
+
+remove_ai_skill_global() {
+    local skill=$1 agent
+    local -a agents
+    agents=()
+    while IFS= read -r agent; do agents+=("$agent"); done < <(_ai_skill_global_agents)
+    npx --yes skills remove --global --skill "$skill" --agent "${agents[@]}" --yes </dev/null
+}
+
 install_ai_skills() {
     local index source skill_index result=0
     local -a handled_sources source_skills
@@ -94,7 +123,7 @@ install_ai_skills() {
             skill_index=$((skill_index + 1))
         done
         printf ':: installing global AI skills from %s: %s\n' "$source" "${source_skills[*]}"
-        if ! npx --yes skills add "$source" --skill "${source_skills[@]}" --global --agent '*' --yes </dev/null; then
+        if ! install_ai_skill_batch "$source" "${source_skills[@]}"; then
             echo "Failed to install AI skills from $source" >&2
             result=1
         fi
