@@ -8,6 +8,24 @@ function fail(message) {
     throw new Error(message);
 }
 
+function dictionary(value, message) {
+    if (!value) {
+        fail(message);
+    }
+    const bridged = $(value);
+    if (!bridged.isKindOfClass($.NSDictionary.class)) {
+        fail(message);
+    }
+    return bridged;
+}
+
+function mutableDictionary(value, message) {
+    if (!value) {
+        return $.NSMutableDictionary.alloc.init;
+    }
+    return $.NSMutableDictionary.dictionaryWithDictionary(dictionary(value, message));
+}
+
 function parseArguments(argv) {
     const options = { profile: null, preferencesFile: null };
     for (let index = 0; index < argv.length; index += 1) {
@@ -49,10 +67,7 @@ function readPlist(path) {
         null,
         null
     );
-    if (!plist || !plist.isKindOfClass($.NSDictionary.class)) {
-        fail(`Property list root must be a dictionary: ${path}`);
-    }
-    return plist;
+    return dictionary(plist, `Property list root must be a dictionary: ${path}`);
 }
 
 function validateProfile(profile) {
@@ -84,21 +99,18 @@ function terminalIsRunning() {
 }
 
 function reconcileDomain(domain, profile, profileName) {
-    const result = $.NSMutableDictionary.dictionaryWithDictionary(domain);
-    const existingSettings = result.objectForKey("Window Settings");
-    if (existingSettings && !existingSettings.isKindOfClass($.NSDictionary.class)) {
-        fail("Terminal preference 'Window Settings' must be a dictionary");
-    }
-    const settings = existingSettings
-        ? $.NSMutableDictionary.dictionaryWithDictionary(existingSettings)
-        : $.NSMutableDictionary.alloc.init;
-    const existingProfile = settings.objectForKey(profileName);
-    if (existingProfile && !existingProfile.isKindOfClass($.NSDictionary.class)) {
-        fail(`Terminal profile '${profileName}' must be a dictionary`);
-    }
-    const managedProfile = existingProfile
-        ? $.NSMutableDictionary.dictionaryWithDictionary(existingProfile)
-        : $.NSMutableDictionary.alloc.init;
+    const result = $.NSMutableDictionary.dictionaryWithDictionary(dictionary(
+        domain,
+        "Terminal preference domain must be a dictionary"
+    ));
+    const settings = mutableDictionary(
+        result.objectForKey("Window Settings"),
+        "Terminal preference 'Window Settings' must be a dictionary"
+    );
+    const managedProfile = mutableDictionary(
+        settings.objectForKey(profileName),
+        `Terminal profile '${profileName}' must be a dictionary`
+    );
     for (const key of ObjC.deepUnwrap(profile.allKeys)) {
         managedProfile.setObjectForKey(profile.objectForKey(key), key);
     }
@@ -124,7 +136,9 @@ function writeFixture(path, domain) {
 function applyProduction(profile, profileName) {
     const defaults = $.NSUserDefaults.alloc.initWithSuiteName(terminalBundleID);
     const existingDomain = defaults.persistentDomainForName(terminalBundleID);
-    const domain = existingDomain ?? $.NSDictionary.alloc.init;
+    const domain = existingDomain
+        ? dictionary(existingDomain, "Terminal preference domain must be a dictionary")
+        : $.NSDictionary.alloc.init;
     const reconciled = reconcileDomain(domain, profile, profileName);
     if (domain.isEqualToDictionary(reconciled)) {
         console.log("macOS Terminal profile SeaShells is already configured.");
@@ -139,7 +153,13 @@ function applyProduction(profile, profileName) {
         fail("Cannot synchronize macOS Terminal preferences");
     }
 
-    const actualSettings = defaults.dictionaryForKey("Window Settings");
+    const actualSettingsValue = defaults.dictionaryForKey("Window Settings");
+    const actualSettings = actualSettingsValue
+        ? dictionary(
+            actualSettingsValue,
+            "Terminal preference 'Window Settings' must be a dictionary"
+        )
+        : null;
     if (!actualSettings || !actualSettings.objectForKey(profileName) ||
         ObjC.unwrap(defaults.stringForKey("Default Window Settings")) !== profileName ||
         ObjC.unwrap(defaults.stringForKey("Startup Window Settings")) !== profileName) {
@@ -151,7 +171,9 @@ function applyProduction(profile, profileName) {
 function productionIsConfigured(profile, profileName) {
     const defaults = $.NSUserDefaults.alloc.initWithSuiteName(terminalBundleID);
     const existingDomain = defaults.persistentDomainForName(terminalBundleID);
-    const domain = existingDomain ?? $.NSDictionary.alloc.init;
+    const domain = existingDomain
+        ? dictionary(existingDomain, "Terminal preference domain must be a dictionary")
+        : $.NSDictionary.alloc.init;
     return domain.isEqualToDictionary(reconcileDomain(domain, profile, profileName));
 }
 

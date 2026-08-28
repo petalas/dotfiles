@@ -92,6 +92,35 @@ plutil -lint "$profile" >/dev/null
     >"$fixture/SeaShells.terminal"
 cmp -s "$profile" "$fixture/SeaShells.terminal"
 
+# NSUserDefaults can return nested dictionaries as plain JavaScript objects on
+# some macOS releases. Exercise that bridge shape with the production helper.
+sed 's/^function run(argv) {/function productionRun(argv) {/' "$helper" \
+    >"$fixture/test-dictionary-bridge.js"
+cat >>"$fixture/test-dictionary-bridge.js" <<'EOF'
+
+function run() {
+    const existingProfile = { TerminalMetadata: "keep" };
+    const profile = mutableDictionary(
+        existingProfile,
+        "Terminal profile must be a dictionary"
+    );
+    if (ObjC.unwrap(profile.objectForKey("TerminalMetadata")) !== "keep") {
+        fail("Plain JavaScript Terminal profile metadata was not preserved");
+    }
+
+    let rejected = false;
+    try {
+        mutableDictionary("invalid", "Terminal profile must be a dictionary");
+    } catch (error) {
+        rejected = String(error).includes("Terminal profile must be a dictionary");
+    }
+    if (!rejected) {
+        fail("A non-dictionary Terminal profile was accepted");
+    }
+}
+EOF
+/usr/bin/osascript -l JavaScript "$fixture/test-dictionary-bridge.js"
+
 plutil -extract Font raw -o "$fixture/font.base64" "$profile"
 base64 -D <"$fixture/font.base64" >"$fixture/font.archive"
 plutil -p "$fixture/font.archive" >"$fixture/font.txt"
