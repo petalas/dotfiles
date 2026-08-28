@@ -18,10 +18,11 @@ _install_nvm() {
         return 1
     fi
 
-    # nvm is a shell function, so it must be loaded into this process before
-    # the catalog's Node and npm operations run.
+    # Load only the nvm function here. Its automatic version selection can
+    # fail when PATH contains a stale or mismatched Node binary; the next
+    # operation installs and selects the requested runtime explicitly.
     # shellcheck disable=SC1091
-    . "$NVM_DIR/nvm.sh"
+    . "$NVM_DIR/nvm.sh" --no-use
 }
 
 _install_node_runtime() {
