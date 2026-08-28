@@ -73,6 +73,7 @@ macos	editors.t3-code	brew-cask	t3-code
 macos	editors.code	brew-cask	visual-studio-code
 macos	editors.zed	brew-cask	zed
 macos	containers.docker	brew-cask	docker-desktop
+macos	containers.utm	brew-cask	utm
 macos	ai.herdr	brew-formula	herdr
 macos	ai.claude-code	brew-cask	claude-code@latest
 macos	ai.lm-studio	brew-cask	lm-studio

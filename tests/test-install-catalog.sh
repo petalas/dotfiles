@@ -76,6 +76,14 @@ done
 grep -Fxq $'action\tterminal.zsh\tprovided\tzsh\t' "$fixture/macos.plan"
 grep -Fxq $'action\tcli.ripgrep\tcargo-package\tripgrep\tmissing-only' "$fixture/macos.plan"
 grep -Fxq $'action\tgaming.steam\tbrew-cask\tsteam\t' "$fixture/macos.plan"
+grep -Fxq $'action\tcontainers.utm\tbrew-cask\tutm\t' "$fixture/macos.plan"
+grep -Fxq $'macos\tcontainers.utm\tbrew-cask\tutm' "$repo_dir/catalog/removals.tsv"
+for os in ubuntu debian arch; do
+    if grep -Fq $'app\tcontainers.utm\t' "$fixture/$os.plan"; then
+        echo "UTM unexpectedly available on $os." >&2
+        exit 1
+    fi
+done
 grep -Fxq $'action\tcad.bambu-studio\tbrew-cask\tbambu-studio\t' "$fixture/macos.plan"
 grep -Fxq $'action\tai.claude-code\tbrew-cask\tclaude-code@latest\t' "$fixture/macos.plan"
 grep -Fxq $'macos\tai.claude-code\tbrew-cask\tclaude-code@latest' "$repo_dir/catalog/removals.tsv"

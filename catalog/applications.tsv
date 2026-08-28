@@ -66,6 +66,7 @@ editors.t3-code	editors	T3 Code	on
 editors.code	editors	Visual Studio Code	on
 editors.zed	editors	Zed	on
 containers.docker	containers	Docker	on
+containers.utm	containers	UTM	on
 containers.lazydocker	containers	Lazydocker	on
 communication.chrome	communication	Chrome or Chromium	on
 communication.discord	communication	Discord	on
