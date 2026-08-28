@@ -8,35 +8,15 @@ function fail(message) {
     throw new Error(message);
 }
 
-function dictionaryRecord(value, message) {
-    if (!value) {
-        fail(message);
-    }
-    if (typeof value.isKindOfClass === "function" &&
-        !value.isKindOfClass($.NSDictionary.class)) {
-        fail(message);
-    }
-    const record = ObjC.unwrap(value);
-    if (Object.prototype.toString.call(record) !== "[object Object]") {
-        fail(message);
-    }
-    return record;
-}
-
 function mutableDictionary(value, message) {
     if (!value) {
         return $.NSMutableDictionary.alloc.init;
     }
-    const result = $.NSMutableDictionary.alloc.init;
-    const record = dictionaryRecord(value, message);
-    for (const key of Object.keys(record)) {
-        const item = record[key];
-        if (item === null || item === undefined) {
-            fail(message);
-        }
-        result.setObjectForKey(item, key);
+    try {
+        return $.NSMutableDictionary.dictionaryWithDictionary(value);
+    } catch (error) {
+        fail(message);
     }
-    return result;
 }
 
 function parseArguments(argv) {

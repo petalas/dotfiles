@@ -92,8 +92,8 @@ plutil -lint "$profile" >/dev/null
     >"$fixture/SeaShells.terminal"
 cmp -s "$profile" "$fixture/SeaShells.terminal"
 
-# NSUserDefaults can return nested dictionaries as plain JavaScript objects on
-# some macOS releases. Exercise that bridge shape with the production helper.
+# NSUserDefaults can expose nested dictionaries through several JXA shapes.
+# Exercise each accepted shape and Foundation's invalid-value rejection.
 sed 's/^function run(argv) {/function productionRun(argv) {/' "$helper" \
     >"$fixture/test-dictionary-bridge.js"
 cat >>"$fixture/test-dictionary-bridge.js" <<'EOF'
@@ -109,9 +109,14 @@ function run() {
             return key === "isKindOfClass" ? undefined : target[key];
         }
     });
+    const nonstandardTagProfile = {
+        TerminalMetadata: "keep",
+        [Symbol.toStringTag]: "TerminalProfile"
+    };
     const profiles = [
         ["Objective-C", bridgedProfile],
         ["class-method-free bridge", bridgeWithoutClassMethod],
+        ["nonstandard-tag JavaScript", nonstandardTagProfile],
         ["plain JavaScript", { TerminalMetadata: "keep" }]
     ];
     for (const [label, existingProfile] of profiles) {
