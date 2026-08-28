@@ -44,6 +44,13 @@ cat >"$fixture/bin/pi" <<'EOF'
 printf 'pi %s\n' "$*" >>"$UPDATE_TEST_LOG"
 [[ "$*" == 'update --all' ]]
 EOF
+cat >"$fixture/bin/omp" <<'EOF'
+#!/usr/bin/env bash
+printf 'omp %s\n' "$*" >>"$UPDATE_TEST_LOG"
+if [[ "$*" != update ]]; then
+    exit 2
+fi
+EOF
 cat >"$fixture/bin/bun" <<'EOF'
 #!/usr/bin/env bash
 [[ "$*" == upgrade ]] || exit 2
@@ -56,7 +63,7 @@ printf 'bun diagnostic stdout\n'
 printf 'bun diagnostic stderr\n' >&2
 EOF
 chmod +x "$fixture/repo/update-dotfiles" "$fixture/repo/lib/install-plan" "$fixture/bin/git" \
-    "$fixture/bin/gh" "$fixture/bin/pi" "$fixture/bin/bun"
+    "$fixture/bin/gh" "$fixture/bin/pi" "$fixture/bin/omp" "$fixture/bin/bun"
 
 log="$fixture/update.log"
 zsh_bin=$(command -v zsh)
@@ -79,6 +86,7 @@ fi
 [[ "$(grep -c '^plan apply ' "$log")" == 1 ]]
 grep -Fxq 'bun upgrade' "$log"
 grep -Fxq 'pi update --all' "$log"
+grep -Fxq 'omp update' "$log"
 
 latest_update_log="$fixture/state/dotfiles/latest-update.log"
 [[ -f "$latest_update_log" ]]

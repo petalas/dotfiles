@@ -25,6 +25,9 @@ for os in macos ubuntu debian arch; do
     fi
     grep -Fxq $'action\tlanguages.node\tinstaller\tnode\t' "$fixture/$os.plan"
     grep -Fxq $'action\tlanguages.rust\tinstaller\trust\t' "$fixture/$os.plan"
+    grep -Fxq $'app\tai.omp\ton\toptional\tai\tOh My Pi (OMP)' "$fixture/$os.plan"
+    grep -Fxq $'dependency\tai.omp\tlanguages.bun' "$fixture/$os.plan"
+    grep -Fxq $'action\tai.omp\tinstaller\tomp\t' "$fixture/$os.plan"
     for sdkman_candidate in java gradle kotlin maven; do
         grep -Fxq $'action\tlanguages.'"$sdkman_candidate"$'\tinstaller\t'"$sdkman_candidate"$'\t' "$fixture/$os.plan"
     done
@@ -44,6 +47,9 @@ for os in macos ubuntu debian arch; do
         grep -Fxq "$os"$'\tlanguages.'"$sdkman_candidate"$'\tpayload-tree\t~/.sdkman/candidates/'"$sdkman_candidate" \
             "$repo_dir/catalog/removals.tsv"
     done
+    grep -Fxq "$os"$'\tai.omp\tretain\t~/.omp\tuser-data' "$repo_dir/catalog/removals.tsv"
+    [[ $(awk -F '\t' -v os="$os" '$1 == os && $2 == "ai.omp" { count++ } END { print count + 0 }' \
+        "$repo_dir/catalog/removals.tsv") -eq 1 ]]
 done
 for os in ubuntu debian; do
     grep -Fxq "$os"$'\tlanguages.uv\tpath\t~/.local/bin/uv' "$repo_dir/catalog/removals.tsv"
@@ -51,6 +57,7 @@ for os in ubuntu debian; do
     grep -Fxq "$os"$'\teditors.zed\tpath\t~/.local/bin/zed' "$repo_dir/catalog/removals.tsv"
     grep -Fxq "$os"$'\teditors.zed\tpayload-tree\t~/.local/zed.app' "$repo_dir/catalog/removals.tsv"
 done
+grep -Fxq $'AI tools\tomp' "$repo_dir/catalog/installers.tsv"
 if grep -Fq $'cli.yazi\tcargo-package\tyazi-build' "$repo_dir/catalog/removals.tsv"; then
     echo "The obsolete yazi-build meta-package still owns Yazi cleanup." >&2
     exit 1

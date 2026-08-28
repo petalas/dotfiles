@@ -90,6 +90,7 @@ cli.yazi	direct	payload	installer	yazi
 languages.typescript	npm	payload	npm-package	typescript
 languages.typescript	npm	payload	npm-package	typescript-language-server
 ai.codex-cli	npm	payload	npm-package	@openai/codex
+ai.omp	direct	payload	installer	omp
 ai.pi	npm	payload	npm-package	@earendil-works/pi-coding-agent	ignore-scripts
 cli.tealdeer	cargo	payload	cargo-package	tealdeer	missing-only
 cli.bat	cargo	payload	cargo-package	bat	missing-only

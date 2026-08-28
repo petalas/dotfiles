@@ -103,6 +103,7 @@ ai.codex-cli	ai	Codex CLI	on	languages.node
 ai.codex-app	ai	Codex app	on
 ai.herdr	ai	Herdr	on
 ai.lm-studio	ai	LM Studio	on
+ai.omp	ai	Oh My Pi (OMP)	on	languages.bun
 ai.pi	ai	Pi	on	languages.node
 mobile.applesimutils	mobile	Apple simulator utilities	on
 mobile.bundletool	mobile	Bundletool	on	mobile.java17

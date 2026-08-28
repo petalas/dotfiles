@@ -171,6 +171,7 @@ if (( $+commands[pnpm] )); then
   fi
 fi
 
+(( $+commands[omp] )) && run_step "OMP" omp update
 (( $+commands[pi] )) && run_step "Pi" pi update --all
 (( $+commands[tldr] )) && run_step "tldr cache" tldr -u
 

@@ -1,4 +1,5 @@
 ai.codex-cli	npm	payload	npm-package	@openai/codex
+ai.omp	direct	payload	installer	omp
 ai.pi	npm	payload	npm-package	@earendil-works/pi-coding-agent	ignore-scripts
 cli.bat	cargo	payload	cargo-package	bat	missing-only
 cli.ripgrep	cargo	payload	cargo-package	ripgrep	missing-only

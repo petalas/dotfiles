@@ -32,6 +32,7 @@ tests=(
     tests/test-neovim-install.sh
     tests/test-nvim-github-auth.sh
     tests/test-nvim-sync.sh
+    tests/test-omp-install.sh
     tests/test-script-contracts.sh
     tests/test-setup-tools.sh
     tests/test-update-install-plan.sh
