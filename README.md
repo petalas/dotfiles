@@ -80,7 +80,7 @@ It fast-forwards this repository, resolves the saved installation plan, reconcil
 
 Bun upgrades use an existing `GITHUB_TOKEN`, `GITHUB_ACCESS_TOKEN`, or `GH_TOKEN`, or a process-scoped token from an authenticated GitHub CLI. Without one, `upd` skips Bun and prints `gh auth login` guidance rather than consuming GitHub's anonymous API quota.
 
-OMP installs from its upstream Bun package after the managed Bun runtime is active. Its installer reruns `link-dotfiles.sh` only after the `omp` command is available, which links the managed SeaShells theme and persists it as OMP's dark theme.
+OMP installs from its upstream Bun package after the managed Bun runtime is active. Its installer reruns `link-dotfiles.sh` only after the `omp` command is available. The linker connects OMP's settings and SeaShells theme to the tracked files under `dot/.omp/agent/`, so changes made through OMP's `/settings` interface appear as repository changes. The tracked `setupVersion` shares setup-wizard completion across machines; future OMP wizard-version changes will also appear in this file.
 
 ## Notes
 

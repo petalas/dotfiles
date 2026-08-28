@@ -50,14 +50,13 @@ chmod 600 "$pi_settings_tmp"
 mv "$pi_settings_tmp" "$pi_settings"
 trap - EXIT
 
-# OMP theme plus the one managed setting. OMP owns all other settings.
+# OMP settings and theme.
 omp_agent_dir="$HOME/.omp/agent"
 mkdir -p "$omp_agent_dir/themes"
+link_path "$dotfiles_dir/dot/.omp/agent/config.yml" \
+    "$omp_agent_dir/config.yml"
 link_path "$dotfiles_dir/dot/.omp/agent/themes/seashells.json" \
     "$omp_agent_dir/themes/seashells.json"
-if command -v omp >/dev/null 2>&1; then
-    omp config set theme.dark seashells >/dev/null 2>&1
-fi
 
 link_obsidian_vault_settings "$dotfiles_dir"
 
