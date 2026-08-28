@@ -37,6 +37,9 @@
     "thinkingText": "brightGreen",
 
     "selectedBg": "selection",
+    "scrollbarThumb": "brightBlack",
+    "searchMatchBg": "selection",
+    "searchMatchText": "brightWhite",
     "userMessageBg": "black",
     "userMessageText": "brightWhite",
     "customMessageBg": "blue",

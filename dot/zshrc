@@ -86,9 +86,29 @@ fi
 # `git pull` sufficient on machines whose ~/.zshrc is already linked, while
 # link-dotfiles.sh also exposes the modules at their conventional home paths.
 typeset -g _DOTFILES_ZSH_DIR=${${(%):-%x}:A:h}
+# Set SEASHELLS_VARIANT=dark or light to override automatic selection. macOS
+# follows its current appearance; other systems retain the dark default.
+typeset -g _DOTFILES_SEASHELLS_VARIANT=dark
+case ${SEASHELLS_VARIANT:-} in
+  dark|light)
+    _DOTFILES_SEASHELLS_VARIANT=$SEASHELLS_VARIANT
+    ;;
+  *)
+    if [[ $OSTYPE == darwin* ]] &&
+        [[ "$(/usr/bin/defaults read -g AppleInterfaceStyle 2>/dev/null)" != Dark ]]; then
+      _DOTFILES_SEASHELLS_VARIANT=light
+    fi
+    ;;
+esac
 
 # Set command-line colors before Oh My Zsh reads LS_COLORS for completion.
-[[ ! -r "$_DOTFILES_ZSH_DIR/seashells.zsh" ]] || source "$_DOTFILES_ZSH_DIR/seashells.zsh"
+if [[ $_DOTFILES_SEASHELLS_VARIANT == light ]]; then
+  [[ ! -r "$_DOTFILES_ZSH_DIR/seashells-light.zsh" ]] ||
+    source "$_DOTFILES_ZSH_DIR/seashells-light.zsh"
+else
+  [[ ! -r "$_DOTFILES_ZSH_DIR/seashells.zsh" ]] ||
+    source "$_DOTFILES_ZSH_DIR/seashells.zsh"
+fi
 
 # Set up Oh My Zsh only after its installer has completed successfully.
 if [[ -r "$ZSH/oh-my-zsh.sh" ]]; then
@@ -254,10 +274,16 @@ y() {
 }
 
 # To customize prompt layout, run `p10k configure` or edit ~/.p10k.zsh.
-# The managed overlay keeps wizard-generated colors within the SeaShells palette.
+# The managed overlay keeps wizard-generated colors within the selected palette.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-[[ ! -r "$_DOTFILES_ZSH_DIR/p10k-seashells.zsh" ]] || source "$_DOTFILES_ZSH_DIR/p10k-seashells.zsh"
-unset _DOTFILES_ZSH_DIR
+if [[ $_DOTFILES_SEASHELLS_VARIANT == light ]]; then
+  [[ ! -r "$_DOTFILES_ZSH_DIR/p10k-seashells-light.zsh" ]] ||
+    source "$_DOTFILES_ZSH_DIR/p10k-seashells-light.zsh"
+else
+  [[ ! -r "$_DOTFILES_ZSH_DIR/p10k-seashells.zsh" ]] ||
+    source "$_DOTFILES_ZSH_DIR/p10k-seashells.zsh"
+fi
+unset _DOTFILES_SEASHELLS_VARIANT _DOTFILES_ZSH_DIR
 
 # Optional tool initialization. Each block is guarded so a partial install
 # cannot break every new shell.

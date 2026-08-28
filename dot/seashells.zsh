@@ -1,8 +1,8 @@
 # SeaShells command-line colors.
+# https://github.com/odysseyalive/omarchy-seashells-theme/blob/00dca31761374d5526790dd8a10271edbc6f9ec8/omarchy/themes/seashells/colors.toml
 #
-# These use only the terminal's ANSI 0-15 palette, whose exact SeaShells hex
-# values live in the Ghostty and Kitty configs. Keeping semantic colors here
-# indexed means command output follows the same palette in either terminal.
+# These mappings use semantic ANSI slots rather than fixed RGB values. The
+# light palette keeps the same slot roles, so seashells-light.zsh reuses them.
 
 # GNU ls, shell completion, and tools that understand LS_COLORS.
 export LS_COLORS='rs=0:fi=0:di=01;94:ln=96:mh=00:pi=33:so=95:do=95:bd=01;93:cd=01;93:or=01;91:mi=00:su=97;41:sg=30;43:ca=00:tw=30;42:ow=94;42:st=97;44:ex=01;92'

@@ -14,7 +14,7 @@ function parseConfig(path) {
         )
     );
     if (source === undefined) {
-        fail(`Cannot read Ghostty config: ${path}`);
+        fail(`Cannot read Ghostty configuration: ${path}`);
     }
 
     const values = {};
@@ -43,6 +43,13 @@ function parseConfig(path) {
     }
     return { values, palette };
 }
+function mergeConfigs(base, theme) {
+    return {
+        values: Object.assign({}, base.values, theme.values),
+        palette: Object.assign({}, base.palette, theme.palette)
+    };
+}
+
 
 function requiredValue(config, key) {
     const value = config.values[key];
@@ -90,7 +97,7 @@ function set(profile, key, value) {
     profile.setObjectForKey(value, key);
 }
 
-function buildProfile(config) {
+function buildProfile(config, profileName) {
     const fontFamily = requiredValue(config, "font-family");
     const fontSize = numberValue(config, "font-size");
     const font = $.NSFontManager.sharedFontManager.fontWithFamilyTraitsWeightSize(
@@ -104,7 +111,7 @@ function buildProfile(config) {
     }
 
     const profile = $.NSMutableDictionary.alloc.init;
-    set(profile, "name", "SeaShells");
+    set(profile, "name", profileName);
     set(profile, "type", "Window Settings");
     set(profile, "ProfileCurrentVersion", 2.09);
     set(profile, "Font", archive(font));
@@ -163,10 +170,14 @@ function buildProfile(config) {
 }
 
 function run(argv) {
-    if (argv.length !== 1) {
-        fail("Usage: osascript -l JavaScript tools/generate-macos-terminal-profile.js GHOSTTY_CONFIG");
+    if (argv.length !== 3 && argv.length !== 4) {
+        fail(
+            "Usage: osascript -l JavaScript tools/generate-macos-terminal-profile.js " +
+            "GHOSTTY_CONFIG GHOSTTY_THEME PROFILE_NAME [OUTPUT]"
+        );
     }
-    const profile = buildProfile(parseConfig(argv[0]));
+    const config = mergeConfigs(parseConfig(argv[0]), parseConfig(argv[1]));
+    const profile = buildProfile(config, argv[2]);
     const data = $.NSPropertyListSerialization.dataWithPropertyListFormatOptionsError(
         profile,
         $.NSPropertyListXMLFormat_v1_0,
@@ -176,5 +187,11 @@ function run(argv) {
     if (!data) {
         fail("Cannot serialize the Terminal profile");
     }
-    $.NSFileHandle.fileHandleWithStandardOutput.writeData(data);
+    if (argv.length === 4) {
+        if (!data.writeToFileAtomically(argv[3], true)) {
+            fail(`Cannot write Terminal profile: ${argv[3]}`);
+        }
+    } else {
+        $.NSFileHandle.fileHandleWithStandardOutput.writeData(data);
+    }
 }

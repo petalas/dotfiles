@@ -11,36 +11,13 @@ window-padding-y = 10
 window-decoration = none
 
 background-opacity = 0.99
+theme = dark:seashells,light:seashells-light
 confirm-close-surface = false
 scrollback-limit = 10000000
 
-cursor-color = fba02f
 cursor-style = block
 cursor-style-blink = true
 
-selection-foreground = deb88d
-selection-background = 1e4862
-
-# Canonical SeaShells colors:
-# https://github.com/odysseyalive/omarchy-seashells-theme/blob/00dca31761374d5526790dd8a10271edbc6f9ec8/omarchy/themes/seashells/colors.toml
-background = 08131a
-foreground = deb88d
-palette = 0=0f2838
-palette = 8=424b52
-palette = 1=d05023
-palette = 9=d38677
-palette = 2=027b9b
-palette = 10=618c98
-palette = 3=fba02f
-palette = 11=fdd29e
-palette = 4=2d6870
-palette = 12=1abcdd
-palette = 5=68d3f0
-palette = 13=bbe3ee
-palette = 6=50a3b5
-palette = 14=86abb3
-palette = 7=deb88d
-palette = 15=fee3cd
 
 # Optional machine-local overrides. The leading ? makes a missing file OK.
 config-file = ?local.ghostty
