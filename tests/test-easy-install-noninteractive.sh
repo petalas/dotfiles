@@ -7,6 +7,10 @@ trap 'rm -rf "$fixture_dir"' EXIT
 mkdir -p "$fixture_dir/bin" "$fixture_dir/home" "$fixture_dir/lib" "$fixture_dir/tools"
 cp "$repo_dir/easy-install.sh" "$fixture_dir/easy-install.sh"
 cp "$repo_dir/lib/platform.sh" "$fixture_dir/lib/platform.sh"
+cat >"$fixture_dir/setup-fonts.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'early-fonts\n' >>"$TEST_STEPS"
+EOF
 
 cat >"$fixture_dir/bin/sudo" <<'EOF'
 #!/usr/bin/env bash
@@ -114,18 +118,23 @@ case "$command" in
         [[ "${NONINTERACTIVE:-0}" == 0 ]]
         [[ "${TEST_SCENARIO:-}" != prepare_failure ]] || exit 1
         while (($#)); do
-            if [[ "$1" == --output ]]; then printf 'plan\n' >"$2"; break; fi
+            if [[ "$1" == --output ]]; then
+                printf 'format\t1\nos\t%s\nstep\tfonts\ton\t50\tInstall fonts\n' "${DOTFILES_OS_OVERRIDE:-debian}" >"$2"
+                break
+            fi
             shift
         done
         ;;
     execute|apply)
         [[ "${NONINTERACTIVE:-}" == 1 ]]
         [[ "${DOTFILES_NONINTERACTIVE:-}" == 1 ]]
-        if [[ "${TEST_SCENARIO:-}" != inhibitor_acquisition_denied &&
+        if [[ "${DOTFILES_OS_OVERRIDE:-}" != macos &&
+            "${TEST_SCENARIO:-}" != inhibitor_acquisition_denied &&
             "${TEST_SCENARIO:-}" != inhibitors_unavailable ]]; then
             [[ "${TEST_SYSTEMD_INHIBITOR_ACTIVE:-}" == 1 ]]
         fi
-        if [[ "${TEST_SCENARIO:-}" != inhibitor_acquisition_denied &&
+        if [[ "${DOTFILES_OS_OVERRIDE:-}" != macos &&
+            "${TEST_SCENARIO:-}" != inhibitor_acquisition_denied &&
             "${TEST_SCENARIO:-}" != gnome_unavailable &&
             "${TEST_SCENARIO:-}" != inhibitors_unavailable ]]; then
             [[ "${TEST_GNOME_INHIBITOR_ACTIVE:-}" == 1 ]]
@@ -140,7 +149,8 @@ cat >"$fixture_dir/tools/run-install-tui" <<'EOF'
 if [[ "$1" == run && "$2" == -- ]]; then shift 2; exec "$@"; fi
 exit 1
 EOF
-chmod +x "$fixture_dir/bin"/* "$fixture_dir/lib/install-plan" "$fixture_dir/tools/run-install-tui" "$fixture_dir/easy-install.sh"
+chmod +x "$fixture_dir/bin"/* "$fixture_dir/lib/install-plan" "$fixture_dir/tools/run-install-tui" \
+    "$fixture_dir/easy-install.sh" "$fixture_dir/setup-fonts.sh"
 
 steps="$fixture_dir/steps"
 run_install() {
@@ -151,13 +161,16 @@ run_install() {
     : >"$fixture_dir/$scenario.sudo.log"
     : >"$fixture_dir/$scenario.systemd-inhibit.log"
     : >"$fixture_dir/$scenario.gnome-inhibit.log"
+    if [[ "${TEST_RUN_OS:-debian}" == macos ]]; then
+        touch "$fixture_dir/$scenario.sudo-ready"
+    fi
     env TEST_SCENARIO="$scenario" TEST_STEPS="$steps" \
         TEST_SUDO_LOG="$fixture_dir/$scenario.sudo.log" \
         TEST_SUDO_STATE="$fixture_dir/$scenario.sudo-ready" \
         TEST_SUDOERS_CAPTURE="$fixture_dir/$scenario.sudoers" \
         TEST_SYSTEMD_INHIBIT_LOG="$fixture_dir/$scenario.systemd-inhibit.log" \
         TEST_GNOME_INHIBIT_LOG="$fixture_dir/$scenario.gnome-inhibit.log" \
-        HOME="$fixture_dir/home" DOTFILES_OS_OVERRIDE=debian \
+        HOME="$fixture_dir/home" DOTFILES_OS_OVERRIDE="${TEST_RUN_OS:-debian}" \
         XDG_CURRENT_DESKTOP=GNOME DBUS_SESSION_BUS_ADDRESS=fixture \
         PATH="$fixture_dir/bin:/usr/bin:/bin" \
         "${EASY_INSTALL_TEST_ENTRY_BASH:-$BASH}" "$fixture_dir/easy-install.sh" "$@" \
@@ -194,6 +207,11 @@ grep -Fq 'prepare --mode full' "$steps"
 [[ "$(grep -c '^sh -c ' "$fixture_dir/unattended.sudo.log")" == 1 ]]
 grep -Fxq -- '-k' "$fixture_dir/unattended.sudo.log"
 grep -Fxq -- '-n true' "$fixture_dir/unattended.sudo.log"
+
+TEST_RUN_OS=macos run_install macos_early_fonts --unattended
+[[ "$(sed -n '1p' "$steps")" == prepare* ]]
+[[ "$(sed -n '2p' "$steps")" == early-fonts ]]
+[[ "$(sed -n '3p' "$steps")" == execute* ]]
 
 plan="$fixture_dir/custom-plan"
 printf 'format=1\n' >"$plan"

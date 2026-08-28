@@ -4,6 +4,15 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Running Terminal profiles must be imported through Terminal.app
+
+- Terminal stores profile fonts and colors as native keyed archives inside the `com.apple.Terminal` preference domain. Keep the generated `dot/terminal/SeaShells.terminal` export as the native artifact, and derive it from the Ghostty SeaShells palette with `tools/generate-macos-terminal-profile.js`.
+- The `defaults` manual warns that a running application can ignore or overwrite external preference changes. A polling launchd job also misses short quit/relaunch gaps, leaving the profile unapplied indefinitely. When Terminal is running, open the native `.terminal` export through Terminal itself, set its default and startup settings through Terminal's scripting interface, and assign the profile to every existing tab. Terminal always opens an import window and its scripting API cannot dismiss the shell-confirmation sheet non-interactively, so terminate that throwaway shell and hide its window. This changes the installer tab immediately without touching the live preference domain externally. Direct preference reconciliation remains safe when Terminal is not running.
+- Reconcile only `Window Settings.SeaShells`, `Default Window Settings`, and `Startup Window Settings`. Preserve every other Terminal profile and top-level preference. Keep a fixture-plist mode in the apply helper so tests never write the host's Terminal preferences.
+- On a first macOS install, run the selected font step immediately after the user confirms the plan. The ordinary catalog step still runs later as an idempotent reconciliation, while the early pass lets the user see the managed font and palette during the longer application phase.
+
+---
+
 ## Updater integration tests must follow the host's shell and OS branch
 
 - macOS provides Zsh at `/bin/zsh`, while Linux distributions may use `/usr/bin/zsh`. Tests must resolve it with `command -v zsh` rather than hard-coding either path.

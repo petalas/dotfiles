@@ -174,6 +174,13 @@ export NONINTERACTIVE=1 HOMEBREW_NO_ASK=1 DOTFILES_NONINTERACTIVE=1
 export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a GIT_TERMINAL_PROMPT=0
 exec </dev/null
 
+# Give an installer running in Terminal.app its managed font and palette before
+# the longer application phase. The catalog step runs again later and
+# reconciles the same state idempotently on every platform.
+if [[ "$os" == macos ]] && grep -Fq $'step\tfonts\ton\t' "$resolved_plan"; then
+    "$root_dir/setup-fonts.sh"
+fi
+
 report_dir=${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles
 mkdir -p "$report_dir"
 run_report=$report_dir/latest-run-report

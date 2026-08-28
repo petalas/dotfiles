@@ -28,6 +28,7 @@ tests=(
     tests/test-link-dotfiles.sh
     tests/test-linux-packages.sh
     tests/test-managed-toolchains.sh
+    tests/test-macos-terminal-profile.sh
     tests/test-neovim-install.sh
     tests/test-nvim-github-auth.sh
     tests/test-nvim-sync.sh
