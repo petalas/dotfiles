@@ -27,7 +27,7 @@ for _seashells_p10k_var in ${(k)parameters[(I)POWERLEVEL9K_*_(FOREGROUND|BACKGRO
     (''|<0-15>|black|red|green|yellow|blue|magenta|cyan|white|gray|grey)
       continue
       ;;
-    (#08131a|#17384c|#424b52|#d05023|#d38677|#027b9b|#618c98|#fba02f|#fdd29e|#1d4850|#1abcdd|#68d3f0|#bbe3ee|#50a3b5|#86abb3|#deb88d|#fee3cd)
+    (#08131a|#0f2838|#424b52|#d05023|#d38677|#027b9b|#618c98|#fba02f|#fdd29e|#2d6870|#1abcdd|#68d3f0|#bbe3ee|#50a3b5|#86abb3|#deb88d|#fee3cd)
       continue
       ;;
   esac

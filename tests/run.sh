@@ -34,6 +34,7 @@ tests=(
     tests/test-nvim-sync.sh
     tests/test-omp-install.sh
     tests/test-script-contracts.sh
+    tests/test-seashells-palette.sh
     tests/test-setup-tools.sh
     tests/test-update-install-plan.sh
     tests/test-yazi.sh
