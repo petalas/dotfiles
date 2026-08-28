@@ -99,23 +99,38 @@ sed 's/^function run(argv) {/function productionRun(argv) {/' "$helper" \
 cat >>"$fixture/test-dictionary-bridge.js" <<'EOF'
 
 function run() {
-    const existingProfile = { TerminalMetadata: "keep" };
-    const profile = mutableDictionary(
-        existingProfile,
-        "Terminal profile must be a dictionary"
+    const message = "Terminal profile must be a dictionary";
+    const bridgedProfile = $.NSDictionary.dictionaryWithObjectForKey(
+        "keep",
+        "TerminalMetadata"
     );
-    if (ObjC.unwrap(profile.objectForKey("TerminalMetadata")) !== "keep") {
-        fail("Plain JavaScript Terminal profile metadata was not preserved");
+    const bridgeWithoutClassMethod = new Proxy(bridgedProfile, {
+        get(target, key) {
+            return key === "isKindOfClass" ? undefined : target[key];
+        }
+    });
+    const profiles = [
+        ["Objective-C", bridgedProfile],
+        ["class-method-free bridge", bridgeWithoutClassMethod],
+        ["plain JavaScript", { TerminalMetadata: "keep" }]
+    ];
+    for (const [label, existingProfile] of profiles) {
+        const profile = mutableDictionary(existingProfile, message);
+        if (ObjC.unwrap(profile.objectForKey("TerminalMetadata")) !== "keep") {
+            fail(`${label} Terminal profile metadata was not preserved`);
+        }
     }
 
-    let rejected = false;
-    try {
-        mutableDictionary("invalid", "Terminal profile must be a dictionary");
-    } catch (error) {
-        rejected = String(error).includes("Terminal profile must be a dictionary");
-    }
-    if (!rejected) {
-        fail("A non-dictionary Terminal profile was accepted");
+    for (const invalid of ["invalid", ["invalid"], function invalid() {}]) {
+        let rejected = false;
+        try {
+            mutableDictionary(invalid, message);
+        } catch (error) {
+            rejected = String(error).includes(message);
+        }
+        if (!rejected) {
+            fail("A non-dictionary Terminal profile was accepted");
+        }
     }
 }
 EOF
