@@ -105,6 +105,13 @@ update_bun() {
   GITHUB_TOKEN=$github_token bun upgrade
 }
 
+linker=$DOTFILES_ROOT/link-dotfiles.sh
+if [[ -x $linker ]]; then
+  run_step "managed dotfiles" "$linker"
+else
+  record_missing "managed dotfiles" "$linker"
+fi
+
 plan_engine=$DOTFILES_ROOT/lib/install-plan
 resolved_plan=$(mktemp "${TMPDIR:-/tmp}/dotfiles-update-plan.XXXXXX")
 trap 'rm -f -- "$resolved_plan"' EXIT

@@ -76,7 +76,7 @@ From Zsh, run `upd`, or invoke the underlying command directly:
 ~/git/dotfiles/update-dotfiles
 ```
 
-It fast-forwards this repository, resolves the saved installation plan, reconciles selected missing software/state, then upgrades software already present—including deselected applications and installed OMP and Pi packages. Deselection never suppresses maintenance or triggers uninstallation. Independent failures are collected and reported at the end. The complete output is saved with mode 0600 in `${XDG_STATE_HOME:-~/.local/state}/dotfiles/latest-update.log`, and failed summaries repeat that path.
+It fast-forwards this repository, relinks managed files from the new revision, resolves the saved installation plan, reconciles selected missing software/state, then upgrades software already present, including deselected applications and installed OMP and Pi packages. Deselection never suppresses maintenance or triggers uninstallation. Independent failures are collected and reported at the end. The complete output is saved with mode 0600 in `${XDG_STATE_HOME:-~/.local/state}/dotfiles/latest-update.log`, and failed summaries repeat that path.
 
 Bun upgrades use an existing `GITHUB_TOKEN`, `GITHUB_ACCESS_TOKEN`, or `GH_TOKEN`, or a process-scoped token from an authenticated GitHub CLI. Without one, `upd` skips Bun and prints `gh auth login` guidance rather than consuming GitHub's anonymous API quota.
 

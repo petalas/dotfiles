@@ -6,6 +6,14 @@ fixture=$(mktemp -d /tmp/dotfiles-update-plan.XXXXXX)
 trap 'rm -rf "$fixture"' EXIT
 mkdir -p "$fixture/repo/.git" "$fixture/repo/lib" "$fixture/bin" "$fixture/home"
 cp "$repo_dir/update-dotfiles" "$fixture/repo/update-dotfiles"
+cat >"$fixture/repo/link-dotfiles.sh" <<'EOF'
+#!/usr/bin/env bash
+theme_source="$DOTFILES_DIR/dot/.config/ghostty/themes/seashells-light"
+[[ -f "$theme_source" ]] || exit 31
+mkdir -p "$HOME/.config/ghostty/themes"
+ln -sfn "$theme_source" "$HOME/.config/ghostty/themes/seashells-light"
+printf 'link managed themes\n' >>"$UPDATE_TEST_LOG"
+EOF
 cat >"$fixture/repo/lib/install-plan" <<'EOF'
 #!/usr/bin/env bash
 printf 'plan %s\n' "$*" >>"$UPDATE_TEST_LOG"
@@ -29,7 +37,10 @@ cat >"$fixture/bin/git" <<'EOF'
 #!/usr/bin/env bash
 case "$*" in
     *'status --porcelain') : ;;
-    *'pull --ff-only') : ;;
+    *'pull --ff-only')
+        mkdir -p "$DOTFILES_DIR/dot/.config/ghostty/themes"
+        printf 'new managed theme\n' >"$DOTFILES_DIR/dot/.config/ghostty/themes/seashells-light"
+        ;;
     *) exit 1 ;;
 esac
 EOF
@@ -62,8 +73,9 @@ printf 'bun upgrade\n' >>"$UPDATE_TEST_LOG"
 printf 'bun diagnostic stdout\n'
 printf 'bun diagnostic stderr\n' >&2
 EOF
-chmod +x "$fixture/repo/update-dotfiles" "$fixture/repo/lib/install-plan" "$fixture/bin/git" \
-    "$fixture/bin/gh" "$fixture/bin/pi" "$fixture/bin/omp" "$fixture/bin/bun"
+chmod +x "$fixture/repo/update-dotfiles" "$fixture/repo/link-dotfiles.sh" \
+    "$fixture/repo/lib/install-plan" "$fixture/bin/git" "$fixture/bin/gh" \
+    "$fixture/bin/pi" "$fixture/bin/omp" "$fixture/bin/bun"
 
 log="$fixture/update.log"
 zsh_bin=$(command -v zsh)
@@ -87,6 +99,10 @@ fi
 grep -Fxq 'bun upgrade' "$log"
 grep -Fxq 'pi update --all' "$log"
 grep -Fxq 'omp update' "$log"
+managed_theme="$fixture/home/.config/ghostty/themes/seashells-light"
+[[ -L "$managed_theme" ]]
+[[ "$(readlink "$managed_theme")" == "$fixture/repo/dot/.config/ghostty/themes/seashells-light" ]]
+grep -Fxq 'link managed themes' "$log"
 
 latest_update_log="$fixture/state/dotfiles/latest-update.log"
 [[ -f "$latest_update_log" ]]
