@@ -142,9 +142,7 @@ fi
 
 run_install_with_inhibitors "$@"
 
-if [[ "$os" != macos ]]; then
-    configure_passwordless_sudo
-fi
+configure_passwordless_sudo
 require_noninteractive_root
 for command_name in curl git; do
     command -v "$command_name" >/dev/null 2>&1 || {

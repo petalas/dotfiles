@@ -212,6 +212,8 @@ TEST_RUN_OS=macos run_install macos_early_fonts --unattended
 [[ "$(sed -n '1p' "$steps")" == prepare* ]]
 [[ "$(sed -n '2p' "$steps")" == early-fonts ]]
 [[ "$(sed -n '3p' "$steps")" == execute* ]]
+[[ -s "$fixture_dir/macos_early_fonts.sudoers" ]]
+[[ "$(grep -c '^sh -c ' "$fixture_dir/macos_early_fonts.sudo.log")" == 1 ]]
 
 plan="$fixture_dir/custom-plan"
 printf 'format=1\n' >"$plan"
