@@ -291,6 +291,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - A sudoers user ID is written as `#<uid>`, but at the beginning of a sudoers line an unescaped `#` is treated as a comment. `visudo -cf` still reports that file as valid because comments are valid syntax, so syntax validation alone does not catch the missing authorization rule.
 - Write the identity as `\#<uid>`, invalidate the authentication timestamp with `sudo -k`, then verify `sudo -n true`. An immediate check can produce a false positive while the temporary sudo timestamp is active.
 - Sudoers uses the last matching rule's tag. Name the managed include `zz-dotfiles-<uid>` so it sorts after ordinary per-user and cloud-init files; otherwise a later `PASSWD` rule can silently override `NOPASSWD`.
+- macOS names UID 0's primary group `wheel` and has no group named `root`. Linux usually names GID 0 `root`. Use numeric owner and group IDs with `install -o 0 -g 0` when creating a root-owned sudoers file on both platforms.
 
 ---
 

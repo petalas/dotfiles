@@ -25,6 +25,7 @@ if [[ "${1:-}" == -k ]]; then
 fi
 if [[ "${1:-}" == sh && "${2:-}" == -c ]]; then
     [[ "${TEST_SCENARIO:-}" != sudo_denied ]] || exit 1
+    grep -Fq 'install -o 0 -g 0 -m 0440' <<<"$3"
     [[ "${6:-}" == /etc/sudoers.d/zz-dotfiles-* ]]
     [[ "${7:-}" == /etc/sudoers.d/dotfiles-* ]]
     grep -Eq '^\\#[0-9]+ ALL=\(ALL:ALL\) NOPASSWD: ALL$' "$5"

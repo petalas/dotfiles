@@ -125,7 +125,7 @@ configure_passwordless_sudo() {
         trap cleanup EXIT HUP INT TERM
         command -v visudo >/dev/null 2>&1
         install -d -m 0750 "$(dirname "$target")"
-        install -o root -g root -m 0440 "$source_file" "$staging"
+        install -o 0 -g 0 -m 0440 "$source_file" "$staging"
         visudo -cf "$staging" >/dev/null
         if [ -e "$target" ]; then
             mv "$target" "$previous"
