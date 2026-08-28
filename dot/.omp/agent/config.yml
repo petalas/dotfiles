@@ -12,3 +12,5 @@ tui:
 display:
   showTokenUsage: true
 symbolPreset: nerd
+dev:
+  autoqaConsent: granted
