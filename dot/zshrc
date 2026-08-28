@@ -240,8 +240,13 @@ fi
 
 upd() {
   local updater="${DOTFILES_DIR:-$HOME/git/dotfiles}/update-dotfiles"
+  local result=0
   [[ -x "$updater" ]] || { print -u2 "missing or not executable: $updater"; return 1; }
-  "$updater"
+  "$updater" || result=$?
+  if command -v omp >/dev/null 2>&1; then
+    command omp update || print -u2 "omp update failed; continuing."
+  fi
+  return "$result"
 }
 
 # Kill listeners on one numeric TCP/UDP port.
