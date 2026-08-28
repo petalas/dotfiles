@@ -8,16 +8,7 @@ mkdir -p "$fixture/bin"
 log="$fixture/npx.log"
 export AI_SKILLS_TEST_LOG="$log"
 export PATH="$fixture/bin:/usr/bin:/bin"
-expected_agents=(
-    aider-desk amp antigravity antigravity-cli astrbot autohand-code augment bob
-    claude-code openclaw cline codearts-agent codebuddy codemaker codestudio codex
-    command-code continue cortex crush cursor deepagents devin dexto droid firebender
-    forgecode gemini-cli github-copilot goose grok hermes-agent inference-sh jazz junie
-    iflow-cli kilo kimchi kimi-code-cli kiro-cli kode lingma loaf mcpjam minimax-code
-    mistral-vibe moxby mux opencode openhands ona pi posit-assistant qoder qoder-cn
-    qwen-code replit reasonix rovodev roo tabnine-cli terramind tinycloud trae trae-cn
-    warp windsurf zed zcode zencoder zenflow neovate pochi adal universal
-)
+expected_agents=(claude-code pi universal)
 expected_agent_fields=$'\t--agent'
 for expected_agent in "${expected_agents[@]}"; do
     expected_agent_fields+=$'\t'"$expected_agent"

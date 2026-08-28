@@ -225,10 +225,11 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
-## Global AI skill installs must exclude project-only agents
+## Global AI skill installs should target owned runtimes
 
-- `skills add --global --agent '*'` includes Eve and PromptScript even though both have no global skill directory. The command can exit successfully while printing two failures for every installed skill, which makes the application summary misleading.
-- Pass the explicit global-capable agent list to add and remove operations. Keep the list synchronized with the `skills` CLI's supported-agent table and cover the absence of wildcard, Eve, and PromptScript arguments in `tests/test-ai-skills.sh`.
+- `skills add --global --agent '*'` attempts every known target, including project-only agents without global skill directories. Mirroring the CLI's full supported-agent table also creates compatibility roots for products this repository does not install or configure.
+- Keep the explicit target list limited to `claude-code`, `pi`, and `universal`. `universal` owns the canonical `~/.agents/skills` store used by OMP, Codex, Zed, and other Agent Skills-compatible consumers; Claude Code and Pi require their dedicated global roots.
+- Cover the exact list and the absence of wildcard, Eve, and PromptScript arguments in `tests/test-ai-skills.sh`.
 
 ---
 

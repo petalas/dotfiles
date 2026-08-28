@@ -68,15 +68,7 @@ _load_ai_skills_catalog() {
 }
 
 _ai_skill_global_agents() {
-    printf '%s\n' \
-        aider-desk amp antigravity antigravity-cli astrbot autohand-code augment bob \
-        claude-code openclaw cline codearts-agent codebuddy codemaker codestudio codex \
-        command-code continue cortex crush cursor deepagents devin dexto droid firebender \
-        forgecode gemini-cli github-copilot goose grok hermes-agent inference-sh jazz junie \
-        iflow-cli kilo kimchi kimi-code-cli kiro-cli kode lingma loaf mcpjam minimax-code \
-        mistral-vibe moxby mux opencode openhands ona pi posit-assistant qoder qoder-cn \
-        qwen-code replit reasonix rovodev roo tabnine-cli terramind tinycloud trae trae-cn \
-        warp windsurf zed zcode zencoder zenflow neovate pochi adal universal
+    printf '%s\n' claude-code pi universal
 }
 
 install_ai_skill_batch() {
