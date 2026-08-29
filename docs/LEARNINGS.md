@@ -47,6 +47,14 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## OMP settings live in YAML, not the legacy Pi JSON file
+
+- Current OMP reads user settings from `~/.omp/agent/config.yml`. `~/.pi/agent/settings.json` is a legacy migration source and changes there are ignored after the YAML configuration exists.
+- Keep managed defaults in `dot/.omp/agent/config.yml` and apply the same change to the live `~/.omp/agent/config.yml`. Use nested YAML such as `statusLine: { sessionAccent: false }`, not a flat JSON key.
+- Check the effective value with `omp config get SETTING --json`. Reloading plugins does not move settings between these files.
+
+---
+
 ## Homebrew package name collisions
 
 - `maestro` on Homebrew splits into two completely unrelated projects:

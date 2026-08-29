@@ -107,6 +107,7 @@ if command -v omp >/dev/null 2>&1; then
     omp config set modelRoles "$omp_model_roles" </dev/null >/dev/null
     omp config set tui.codexResetFireworks true </dev/null >/dev/null
     omp config set tui.tight false </dev/null >/dev/null
+    omp config set statusLine.sessionAccent false </dev/null >/dev/null
     omp config set display.showTokenUsage true </dev/null >/dev/null
     omp config set symbolPreset nerd </dev/null >/dev/null
 elif [[ ! -e "$omp_config" ]]; then

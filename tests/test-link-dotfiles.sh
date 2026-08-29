@@ -42,6 +42,7 @@ grep -Fxq 'old: settings' "$fixture/home/.omp/agent/config.yml"
 [[ -L "$fixture/home/.omp/agent/themes/seashells-light.json" ]]
 [[ "$(grep -Fxc 'config set theme.dark seashells' "$fixture/omp.log")" == 2 ]]
 [[ "$(grep -Fxc 'config set theme.light seashells-light' "$fixture/omp.log")" == 2 ]]
+[[ "$(grep -Fxc 'config set statusLine.sessionAccent false' "$fixture/omp.log")" == 2 ]]
 grep -Fq 'config set modelRoles {"keep":"yes","default":"openai-codex/gpt-5.6-sol:medium","smol":"openai-codex/gpt-5.6-luna:max","slow":"openai-codex/gpt-5.6-sol:xhigh"}' \
     "$fixture/omp.log"
 

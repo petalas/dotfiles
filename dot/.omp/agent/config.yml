@@ -9,6 +9,8 @@ modelRoles:
 tui:
   codexResetFireworks: true
   tight: false
+statusLine:
+  sessionAccent: false
 display:
   showTokenUsage: true
 symbolPreset: nerd
