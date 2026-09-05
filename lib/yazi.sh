@@ -56,8 +56,28 @@ print_yazi_compatibility_error() {
 	printf 'Expected matching versions with support for `ya pkg`.\n' >&2
 }
 
+# Yazi 26.9.1 reads Git symlink blobs as paths, but old caches still have
+# actual symlinks. Restore only those index entries without following them.
+_yazi_migrate_symlink_cache() {
+	[[ "$(yazi_cli_version)" == 26.9.1 ]] || return 0
+	local cache_home="${XDG_CACHE_HOME:-$HOME/.cache}" cache entry relative
+	[[ "$cache_home" == /* ]] || cache_home="$HOME/.cache"
+	[[ -d "$cache_home/yazi/packages" ]] || return 0
+	while IFS= read -r -d '' cache; do
+		[[ -d "$cache/.git" ]] || continue
+		while IFS= read -r -d '' entry; do
+			[[ "$entry" == '120000 '* ]] || continue
+			relative=${entry#*$'\t'}
+			[[ -L "$cache/$relative" ]] || continue
+			echo "Migrating Yazi cached symlink: $cache/$relative"
+			rm -- "$cache/$relative" || return 1
+			git -C "$cache" -c core.symlinks=false checkout-index --force -- "$relative" || return 1
+		done < <(git -C "$cache" ls-files --stage -z)
+	done < <(find "$cache_home/yazi/packages" -mindepth 1 -maxdepth 1 -type d -print0)
+}
+
 install_yazi_packages() {
-	local config_home="${YAZI_CONFIG_HOME:-$HOME/.config/yazi}"
+	local config_home="${YAZI_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/yazi}"
 
 	if ! yazi_is_compatible; then
 		print_yazi_compatibility_error
@@ -69,5 +89,6 @@ install_yazi_packages() {
 	fi
 
 	echo "Installing locked Yazi packages from $config_home/package.toml"
-	ya pkg install
+	_yazi_migrate_symlink_cache || return 1
+	YAZI_CONFIG_HOME="$config_home" ya pkg install
 }

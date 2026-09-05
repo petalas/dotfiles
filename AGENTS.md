@@ -53,6 +53,7 @@ Before modifying code, find the matching file pattern and **read the linked doc 
 | `dot/*.zsh` | Existing shell theme files and [LEARNINGS.md](docs/LEARNINGS.md) |
 | `lib/*.sh` | Callers and [LEARNINGS.md](docs/LEARNINGS.md); preserve advertised Bash/Zsh compatibility |
 | `.github/workflows/**` | README.md and [LEARNINGS.md](docs/LEARNINGS.md) |
+| `tests/test-yazi*.sh` | [LEARNINGS.md](docs/LEARNINGS.md) — cache migration and terminal-dependent compatibility probes |
 | `tests/test-update-install-plan.sh` | [LEARNINGS.md](docs/LEARNINGS.md); use the host's Zsh path and respect its `OSTYPE` branch |
 | `dot/.config/**` | App's official docs for config syntax |
 | `dot/terminal/**`, `configure-macos-terminal.sh`, `tools/*macos-terminal*` | Terminal's profile import/export docs and [LEARNINGS.md](docs/LEARNINGS.md); never write live preferences while Terminal.app is running |

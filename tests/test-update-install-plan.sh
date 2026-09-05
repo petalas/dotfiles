@@ -24,6 +24,7 @@ if [[ "$1" == prepare ]]; then
     done
 elif [[ "$1" == apply && "${PLAN_APPLY_FAIL:-0}" == 1 ]]; then
     printf 'fixture reconciliation detail\n' >&2
+    printf 'Yazi packages\n' >>"$DOTFILES_UPDATE_FAILURES_FILE"
     exit 23
 fi
 EOF
@@ -77,6 +78,16 @@ chmod +x "$fixture/repo/update-dotfiles" "$fixture/repo/link-dotfiles.sh" \
     "$fixture/repo/lib/install-plan" "$fixture/bin/git" "$fixture/bin/gh" \
     "$fixture/bin/pi" "$fixture/bin/omp" "$fixture/bin/bun"
 
+mkdir -p "$fixture/home/.config/nvim/.git"
+cat >"$fixture/repo/lib/nvim-sync.sh" <<'EOF'
+nvim_sync_fork() {
+    [[ "$2" == config ]] || return 2
+    printf 'nvim config\n' >>"$UPDATE_TEST_LOG"
+    [[ "${NVIM_SYNC_FAIL:-0}" == 0 ]]
+}
+nvim_update_plugins() { printf 'nvim plugins\n' >>"$UPDATE_TEST_LOG"; }
+EOF
+
 log="$fixture/update.log"
 zsh_bin=$(command -v zsh)
 if ! env -u GITHUB_TOKEN -u GITHUB_ACCESS_TOKEN -u GH_TOKEN \
@@ -99,6 +110,7 @@ fi
 grep -Fxq 'bun upgrade' "$log"
 grep -Fxq 'pi update --all' "$log"
 grep -Fxq 'omp update' "$log"
+grep -Fxq 'nvim plugins' "$log"
 managed_theme="$fixture/home/.config/ghostty/themes/seashells-light"
 [[ -L "$managed_theme" ]]
 [[ "$(readlink "$managed_theme")" == "$fixture/repo/dot/.config/ghostty/themes/seashells-light" ]]
@@ -142,7 +154,7 @@ grep -Fq "Skipping Bun upgrade to avoid GitHub's anonymous API rate limit." "$fi
 # failure summary.
 failure_state="$fixture/failure-state"
 if env -u GITHUB_TOKEN -u GITHUB_ACCESS_TOKEN -u GH_TOKEN \
-    PLAN_APPLY_FAIL=1 UPDATE_TEST_LOG="$fixture/failure-commands.log" \
+    PLAN_APPLY_FAIL=1 NVIM_SYNC_FAIL=1 UPDATE_TEST_LOG="$fixture/failure-commands.log" \
     DOTFILES_DIR="$fixture/repo" HOME="$fixture/home" XDG_STATE_HOME="$failure_state" \
     SDKMAN_DIR="$fixture/home/.sdkman" PATH="$fixture/bin:/bin:/usr/bin" \
     "$zsh_bin" "$fixture/repo/update-dotfiles" >"$fixture/failure-out" 2>"$fixture/failure-err"; then
@@ -151,7 +163,13 @@ if env -u GITHUB_TOKEN -u GITHUB_ACCESS_TOKEN -u GH_TOKEN \
 fi
 failure_log="$failure_state/dotfiles/latest-update.log"
 grep -Fq 'fixture reconciliation detail' "$failure_log"
-grep -Fq 'Failed: selected reconciliation' "$fixture/failure-err"
+grep -Fq 'Failed: selected reconciliation, Neovim configuration, Yazi packages' "$fixture/failure-err"
 grep -Fq "Update log: $failure_log" "$fixture/failure-err"
+
+grep -Fq 'Skipped: Neovim plugins because configuration synchronization failed.' "$fixture/failure-err"
+if grep -Fxq 'nvim plugins' "$fixture/failure-commands.log"; then
+    echo 'Plugin update ran after a failed config sync' >&2
+    exit 1
+fi
 
 printf 'Update plan integration tests passed.\n'

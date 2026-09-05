@@ -106,11 +106,14 @@ grep -Fq "gh auth login --hostname github.com --git-protocol https --web" \
     "$fixture/unauthenticated.err"
 
 if HOME="$fixture/invalid-home" PATH="$test_path" GH_AUTH_EXIT=0 \
+    DOTFILES_UPDATE_FAILURES_FILE="$fixture/failures" \
     "$repo_dir/setup-tools.sh" >"$fixture/invalid.out" 2>"$fixture/invalid.err"; then
     echo 'Invalid notes path unexpectedly succeeded.' >&2
     exit 1
 fi
 [[ ! -e "$fixture/invalid-home/git/notes/.obsidian" ]]
 grep -Fq "Cannot clone notes repository over existing path" "$fixture/invalid.err"
+
+grep -Fxq 'Notes vault repository' "$fixture/failures"
 
 printf 'Generated tool and notes repository tests passed.\n'

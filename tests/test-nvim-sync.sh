@@ -76,6 +76,12 @@ git -C "$seed" add shared.txt
 git -C "$seed" commit --quiet -m upstream-conflict
 git -C "$seed" push --quiet origin master
 
+# Routine updates leave conflicting upstream changes pending and still succeed.
+NVIM_SYNC_SKIP_SMOKE=1 nvim_sync_fork "$config" config >"$fixture/pending"
+grep -Fq 'Kickstart changes pending review' "$fixture/pending"
+[[ "$(git -C "$config" rev-parse custom)" == "$custom_before_conflict" ]]
+[[ -z "$(git -C "$config" status --porcelain)" ]]
+
 if NVIM_SYNC_SKIP_SMOKE=1 nvim_sync_fork "$config"; then
     echo 'nvim sync unexpectedly accepted a conflicting merge' >&2
     exit 1

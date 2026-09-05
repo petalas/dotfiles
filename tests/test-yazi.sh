@@ -27,7 +27,7 @@ state=$(cat "$YAZI_TEST_STATE")
 if [[ "${1:-}" == "--version" ]]; then
 	case "$state" in
 		legacy) echo "Ya 25.4.8 (test)" ;;
-		mismatch|modern) echo "Ya 26.5.9 (test)" ;;
+		mismatch|modern) echo "Ya 26.9.1 (test)" ;;
 		multiline) printf 'Ya\n    Version: 26.8.15 (test)\n' ;;
 		*) exit 1 ;;
 	esac
@@ -40,6 +40,10 @@ if [[ "${1:-}" == "pkg" && "${2:-}" == "--help" ]]; then
 fi
 
 if [[ "${1:-}" == "pkg" && "${2:-}" == "install" ]]; then
+	if [[ -L ${XDG_CACHE_HOME:-$HOME/.cache}/yazi/packages/fixture/init.lua ]]; then
+		echo 'failed to resolve Git symlink target: File name too long' >&2
+		exit 1
+	fi
 	printf 'ya:%s\n' "$*" >>"$YAZI_TEST_LOG"
 	[[ "$state" == "modern" ]]
 	exit
@@ -55,7 +59,7 @@ state=$(cat "$YAZI_TEST_STATE")
 if [[ "${1:-}" == "--version" ]]; then
 	case "$state" in
 		legacy|mismatch) echo "Yazi 25.4.8 (test)" ;;
-		modern) echo "Yazi 26.5.9 (test)" ;;
+		modern) echo "Yazi 26.9.1 (test)" ;;
 		multiline) printf 'Yazi\n    Version: 26.8.15 (test)\n' ;;
 		*) exit 1 ;;
 	esac
@@ -182,5 +186,21 @@ if grep -Fq 'pkg add' "$YAZI_TEST_LOG"; then
 	echo "Yazi packages must be restored from package.toml, not re-added" >&2
 	exit 1
 fi
+
+# Existing pre-26.9.1 caches contain real Git symlinks.
+export XDG_CACHE_HOME="$fixture_dir/cache"
+package_cache="$XDG_CACHE_HOME/yazi/packages/fixture"
+mkdir -p "$package_cache"
+git init --quiet "$package_cache"
+printf 'return {}\n' >"$package_cache/main.lua"
+ln -s main.lua "$package_cache/init.lua"
+git -C "$package_cache" add main.lua init.lua
+printf 'keep\n' >"$package_cache/untracked"
+install_yazi_packages
+[[ ! -L "$package_cache/init.lua" ]]
+[[ "$(cat "$package_cache/init.lua")" == main.lua ]]
+[[ "$(cat "$package_cache/main.lua")" == 'return {}' ]]
+[[ "$(cat "$package_cache/untracked")" == keep ]]
+install_yazi_packages
 
 echo "Yazi installer tests passed."

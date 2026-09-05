@@ -41,12 +41,45 @@ ya_bin=$(find "$fixture_dir/release" -type f -name ya -print -quit)
 release_dir=$(dirname "$yazi_bin")
 
 cp -R "$repo_dir/dot/.config/yazi" "$fixture_dir/config"
-if ! debug_output=$(PATH="$release_dir:$PATH" \
-	YAZI_CONFIG_HOME="$fixture_dir/config" \
-	"$yazi_bin" --debug </dev/null 2>&1); then
-	printf '%s\n' "$debug_output" >&2
-	echo "Managed Yazi configuration is incompatible with $version" >&2
-	exit 1
+# Yazi loads configuration before --help, and requires a terminal for it.
+if ! PATH="$release_dir:$PATH" YAZI_CONFIG_HOME="$fixture_dir/config" \
+    python3 - "$yazi_bin" >"$fixture_dir/debug.log" <<'PYTHON'
+import errno
+import os
+import pty
+import subprocess
+import select
+import time
+import sys
+
+master, slave = pty.openpty()
+try:
+    process = subprocess.Popen([sys.argv[1], "--help"], stdin=slave, stdout=slave, stderr=slave)
+    os.close(slave)
+    deadline = time.monotonic() + 30
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0 or not select.select([master], [], [], remaining)[0]:
+            process.kill()
+            process.wait()
+            raise TimeoutError("Yazi configuration probe timed out")
+        try:
+            data = os.read(master, 65536)
+        except OSError as error:
+            if error.errno != errno.EIO:
+                raise
+            break
+        if not data:
+            break
+        sys.stdout.buffer.write(data)
+    sys.exit(process.wait(timeout=30))
+finally:
+    os.close(master)
+PYTHON
+then
+    cat "$fixture_dir/debug.log" >&2
+    echo "Managed Yazi configuration is incompatible with $version" >&2
+    exit 1
 fi
 
 version_from_output() {
@@ -58,5 +91,19 @@ fm_version=$("$yazi_bin" --version | version_from_output)
 	echo "Official $version archive contains mismatched ya/yazi versions" >&2
 	exit 1
 }
+
+# Exercise package restoration and repeatability with the real release binary.
+# Seed the old cache format that existed before Yazi 26.9.1.
+export XDG_CACHE_HOME="$fixture_dir/cache"
+legacy_cache="$XDG_CACHE_HOME/yazi/packages/89c23501b37716e3dfefb092388d1d58"
+git clone --quiet https://github.com/kirasok/torrent-preview.yazi.git "$legacy_cache"
+git -C "$legacy_cache" checkout --quiet 4ca5996
+# shellcheck source=lib/yazi.sh
+source "$repo_dir/lib/yazi.sh"
+for pass in 1 2; do
+    echo "Package restoration pass $pass"
+    PATH="$release_dir:$PATH" YAZI_CONFIG_HOME="$fixture_dir/config" install_yazi_packages
+    cmp "$repo_dir/dot/.config/yazi/package.toml" "$fixture_dir/config/package.toml"
+done
 
 echo "Yazi configuration is valid with latest stable release $version."

@@ -92,6 +92,8 @@ nvim_sync_fork() {
     local dir="${1:-${XDG_CONFIG_HOME:-$HOME/.config}/nvim}"
     local upstream_url="https://github.com/nvim-lua/kickstart.nvim.git"
     local branch="custom"
+    local mode="${2:-upstream}"
+    case "$mode" in upstream|config) ;; *) echo "nvim sync: invalid mode: $mode" >&2; return 2 ;; esac
     local counts ahead behind nvim_bin
 
     if [ ! -d "$dir/.git" ]; then
@@ -125,7 +127,10 @@ nvim_sync_fork() {
 
     echo "Fetching nvim fork and Kickstart upstream..."
     _nvim_sync_git_network "$dir" fetch --quiet origin || return 1
-    _nvim_sync_git_network "$dir" fetch --quiet upstream || return 1
+    if ! _nvim_sync_git_network "$dir" fetch --quiet upstream; then
+        [ "$mode" = config ] || return 1
+        echo "Kickstart update check unavailable; continuing with the maintained configuration." >&2
+    fi
 
     counts=$(git -C "$dir" rev-list --left-right --count "$branch...origin/$branch") || return 1
     ahead=$(printf '%s' "$counts" | awk '{ print $1 }')
@@ -149,6 +154,13 @@ nvim_sync_fork() {
     if [ "$ahead" -gt 0 ]; then
         echo "Pushing previously committed nvim changes..."
         _nvim_sync_git_network "$dir" push origin "$branch" || return 1
+    fi
+
+    if [ "$mode" = config ]; then
+        if ! git -C "$dir" merge-base --is-ancestor upstream/master "$branch"; then
+            echo "Kickstart changes pending review; run sync-nvim to integrate them."
+        fi
+        return 0
     fi
 
     if git -C "$dir" show-ref --verify --quiet refs/remotes/origin/master &&

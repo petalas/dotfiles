@@ -22,6 +22,9 @@ run_best_effort() {
     if ! "$@"; then
         echo "Warning: $label failed; continuing." >&2
         failures+=("$label")
+        if [[ -n "${DOTFILES_UPDATE_FAILURES_FILE:-}" ]]; then
+            printf '%s\n' "$label" >>"$DOTFILES_UPDATE_FAILURES_FILE"
+        fi
     fi
 }
 

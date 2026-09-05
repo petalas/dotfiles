@@ -78,6 +78,8 @@ From Zsh, run `upd`, or invoke the underlying command directly:
 
 It fast-forwards this repository, relinks managed files from the new revision, resolves the saved installation plan, reconciles selected missing software/state, then upgrades software already present, including deselected applications and installed OMP and Pi packages. Deselection never suppresses maintenance or triggers uninstallation. Independent failures are collected and reported at the end. The complete output is saved with mode 0600 in `${XDG_STATE_HOME:-~/.local/state}/dotfiles/latest-update.log`, and failed summaries repeat that path.
 
+Neovim updates sync the maintained `custom` branch and update its plugins. Pending Kickstart changes are reported for review; run `sync-nvim` explicitly to merge them. A failed configuration sync skips plugin updates and prints the reason. Generated setup failures are also named in the final update summary.
+
 Bun upgrades use an existing `GITHUB_TOKEN`, `GITHUB_ACCESS_TOKEN`, or `GH_TOKEN`, or a process-scoped token from an authenticated GitHub CLI. Without one, `upd` skips Bun and prints `gh auth login` guidance rather than consuming GitHub's anonymous API quota.
 
 OMP installs from its upstream Bun package after the managed Bun runtime is active. Its installer reruns `link-dotfiles.sh` only after the `omp` command is available. The linker installs the tracked SeaShells theme files under `~/.omp/agent/themes/`, migrates the old managed config symlink to a machine-local file, and merges the managed theme, status-line accent, and display settings without replacing unrelated settings.

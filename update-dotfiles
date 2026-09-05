@@ -114,7 +114,9 @@ fi
 
 plan_engine=$DOTFILES_ROOT/lib/install-plan
 resolved_plan=$(mktemp "${TMPDIR:-/tmp}/dotfiles-update-plan.XXXXXX")
-trap 'rm -f -- "$resolved_plan"' EXIT
+export DOTFILES_UPDATE_FAILURES_FILE
+DOTFILES_UPDATE_FAILURES_FILE=$(mktemp "${TMPDIR:-/tmp}/dotfiles-update-failures.XXXXXX") || exit 1
+trap 'rm -f -- "$resolved_plan" "$DOTFILES_UPDATE_FAILURES_FILE"' EXIT
 if [[ -x $plan_engine ]]; then
   if run_step "resolve installation plan" \
     "$plan_engine" prepare --mode defaults --os "$(source "$DOTFILES_ROOT/lib/platform.sh" && dotfiles_os)" --output "$resolved_plan"; then
@@ -186,14 +188,19 @@ nvim_helpers=$DOTFILES_ROOT/lib/nvim-sync.sh
 nvim_config=${XDG_CONFIG_HOME:-$HOME/.config}/nvim
 if [[ -f $nvim_helpers && -d $nvim_config/.git ]]; then
   source "$nvim_helpers"
-  if run_step "Neovim config + upstream" nvim_sync_fork "$nvim_config"; then
+  if run_step "Neovim configuration" nvim_sync_fork "$nvim_config" config; then
     run_step "Neovim plugins" nvim_update_plugins "$nvim_config"
+  else
+    print -u2 "Skipped: Neovim plugins because configuration synchronization failed."
   fi
 fi
 
 (( $+commands[bunx] )) && run_step "global skills" update_skills
 
 print
+if [[ -s $DOTFILES_UPDATE_FAILURES_FILE ]]; then
+  failures+=("${(@f)$(<"$DOTFILES_UPDATE_FAILURES_FILE")}")
+fi
 if (( ${#failures[@]} )); then
   print -P "%F{red}Failed: ${(j:, :)failures}%f" >&2
   [[ -z $update_log ]] || print -u2 "Update log: $update_log"
