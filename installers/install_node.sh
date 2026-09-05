@@ -26,9 +26,9 @@ _install_nvm() {
 }
 
 _install_node_runtime() {
-    nvm install node --latest-npm || return 1
-    nvm alias default node || return 1
-    nvm use node || return 1
+    nvm install 'lts/*' --latest-npm || return 1
+    nvm alias default 'lts/*' || return 1
+    nvm use 'lts/*' || return 1
     hash -r 2>/dev/null || true
 
     case "$(command -v node 2>/dev/null || true)" in

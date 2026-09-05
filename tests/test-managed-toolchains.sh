@@ -126,9 +126,9 @@ install_node
 [[ $(command -v node) == "$HOME/.nvm/versions/node/v24.18.0/bin/node" ]]
 grep -Fq 'profile=/dev/null interpreter=bash url=https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.6/install.sh' "$log"
 grep -Fxq 'nvm loader --no-use' "$log"
-grep -Fxq 'nvm install node --latest-npm' "$log"
-grep -Fxq 'nvm alias default node' "$log"
-grep -Fxq 'nvm use node' "$log"
+grep -Fxq 'nvm install lts/* --latest-npm' "$log"
+grep -Fxq 'nvm alias default lts/*' "$log"
+grep -Fxq 'nvm use lts/*' "$log"
 
 PATH="$fixture/bin:/usr/bin:/bin"
 : >"$log"
