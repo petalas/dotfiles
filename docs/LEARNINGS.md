@@ -238,8 +238,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 ## Global AI skill installs should target owned runtimes
 
 - `skills add --global --agent '*'` attempts every known target, including project-only agents without global skill directories. Mirroring the CLI's full supported-agent table also creates compatibility roots for products this repository does not install or configure.
-- Keep the explicit target list limited to `claude-code`, `codex`, `pi`, and `universal`. `universal` owns the canonical `~/.agents/skills` store used by OMP, Zed, and other Agent Skills-compatible consumers; Claude Code (`~/.claude/skills`) and Pi (`~/.pi/agent/skills`) require their dedicated global roots.
-- Codex ignores the universal store: it reads only `$CODEX_HOME/skills` (default `~/.codex/skills`), so it needs its own `codex` target and root, or globally installed skills never appear in Codex.
+- Keep the explicit target list limited to `claude-code`, `pi`, and `universal`. Do not add a `codex` target: Codex reads user skills from `~/.agents/skills` (the universal store) per its docs; `~/.codex/skills` holds only Codex's bundled `.system` skills and its own installer output, and the `skills` CLI maps `--agent codex` to `~/.agents/skills` anyway, so a `~/.codex/skills` root would never be populated and `ai_skill_present` would report every skill as missing (2026-09-08). `universal` owns the canonical `~/.agents/skills` store used by OMP, Codex, Zed, and other Agent Skills-compatible consumers; Claude Code and Pi require their dedicated global roots.
 - Cover the exact list and the absence of wildcard, Eve, and PromptScript arguments in `tests/test-ai-skills.sh`. The list, each agent's global root, and every `skills` CLI call live in `installers/install_ai_skills.sh`; `lib/install-plan` and `tools/update-ai-skills` source that module rather than re-implementing catalog parsing or the runner.
 
 ---

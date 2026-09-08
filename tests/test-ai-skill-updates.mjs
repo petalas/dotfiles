@@ -23,7 +23,7 @@ const tree = (names) => ({
 const request = (source = 'owner/repo', ref = 'HEAD') =>
   `repos/${source}/git/trees/${encodeURIComponent(ref)}?recursive=1`;
 const add = (source, ...names) => ['--yes', 'skills', 'add', source, '--skill', ...names,
-  '--full-depth', '--global', '--agent', 'claude-code', 'codex', 'pi', 'universal', '--yes'];
+  '--full-depth', '--global', '--agent', 'claude-code', 'pi', 'universal', '--yes'];
 
 function fixture(t, skills, trees = {}, failSources = []) {
   const home = mkdtempSync(join(tmpdir(), 'test-ai-skill-updates-'));
