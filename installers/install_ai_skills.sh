@@ -166,7 +166,36 @@ remove_ai_skill_global() {
 }
 
 update_ai_skills_global() {
-    ai_skills_cli update --global
+    local mode=${1:-update} plan result=0 kind source
+    local -a fields
+    local module_dir
+    module_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+    command -v node >/dev/null 2>&1 && command -v npx >/dev/null 2>&1 || {
+        echo "AI skills management requires npx and Node; install Node first." >&2
+        return 1
+    }
+    plan=$(mktemp "${TMPDIR:-/tmp}/dotfiles-skill-updates.XXXXXX") || return 1
+    node "$module_dir/lib/ai-skill-updates.mjs" "$(ai_skill_lock_path)" >"$plan" || result=1
+    while IFS=$'\t' read -r -a fields; do
+        kind=${fields[0]}
+        if [[ "$mode" == --check ]]; then
+            printf '%s\n' "${fields[*]}"
+            continue
+        fi
+        case "$kind" in
+            batch)
+                source=${fields[1]}
+                # Updating from the repository root must also find nested skills.
+                install_ai_skill_batch "$source" "${fields[@]:2}" --full-depth || result=1
+                ;;
+            fallback)
+                ai_skills_cli update --global "${fields[@]:1}" || result=1
+                ;;
+            *) echo "Invalid skill update plan record: $kind" >&2; result=1 ;;
+        esac
+    done <"$plan"
+    rm -f "$plan"
+    return "$result"
 }
 
 install_ai_skills() {

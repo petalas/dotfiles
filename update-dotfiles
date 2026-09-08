@@ -93,6 +93,27 @@ update_bun() {
   GITHUB_TOKEN=$github_token bun upgrade
 }
 
+update_pnpm_globals() {
+  # Current pnpm puts global executables in PNPM_HOME/bin. This process can inherit
+  # an old shell PATH even after relinking the updated shell configuration.
+  local pnpm_home=${PNPM_HOME:-}
+  if [[ -z $pnpm_home ]]; then
+    if [[ $OSTYPE == darwin* ]]; then
+      pnpm_home=$HOME/Library/pnpm
+    else
+      pnpm_home=${XDG_DATA_HOME:-$HOME/.local/share}/pnpm
+    fi
+  fi
+  local -x PATH="$pnpm_home/bin:$pnpm_home:$PATH"
+  local pnpm_globals
+  pnpm_globals=$(env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm ls -g --depth=0 --parseable) || return $?
+  if [[ -n $pnpm_globals ]]; then
+    env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm update -g --latest
+  else
+    print "No pnpm global packages installed."
+  fi
+}
+
 linker=$DOTFILES_ROOT/link-dotfiles.sh
 if [[ -x $linker ]]; then
   run_step "managed dotfiles" "$linker"
@@ -143,7 +164,11 @@ if [[ -s ${SDKMAN_DIR:-$HOME/.sdkman}/bin/sdkman-init.sh ]]; then
     sed -i.bak 's/^sdkman_auto_answer=false/sdkman_auto_answer=true/' "$sdkman_cfg" &&
       rm -f "$sdkman_cfg.bak"
   fi
-  run_step "SDKMAN self-update" sdk selfupdate
+  if [[ ${sdkman_selfupdate_feature:-false} == true ]]; then
+    run_step "SDKMAN self-update" sdk selfupdate
+  else
+    print "Skipping SDKMAN self-update because sdkman_selfupdate_feature is disabled."
+  fi
   run_step "SDKMAN candidate metadata" sdk update
   run_step "SDKMAN candidates" sdk upgrade
 fi
@@ -162,10 +187,7 @@ if (( $+commands[npm] )); then
 fi
 
 if (( $+commands[pnpm] )); then
-  pnpm_globals=$(env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm ls -g --depth=0 --parseable 2>/dev/null)
-  if [[ -n $pnpm_globals ]]; then
-    run_step "pnpm global packages" env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm update -g --latest
-  fi
+  run_step "pnpm global packages" update_pnpm_globals
 fi
 
 (( $+commands[omp] )) && run_step "OMP" omp update

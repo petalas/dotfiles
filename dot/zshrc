@@ -32,7 +32,6 @@ path=(
 )
 if [[ $OSTYPE == darwin* ]]; then
     [[ -d /opt/homebrew/sbin ]] && path=(/opt/homebrew/sbin $path)
-    [[ -d "$HOME/Library/pnpm" ]] && path=("$HOME/Library/pnpm" $path)
 fi
 
 # nvm is a shell function rather than a standalone executable. The installer
@@ -321,12 +320,15 @@ if [[ -x "$HOME/miniconda3/bin/conda" ]]; then
   unset __conda_setup
 fi
 
-if [[ -d "$HOME/Library/pnpm" ]]; then
-  export PNPM_HOME="$HOME/Library/pnpm"
-elif [[ -d "$HOME/.local/share/pnpm" ]]; then
-  export PNPM_HOME="$HOME/.local/share/pnpm"
-  path=("$PNPM_HOME" $path)
+# Keep both the pnpm launcher and global package executables on PATH.
+if [[ -z ${PNPM_HOME:-} ]]; then
+  if [[ $OSTYPE == darwin* ]]; then
+    export PNPM_HOME="$HOME/Library/pnpm"
+  else
+    export PNPM_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm"
+  fi
 fi
+path=("$PNPM_HOME/bin" "$PNPM_HOME" $path)
 
 if [[ -d "$HOME/.bun" ]]; then
   export BUN_INSTALL="$HOME/.bun"

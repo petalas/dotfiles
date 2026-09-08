@@ -6,6 +6,8 @@ fixture=$(mktemp -d /tmp/dotfiles-ai-skills.XXXXXX)
 trap 'rm -rf "$fixture"' EXIT
 mkdir -p "$fixture/bin" "$fixture/home"
 log="$fixture/npx.log"
+node_bin=$(command -v node)
+ln -s "$node_bin" "$fixture/bin/node"
 export AI_SKILLS_TEST_LOG="$log"
 export PATH="$fixture/bin:/usr/bin:/bin"
 # Every agent skill root lives under HOME, so an isolated HOME exercises the
@@ -360,7 +362,7 @@ ln -s ../../.agents/skills/retired "$HOME/.claude/skills/retired"
 : >"$log"
 "$repo_dir/tools/update-ai-skills" >/dev/null
 cat >"$fixture/expected-update.log" <<'EOF'
---yes	skills	update	--global
+--yes	skills	update	--global	alpha	beta	gamma
 EOF
 cmp -s "$fixture/expected-update.log" "$log"
 [[ ! -L "$HOME/.claude/skills/retired" ]]
@@ -371,3 +373,4 @@ fi
 grep -Fq 'requires npx' "$fixture/update.err"
 
 printf 'AI skills installer tests passed.\n'
+"$node_bin" --test "$repo_dir/tests/test-ai-skill-updates.mjs"

@@ -96,6 +96,40 @@ nvim_sync_fork() {
 nvim_update_plugins() { printf 'nvim plugins\n' >>"$UPDATE_TEST_LOG"; }
 EOF
 
+# SDKMAN can disable its own updater while candidate maintenance stays enabled.
+mkdir -p "$fixture/home/.sdkman/bin" "$fixture/home/.sdkman/etc"
+printf 'sdkman_selfupdate_feature=false\nsdkman_auto_answer=true\n' >"$fixture/home/.sdkman/etc/config"
+cat >"$fixture/home/.sdkman/bin/sdkman-init.sh" <<'EOF'
+source "$SDKMAN_DIR/etc/config"
+sdk() {
+    source "$SDKMAN_DIR/etc/config"
+    if [[ $1 == selfupdate && $sdkman_selfupdate_feature != true ]]; then
+        print 'Invalid command: selfupdate'
+        return 0
+    fi
+    print -r -- "sdk $*" >>"$UPDATE_TEST_LOG"
+    [[ ${SDK_TEST_FAIL:-} != "$1" ]]
+}
+EOF
+cat >"$fixture/bin/pnpm" <<'EOF'
+#!/usr/bin/env bash
+case "$*" in
+    'ls -g --depth=0 --parseable')
+        [[ ${PNPM_TEST_FAIL:-} != list ]] || { echo 'pnpm inventory failed' >&2; exit 12; }
+        printf '%s/global/5/node_modules/example\n' "$PNPM_HOME"
+        ;;
+    'update -g --latest')
+        case ":$PATH:" in
+            *":$PNPM_HOME/bin:"*) printf 'pnpm globals updated\n' >>"$UPDATE_TEST_LOG" ;;
+            *) echo 'ERR_PNPM_GLOBAL_BIN_DIR_NOT_IN_PATH' >&2; exit 13 ;;
+        esac
+        ;;
+    *) exit 2 ;;
+esac
+EOF
+chmod +x "$fixture/bin/pnpm"
+export PNPM_HOME="$fixture/home/custom pnpm"
+
 log="$fixture/update.log"
 zsh_bin=$(command -v zsh)
 if ! env -u GITHUB_TOKEN -u GITHUB_ACCESS_TOKEN -u GH_TOKEN \
@@ -120,6 +154,14 @@ grep -Fxq 'pi update --all' "$log"
 grep -Fxq 'omp update' "$log"
 grep -Fxq 'update-ai-skills' "$log"
 grep -Fxq 'nvim plugins' "$log"
+grep -Fxq 'pnpm globals updated' "$log"
+grep -Fxq 'sdk update' "$log"
+grep -Fxq 'sdk upgrade' "$log"
+grep -Fq 'Skipping SDKMAN self-update because sdkman_selfupdate_feature is disabled.' "$fixture/out"
+if grep -Fq 'Invalid command: selfupdate' "$fixture/out"; then
+    echo 'Updater invoked disabled SDKMAN selfupdate' >&2
+    exit 1
+fi
 managed_theme="$fixture/home/.config/ghostty/themes/seashells-light"
 [[ -L "$managed_theme" ]]
 [[ "$(readlink "$managed_theme")" == "$fixture/repo/dot/.config/ghostty/themes/seashells-light" ]]
@@ -180,5 +222,21 @@ if grep -Fxq 'nvim plugins' "$fixture/failure-commands.log"; then
     echo 'Plugin update ran after a failed config sync' >&2
     exit 1
 fi
+
+# Enabled self-updates run, and both tool failures reach the final summary.
+printf 'sdkman_selfupdate_feature=true\nsdkman_auto_answer=true\n' >"$fixture/home/.sdkman/etc/config"
+if env -u GITHUB_TOKEN -u GITHUB_ACCESS_TOKEN -u GH_TOKEN \
+    SDK_TEST_FAIL=selfupdate PNPM_TEST_FAIL=list UPDATE_TEST_LOG="$fixture/tool-failures.log" \
+    DOTFILES_DIR="$fixture/repo" HOME="$fixture/home" XDG_STATE_HOME="$fixture/tool-failures-state" \
+    SDKMAN_DIR="$fixture/home/.sdkman" PATH="$fixture/bin:/bin:/usr/bin" \
+    "$zsh_bin" "$fixture/repo/update-dotfiles" >"$fixture/tool-failures-out" 2>"$fixture/tool-failures-err"; then
+    echo 'Expected SDKMAN and pnpm failures to fail the updater' >&2
+    exit 1
+fi
+grep -Fxq 'sdk selfupdate' "$fixture/tool-failures.log"
+grep -Fxq 'sdk upgrade' "$fixture/tool-failures.log"
+grep -Fxq 'update-ai-skills' "$fixture/tool-failures.log"
+grep -Fq 'pnpm inventory failed' "$fixture/tool-failures-err"
+grep -Fq 'Failed: SDKMAN self-update, pnpm global packages' "$fixture/tool-failures-err"
 
 printf 'Update plan integration tests passed.\n'

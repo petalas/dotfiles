@@ -52,6 +52,7 @@ Before modifying code, find the matching file pattern and **read the linked doc 
 | `dot/zshrc` | Current aliases/functions before adding duplicates |
 | `dot/*.zsh` | Existing shell theme files and [LEARNINGS.md](docs/LEARNINGS.md) |
 | `lib/*.sh` | Callers and [LEARNINGS.md](docs/LEARNINGS.md); preserve advertised Bash/Zsh compatibility |
+| `lib/ai-skill-updates.mjs`, `tools/update-ai-skills`, `tests/test-ai-skill-updates.mjs` | [LEARNINGS.md](docs/LEARNINGS.md) global skill update contract; the installed skills CLI owns lock writes and installation |
 | `.github/workflows/**` | README.md and [LEARNINGS.md](docs/LEARNINGS.md) |
 | `tests/test-yazi*.sh` | [LEARNINGS.md](docs/LEARNINGS.md) — cache migration and terminal-dependent compatibility probes |
 | `tests/test-update-install-plan.sh` | [LEARNINGS.md](docs/LEARNINGS.md); use the host's Zsh path and respect its `OSTYPE` branch |

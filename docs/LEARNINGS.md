@@ -200,6 +200,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - A failed Google Chrome cask upgrade left a real app bundle at the old Caskroom staging path where Homebrew expected a symlink. Chrome's self-updated `/Applications/Google Chrome.app` was also root-owned, so even `sudo` could not repair or replace it without macOS App Management permission.
 - Quit Chrome, grant the hosting terminal application App Management access in System Settings, then run `brew upgrade --cask --force google-chrome`. The force flag is a one-time repair for the stale cask state, not an updater default; unattended upgrades must not overwrite arbitrary conflicting applications automatically.
 - Homebrew may lose the old app's quarantine approval while replacing it, so macOS can prompt once when Chrome next launches.
+- Slack showed the same failure in September 2026. Preserve a conflicting real Caskroom app bundle in a private recovery directory before retrying a normal upgrade. If ownership changes then fail with `Operation not permitted`, stop and request App Management permission for the hosting application. Preserve any new backup created by the failed attempt too; do not make `--force` an unattended default.
 
 ---
 
@@ -254,6 +255,22 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 - `upd` used `bunx skills update --global` while installs used `npx`. `bunx` reuses per-package temp installs under `$TMPDIR/bunx-*`, and a partially extracted one fails with `ERR_MODULE_NOT_FOUND` (e.g. `yaml/dist/index.js`) until it is deleted.
 - `tools/update-ai-skills` now updates through the same `npx --yes skills` wrapper as installation, so Node is the only prerequisite and the retry-after-`bunx-clean` workaround is gone. `dot/zshrc` keeps `bunx-clean` for other Bun tools.
+
+## Global skill updates batch only changed installed skills
+
+- `petalas/skills` contains skill definitions, not the `vercel-labs/skills` CLI. Changing its prompts cannot improve the CLI's update loop. CLI 1.5.24 checks repositories in groups but spawns one install per changed skill.
+- `lib/ai-skill-updates.mjs` reads the global CLI lock, checks one GitHub tree per source/ref, and emits changed names for the shared installer wrapper. The catalog only owns desired installations; it must not limit maintenance of already installed skills. `./install ai_skills` unconditionally reinstalls the catalog and is not an update substitute.
+- The CLI stores either a 40-character Git tree hash or a 64-character SHA-256 content hash, depending on whether it used the GitHub API or cloned during installation. Comparing these formats marks unchanged skills as outdated. Compare tree hashes for 40-character records; for 64-character records, fetch once and hash the skill's paths and file contents using the CLI's sorting and exclusions. The isolated real-CLI install test exposed this format switch, and its second run must report no changes.
+- Include supporting files in hash comparisons. Use the repository tree hash for a root skill. Never compare a repository commit to a skill hash. Truncated API trees fall back to Git; failed checks fail the update instead of being reported as up to date. Moved paths, other source types, and unsupported hashes retain scoped CLI fallback behavior.
+- Keep source batches sequential because installs share the CLI lock and store. The planner never writes the lock. The CLI owns installation and lock updates; `--full-depth` finds nested skills when installing from a repository root. `--check` performs no installs or link pruning.
+- Resource bounds for this Node command: lock, subprocess output, and each content-hashed skill are limited to 32 MiB, locks to 10000 skills, trees and traversed skill folders to 200000 entries, and each lookup subprocess to 60 seconds. Managed-runtime allocations remain a Power of Ten rule 3 deviation, bounded by these inputs and sequential source processing. Temporary Git repositories are removed on success and failure. Git transfer size and the CLI's existing install lifetime remain outside these bounds; do not add concurrent writers or broaden this exception to a daemon.
+- Run `tests/test-ai-skills.sh` for the installer contract and subprocess update cases. When verifying the real CLI, use an isolated HOME with stale hashes so a passing no-op check cannot hide a broken batch install.
+- Catalog additions must update `tests/test-install-catalog.sh` too. The power-of-ten and two principle additions increased `petalas/skills` from 47 to 50 entries, but the old count assertion remained and broke the full suite. Check the newly added names as well as the count.
+
+## SDKMAN and pnpm updater diagnostics
+
+- Our SDKMAN bootstrap uses `ci=true`, which disables `sdkman_selfupdate_feature`. `sdk selfupdate` then prints `Invalid command` but returns the help command's successful status. Respect the loaded setting and report an explicit skip; candidate metadata and upgrades remain independent.
+- pnpm's global executables live under `PNPM_HOME/bin`, while its launcher can live directly under `PNPM_HOME`. Keep both paths in Zsh. `upd` must repair its child PATH too because relinking the shell configuration does not reload an already open shell. Report failed pnpm inventory commands rather than suppressing stderr and treating failure as an empty package list.
 
 ---
 
