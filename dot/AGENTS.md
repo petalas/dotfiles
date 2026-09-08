@@ -14,3 +14,12 @@ harness's global instructions path by `link-dotfiles.sh`; Claude Code imports th
 ## Git commits
 
 - Before creating, amending, or proposing any commit, load the `commit-guidelines` skill and follow it.
+
+## Working with agents
+
+- No agent, including subagents, sends messages, posts comments or reviews, changes issues or
+  PRs, publishes, or pushes on my behalf. Prepare it locally; I send it. Pushing or publishing
+  happens only when I ask explicitly in the current conversation, never as a side effect of a
+  skill or agent.
+- Give parallel agents disjoint files. If one file must be shared, assign disjoint regions and use
+  targeted edits, never whole-file rewrites.
