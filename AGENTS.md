@@ -19,6 +19,7 @@ This project uses a routing table (below) to map file patterns to docs you must 
 installers/           # Individual tool installer scripts
 dot/                  # Config files symlinked to ~
   .config/            # App configs (XDG tools plus managed Obsidian vault settings)
+  AGENTS.md           # Global harness-neutral agent rules (linked into ~/.claude, ~/.codex, ~/.pi/agent, ~/.omp/agent)
   claude/             # Claude Code config (symlinked to ~/.claude/)
   zshrc               # Shell config
   gitconfig           # Git config
@@ -61,6 +62,7 @@ Before modifying code, find the matching file pattern and **read the linked doc 
 | `dot/.pi/**` | Pi's installed docs (`docs/extensions.md`, plus linked TUI docs) and [LEARNINGS.md](docs/LEARNINGS.md) — global extensions affect every project |
 | `dot/.omp/**` | OMP's installed configuration docs and [LEARNINGS.md](docs/LEARNINGS.md) — settings use managed YAML, not legacy Pi JSON |
 | `dot/claude/**` | This is GLOBAL Claude config — changes affect all projects |
+| `dot/AGENTS.md` | GLOBAL, harness-neutral agent instructions linked into Claude, Codex, Pi, and OMP — keep tool-specific rules out; Claude-only rules go in `dot/claude/CLAUDE.md` |
 | `link-dotfiles.sh` | Understand symlink structure before adding new dotfiles |
 | nvim config (`~/.config/nvim`) | [LEARNINGS.md](docs/LEARNINGS.md) — it's the **external `petalas/nvim` repo** (cloned, not symlinked); edit there, not under `dot/` |
 | Weird bug or unexpected behavior | [LEARNINGS.md](docs/LEARNINGS.md) — search for the symptom |

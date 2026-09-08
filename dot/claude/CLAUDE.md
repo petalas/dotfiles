@@ -1,4 +1,6 @@
-- Always use the ?? operator instead of || for setting default values (for example empty arrays)
+@~/.claude/AGENTS.md
+
+Harness-neutral rules (engineering-mode, defaults, commits) live in the imported `AGENTS.md`, shared with Codex, Pi, and OMP. Everything below is Claude Code specific.
 
 ## Agent Execution Model — Async & Parallel by Default
 
@@ -50,9 +52,6 @@ When multiple agents edit files simultaneously:
 - Repeating work an agent already did (e.g., re-reading files the agent summarized)
 - Spawning an agent for trivial single-file reads where you already know the path and just need a few lines
 - Running two agents that edit the same file — one will clobber the other
-
-## Git Commits
-- Do not add Co-Authored-By lines
 
 ## Knowledge System
 

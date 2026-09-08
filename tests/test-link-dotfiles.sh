@@ -40,6 +40,11 @@ grep -Fxq 'old: settings' "$fixture/home/.omp/agent/config.yml"
 [[ -L "$fixture/home/.pi/agent/themes/seashells-light.json" ]]
 [[ -L "$fixture/home/.omp/agent/themes/seashells.json" ]]
 [[ -L "$fixture/home/.omp/agent/themes/seashells-light.json" ]]
+for agents_link in .claude/AGENTS.md .codex/AGENTS.md .pi/agent/AGENTS.md .omp/agent/AGENTS.md; do
+    [[ -L "$fixture/home/$agents_link" ]]
+    [[ "$(readlink "$fixture/home/$agents_link")" == "$repo_dir/dot/AGENTS.md" ]]
+done
+grep -Fq '@~/.claude/AGENTS.md' "$fixture/home/.claude/CLAUDE.md"
 [[ "$(grep -Fxc 'config set theme.dark seashells' "$fixture/omp.log")" == 2 ]]
 [[ "$(grep -Fxc 'config set theme.light seashells-light' "$fixture/omp.log")" == 2 ]]
 [[ "$(grep -Fxc 'config set statusLine.sessionAccent false' "$fixture/omp.log")" == 2 ]]

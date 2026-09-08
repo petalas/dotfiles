@@ -152,6 +152,13 @@ chmod 600 "$ssh_config"
 # Claude Code global instructions and commands.
 mkdir -p "$HOME/.claude/commands"
 link_path "$dotfiles_dir/dot/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+
+# Harness-neutral global agent instructions. CLAUDE.md imports the Claude copy; the
+# other harnesses read their own global AGENTS.md path directly.
+for agents_target in "$HOME/.claude/AGENTS.md" "$HOME/.codex/AGENTS.md" \
+    "$HOME/.pi/agent/AGENTS.md" "$HOME/.omp/agent/AGENTS.md"; do
+    link_path "$dotfiles_dir/dot/AGENTS.md" "$agents_target"
+done
 if [[ -e "$dotfiles_dir/dot/claude/settings.json" ]]; then
     link_path "$dotfiles_dir/dot/claude/settings.json" "$HOME/.claude/settings.json"
 fi
