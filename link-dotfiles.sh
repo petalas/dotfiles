@@ -149,8 +149,7 @@ elif ! awk '
 fi
 chmod 600 "$ssh_config"
 
-# Claude Code global instructions and commands.
-mkdir -p "$HOME/.claude/commands"
+# Claude Code global instructions.
 link_path "$dotfiles_dir/dot/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
 
 # Harness-neutral global agent instructions. CLAUDE.md imports the Claude copy; the
@@ -162,7 +161,14 @@ done
 if [[ -e "$dotfiles_dir/dot/claude/settings.json" ]]; then
     link_path "$dotfiles_dir/dot/claude/settings.json" "$HOME/.claude/settings.json"
 fi
-while IFS= read -r -d '' command_file; do
-    command_name=$(basename "$command_file")
-    link_path "$command_file" "$HOME/.claude/commands/$command_name"
-done < <(find "$dotfiles_dir/dot/claude/commands" -maxdepth 1 -type f -name '*.md' -print0)
+
+# The knowledge-audit commands moved to project-local skills. Drop the links
+# older revisions created, but only when they still point into this repository.
+for retired_command in knowledge-audit.md knowledge-migrate-all.md; do
+    retired_link="$HOME/.claude/commands/$retired_command"
+    if [[ -L "$retired_link" ]] &&
+        [[ "$(readlink "$retired_link")" == "$dotfiles_dir/dot/claude/commands/"* ]]; then
+        rm -f "$retired_link"
+        echo "Removed retired command link: $retired_link"
+    fi
+done

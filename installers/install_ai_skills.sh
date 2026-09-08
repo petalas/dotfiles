@@ -86,15 +86,17 @@ load_ai_skills_catalog() {
 }
 
 # Targeted runtimes and the global skill root each one reads. `universal`
-# owns the canonical store; the others hold symlinks into it. See
-# docs/LEARNINGS.md "Global AI skill installs should target owned runtimes".
+# owns the canonical store; the others hold symlinks into it. Codex reads only
+# `$CODEX_HOME/skills` (default `~/.codex/skills`), never the universal store.
+# See docs/LEARNINGS.md "Global AI skill installs should target owned runtimes".
 ai_skill_global_agents() {
-    printf '%s\n' claude-code pi universal
+    printf '%s\n' claude-code codex pi universal
 }
 
 ai_skill_agent_root() {
     case "$1" in
         claude-code) printf '%s\n' "$HOME/.claude/skills" ;;
+        codex) printf '%s\n' "$HOME/.codex/skills" ;;
         pi) printf '%s\n' "$HOME/.pi/agent/skills" ;;
         universal) printf '%s\n' "$HOME/.agents/skills" ;;
         *) echo "Unknown AI skill agent: $1" >&2; return 1 ;;

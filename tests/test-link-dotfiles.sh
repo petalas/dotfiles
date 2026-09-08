@@ -9,6 +9,14 @@ mkdir -p "$fixture/bin" "$fixture/home/.ssh" "$fixture/home/.pi/agent" \
 printf '# Include ~/.ssh/config.shared\nHost example\n' >"$fixture/home/.ssh/config"
 printf '{"defaultModel":"test"}\n' >"$fixture/home/.pi/agent/settings.json"
 printf 'old: settings\n' >"$fixture/home/.omp/agent/config.yml"
+# Links older revisions created for the retired global commands, plus a
+# user-owned command that must survive the prune.
+mkdir -p "$fixture/home/.claude/commands"
+ln -s "$repo_dir/dot/claude/commands/knowledge-audit.md" \
+    "$fixture/home/.claude/commands/knowledge-audit.md"
+ln -s "$repo_dir/dot/claude/commands/knowledge-migrate-all.md" \
+    "$fixture/home/.claude/commands/knowledge-migrate-all.md"
+ln -s "$fixture/home/own-command.md" "$fixture/home/.claude/commands/own-command.md"
 cat >"$fixture/bin/omp" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$OMP_TEST_LOG"
@@ -45,6 +53,9 @@ for agents_link in .claude/AGENTS.md .codex/AGENTS.md .pi/agent/AGENTS.md .omp/a
     [[ "$(readlink "$fixture/home/$agents_link")" == "$repo_dir/dot/AGENTS.md" ]]
 done
 grep -Fq '@~/.claude/AGENTS.md' "$fixture/home/.claude/CLAUDE.md"
+[[ ! -L "$fixture/home/.claude/commands/knowledge-audit.md" ]]
+[[ ! -L "$fixture/home/.claude/commands/knowledge-migrate-all.md" ]]
+[[ -L "$fixture/home/.claude/commands/own-command.md" ]]
 [[ "$(grep -Fxc 'config set theme.dark seashells' "$fixture/omp.log")" == 2 ]]
 [[ "$(grep -Fxc 'config set theme.light seashells-light' "$fixture/omp.log")" == 2 ]]
 [[ "$(grep -Fxc 'config set statusLine.sessionAccent false' "$fixture/omp.log")" == 2 ]]

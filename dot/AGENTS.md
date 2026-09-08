@@ -11,12 +11,6 @@ harness's global instructions path by `link-dotfiles.sh`; Claude Code imports th
 - Skip it for throwaway scripts, one-off commands, pure config or documentation edits, and
   casual questions. A project's own instructions may narrow or disable it.
 
-## Code
-
-- Use the `??` operator instead of `||` for default values (for example empty arrays).
-
 ## Git commits
 
-- Use Conventional Commits.
-- Do not add `Co-Authored-By` or any other AI attribution to commits.
-- Commit only when asked.
+- Before creating, amending, or proposing any commit, load the `commit-guidelines` skill and follow it.
