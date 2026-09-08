@@ -76,7 +76,9 @@ From Zsh, run `upd`, or invoke the underlying command directly:
 ~/git/dotfiles/update-dotfiles
 ```
 
-It fast-forwards this repository, relinks managed files from the new revision, resolves the saved installation plan, reconciles selected missing software/state, then upgrades software already present, including deselected applications and installed OMP and Pi packages. Deselection never suppresses maintenance or triggers uninstallation. Independent failures are collected and reported at the end. The complete output is saved with mode 0600 in `${XDG_STATE_HOME:-~/.local/state}/dotfiles/latest-update.log`, and failed summaries repeat that path.
+It fast-forwards this repository, relinks managed files from the new revision, resolves the saved installation plan, reconciles selected missing software/state, then upgrades software already present, including deselected applications, installed OMP and Pi packages, and global AI agent skills. Deselection never suppresses maintenance or triggers uninstallation. Independent failures are collected and reported at the end. The complete output is saved with mode 0600 in `${XDG_STATE_HOME:-~/.local/state}/dotfiles/latest-update.log`, and failed summaries repeat that path.
+
+Global AI agent skills come from `catalog/ai-skills.tsv` (`source<TAB>skill`, sorted by source then skill; append `#<ref>` to a source to pin a branch, tag, or full commit). The `skills` CLI keeps the files in `~/.agents/skills` (the `universal` store shared by OMP, Codex, and Zed), symlinks them into `~/.claude/skills` and `~/.pi/agent/skills`, and records them in `~/.agents/.skill-lock.json`. A skill counts as installed only when the lock matches the catalog row and every root can read it; reconciliation, removal, and `upd` also prune links whose store entry no longer exists.
 
 Neovim updates sync the maintained `custom` branch and update its plugins. Pending Kickstart changes are reported for review; run `sync-nvim` explicitly to merge them. A failed configuration sync skips plugin updates and prints the reason. Generated setup failures are also named in the final update summary.
 

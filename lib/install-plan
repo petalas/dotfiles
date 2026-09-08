@@ -27,17 +27,9 @@ valid_id() {
     [[ "$1" =~ ^[a-z0-9][a-z0-9.-]*$ ]]
 }
 
-valid_ai_skill_source() {
-    case "$1" in
-        ''|-*|*[[:space:]]*) return 1 ;;
-        http://*|https://*|git@*:*|[A-Za-z0-9_.-]*/*) return 0 ;;
-        *) return 1 ;;
-    esac
-}
-
-valid_ai_skill_name() {
-    valid_id "$1"
-}
+# The AI skills module owns catalog validation, agent roots, and CLI calls.
+# shellcheck source=../installers/install_ai_skills.sh
+source "$root_dir/installers/install_ai_skills.sh"
 
 find_value_index() {
     local needle=$1
@@ -54,7 +46,7 @@ find_value_index() {
 }
 
 load_ai_skill_applications() {
-    local path line_number=0 source skill extra id prerequisite
+    local path skill_index skill id prerequisite
     ai_skill_sources=(); ai_skill_names=()
     path="$catalog_dir/ai-skills.tsv"
     [[ -r "$path" ]] || return 0
@@ -65,21 +57,16 @@ load_ai_skill_applications() {
     else
         prerequisite=
     fi
-    while IFS=$'\t' read -r source skill extra; do
-        line_number=$((line_number + 1))
-        [[ -n "$source$skill${extra:-}" ]] || continue
-        case "$source" in \#*) continue ;; esac
-        [[ -n "$source" && -n "$skill" && -z "${extra:-}" ]] ||
-            fail "malformed AI skills catalog row $line_number"
-        valid_ai_skill_source "$source" || fail "invalid AI skill source on row $line_number: $source"
-        valid_ai_skill_name "$skill" || fail "invalid AI skill name on row $line_number: $skill"
+    load_ai_skills_catalog "$path" || fail "invalid AI skills catalog: $path"
+    skill_index=0
+    while ((skill_index < ${#ai_skill_names[@]})); do
+        skill=${ai_skill_names[$skill_index]}
         id="ai-skills.$skill"
         find_value_index "$id" "${app_ids[@]}" >/dev/null 2>&1 && fail "duplicate application id: $id"
-        find_value_index "$skill" "${ai_skill_names[@]}" >/dev/null 2>&1 && fail "duplicate AI skill: $skill"
         app_ids+=("$id"); app_groups+=(ai-skills); app_labels+=("AI skill: $skill")
         app_states+=(on); app_prerequisites+=("$prerequisite")
-        ai_skill_sources+=("$source"); ai_skill_names+=("$skill")
-    done <"$path"
+        skill_index=$((skill_index + 1))
+    done
 }
 
 load_catalog() {
@@ -149,8 +136,8 @@ load_catalog() {
                 [[ -z "${action_option:-}" || "$action_option" == missing-only ]] ||
                     fail "invalid option for $action_kind on $id: $action_option" ;;
             ai-skill)
-                valid_ai_skill_source "$action_value" || fail "invalid AI skill source for $id: $action_value"
-                valid_ai_skill_name "${action_option:-}" || fail "invalid AI skill name for $id: ${action_option:-}" ;;
+                ai_skill_valid_source "$action_value" || fail "invalid AI skill source for $id: $action_value"
+                ai_skill_valid_name "${action_option:-}" || fail "invalid AI skill name for $id: ${action_option:-}" ;;
             *) fail "unsupported adapter $action_kind for $id" ;;
         esac
         action_apps+=("$id"); action_providers+=("$action_provider"); action_roles+=("$action_role")
@@ -922,10 +909,7 @@ inspect_action_version() {
     fi
 }
 
-ai_skill_lock_path() {
-    printf '%s\n' "${DOTFILES_AI_SKILLS_LOCK:-$HOME/.agents/.skill-lock.json}"
-}
-
+# Rows are `sourceUrl<TAB>skill<TAB>ref`; the lock omits `ref` for unpinned installs.
 write_ai_skill_inventory() {
     local output=$1 lock
     lock=$(ai_skill_lock_path)
@@ -937,8 +921,9 @@ const lockPath = process.argv[1];
 const data = JSON.parse(fs.readFileSync(lockPath, "utf8"));
 for (const [name, details] of Object.entries(data.skills || {})) {
   const sourceUrl = String((details && details.sourceUrl) || "");
+  const ref = String((details && details.ref) || "");
   if (sourceUrl && /^[a-z0-9][a-z0-9.-]*$/.test(name)) {
-    console.log(`${sourceUrl}\t${name}`);
+    console.log(`${sourceUrl}\t${name}\t${ref}`);
   }
 }
 ' "$lock" >"$output"
@@ -951,27 +936,34 @@ with open(sys.argv[1], encoding="utf-8") as fh:
     data = json.load(fh)
 for name, details in (data.get("skills") or {}).items():
     source_url = str((details or {}).get("sourceUrl") or "")
+    ref = str((details or {}).get("ref") or "")
     if source_url and re.match(r"^[a-z0-9][a-z0-9.-]*$", name):
-        print(f"{source_url}\t{name}")
+        print(f"{source_url}\t{name}\t{ref}")
 PY
     else
         return 1
     fi
 }
 
+# The lock must record the same repository and pinned ref as the catalog row.
 ai_skill_inventory_has() {
-    local source=$1 skill=$2 file=$3 row_source row_skill
+    local source=$1 skill=$2 file=$3 repo ref row_source row_skill row_ref
     [[ -r "$file" ]] || return 1
-    while IFS=$'\t' read -r row_source row_skill; do
-        if [[ "$row_skill" == "$skill" && "${row_source%.git}" == "${source%.git}" ]]; then
+    repo=$(ai_skill_source_repo "$source")
+    ref=$(ai_skill_source_ref "$source")
+    while IFS=$'\t' read -r row_source row_skill row_ref; do
+        if [[ "$row_skill" == "$skill" && "${row_source%.git}" == "$repo" && "${row_ref:-}" == "$ref" ]]; then
             return 0
         fi
     done <"$file"
     return 1
 }
 
+# Installed means recorded in the lock and readable from every targeted agent
+# root; a lock entry whose files or links are gone is reconciled again.
 ai_skill_is_installed() {
     local source=$1 skill=$2 temporary result=1
+    ai_skill_present "$skill" || return 1
     if [[ "$version_inventory_ready" == 1 ]] && inventory_known ai-skills-installed; then
         ai_skill_inventory_has "$source" "$skill" "$version_inventory_dir/ai-skills-installed"
         return $?
@@ -1695,9 +1687,8 @@ run_real_adapter() {
             npm-package) npm uninstall --global "$value" </dev/null; return ;;
             cargo-package) cargo uninstall "$value" </dev/null; return ;;
             ai-skill)
-                command -v npx >/dev/null 2>&1 || { echo "AI skills removal requires npx; install Node first." >&2; return 1; }
-                ensure_installers_loaded
-                remove_ai_skill_global "$option"; return ;;
+                remove_ai_skill_global "$option" || return 1
+                prune_ai_skill_links; return ;;
             *) echo "Unsupported exact removal adapter: $kind" >&2; return 1 ;;
         esac
     fi
@@ -1723,9 +1714,8 @@ run_real_adapter() {
             cargo install --locked "$value" </dev/null
             ;;
         ai-skill)
-            command -v npx >/dev/null 2>&1 || { echo "AI skills installation requires npx; install Node first." >&2; return 1; }
-            ensure_installers_loaded
-            install_ai_skill_batch "$value" "$option"
+            install_ai_skill_batch "$value" "$option" || return 1
+            prune_ai_skill_links
             ;;
         installer)
             ensure_installers_loaded
@@ -1835,14 +1825,17 @@ run_real_batch() {
                     [[ -z "$inventory" ]] || rm -f "$inventory"
                     return 1
                 fi
-                if [[ "$inventory_ready" != 1 ]] || ! ai_skill_inventory_has "$source" "$option" "$inventory"; then
+                if [[ "$inventory_ready" != 1 ]] || ! ai_skill_present "$option" ||
+                    ! ai_skill_inventory_has "$source" "$option" "$inventory"; then
                     source_skills+=("$option")
                 fi
             done <"$entries"
             if ((${#source_skills[@]})); then
-                ensure_installers_loaded
                 install_ai_skill_batch "$source" "${source_skills[@]}" || result=1
             fi
+            # Links left behind by skills that no longer exist in the store are
+            # pruned even when nothing needed installing.
+            prune_ai_skill_links
             [[ -z "$inventory" ]] || rm -f "$inventory"
             return "$result"
             ;;

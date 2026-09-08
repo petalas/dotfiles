@@ -68,18 +68,6 @@ record_missing() {
   failures+=("$1")
 }
 
-bunx_clean() {
-  local tmp=${TMPDIR:-/tmp}
-  rm -rf -- "${tmp%/}"/bunx-*(N)
-}
-
-update_skills() {
-  bunx skills update --global && return 0
-  print "Skills update failed; clearing Bun's temporary package cache and retrying."
-  bunx_clean
-  bunx skills update --global
-}
-
 bun_github_token() {
   if [[ -n ${GITHUB_TOKEN:-} ]]; then
     print -r -- "$GITHUB_TOKEN"
@@ -195,7 +183,12 @@ if [[ -f $nvim_helpers && -d $nvim_config/.git ]]; then
   fi
 fi
 
-(( $+commands[bunx] )) && run_step "global skills" update_skills
+skills_updater=$DOTFILES_ROOT/tools/update-ai-skills
+if [[ -x $skills_updater ]]; then
+  (( $+commands[npx] )) && run_step "global skills" "$skills_updater"
+else
+  record_missing "global skills" "$skills_updater"
+fi
 
 print
 if [[ -s $DOTFILES_UPDATE_FAILURES_FILE ]]; then

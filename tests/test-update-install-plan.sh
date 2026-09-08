@@ -74,9 +74,17 @@ printf 'bun upgrade\n' >>"$UPDATE_TEST_LOG"
 printf 'bun diagnostic stdout\n'
 printf 'bun diagnostic stderr\n' >&2
 EOF
+# The skills step runs the repository's updater tool only when npx exists.
+mkdir -p "$fixture/repo/tools"
+cat >"$fixture/repo/tools/update-ai-skills" <<'EOF'
+#!/usr/bin/env bash
+printf 'update-ai-skills\n' >>"$UPDATE_TEST_LOG"
+EOF
+printf '#!/usr/bin/env bash\nexit 0\n' >"$fixture/bin/npx"
 chmod +x "$fixture/repo/update-dotfiles" "$fixture/repo/link-dotfiles.sh" \
-    "$fixture/repo/lib/install-plan" "$fixture/bin/git" "$fixture/bin/gh" \
-    "$fixture/bin/pi" "$fixture/bin/omp" "$fixture/bin/bun"
+    "$fixture/repo/lib/install-plan" "$fixture/repo/tools/update-ai-skills" \
+    "$fixture/bin/git" "$fixture/bin/gh" "$fixture/bin/pi" "$fixture/bin/omp" \
+    "$fixture/bin/bun" "$fixture/bin/npx"
 
 mkdir -p "$fixture/home/.config/nvim/.git"
 cat >"$fixture/repo/lib/nvim-sync.sh" <<'EOF'
@@ -110,6 +118,7 @@ fi
 grep -Fxq 'bun upgrade' "$log"
 grep -Fxq 'pi update --all' "$log"
 grep -Fxq 'omp update' "$log"
+grep -Fxq 'update-ai-skills' "$log"
 grep -Fxq 'nvim plugins' "$log"
 managed_theme="$fixture/home/.config/ghostty/themes/seashells-light"
 [[ -L "$managed_theme" ]]

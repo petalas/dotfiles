@@ -238,15 +238,22 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 - `skills add --global --agent '*'` attempts every known target, including project-only agents without global skill directories. Mirroring the CLI's full supported-agent table also creates compatibility roots for products this repository does not install or configure.
 - Keep the explicit target list limited to `claude-code`, `pi`, and `universal`. `universal` owns the canonical `~/.agents/skills` store used by OMP, Codex, Zed, and other Agent Skills-compatible consumers; Claude Code and Pi require their dedicated global roots.
-- Cover the exact list and the absence of wildcard, Eve, and PromptScript arguments in `tests/test-ai-skills.sh`.
+- Cover the exact list and the absence of wildcard, Eve, and PromptScript arguments in `tests/test-ai-skills.sh`. The list, each agent's global root, and every `skills` CLI call live in `installers/install_ai_skills.sh`; `lib/install-plan` and `tools/update-ai-skills` source that module rather than re-implementing catalog parsing or the runner.
 
 ---
 
-## `bunx skills update --global` can reuse a corrupt temp install
+## `skills remove` can leave dangling links in `~/.claude/skills`
 
-- Symptom: the `upd` skills step fails with `ERR_MODULE_NOT_FOUND` for a dependency path under `$TMPDIR/bunx-*-skills@latest/node_modules/...`, e.g. `yaml/dist/index.js`.
-- Cause: `bunx` reuses per-package temp installs. If one is only partially extracted, package metadata can say the dependency exists while required files are missing on disk.
-- Fix: remove the bunx temp install and rerun. `dot/zshrc` has `bunx-clean` for manual cleanup, and `upd` retries the skills step once after running it automatically.
+- Symptom: Claude Code lists skills that were retired from `catalog/ai-skills.tsv` (e.g. `/tdd`, `/grill-me`), and `~/.claude/skills` holds broken symlinks into `~/.agents/skills` while `~/.pi/agent/skills` is clean.
+- Cause: the CLI removes the store entry and the lock record but does not reliably remove every agent root's symlink, and the lock alone said "installed", so nothing noticed.
+- Fix: `prune_ai_skill_links` removes dangling links that point into the store after every install, reconcile, removal, and `upd` skills step; `ai_skill_present` requires `SKILL.md` to be readable from each targeted root before a lock entry counts as installed. Links pointing anywhere else are never touched.
+
+---
+
+## Global skills use one runner: `npx skills`
+
+- `upd` used `bunx skills update --global` while installs used `npx`. `bunx` reuses per-package temp installs under `$TMPDIR/bunx-*`, and a partially extracted one fails with `ERR_MODULE_NOT_FOUND` (e.g. `yaml/dist/index.js`) until it is deleted.
+- `tools/update-ai-skills` now updates through the same `npx --yes skills` wrapper as installation, so Node is the only prerequisite and the retry-after-`bunx-clean` workaround is gone. `dot/zshrc` keeps `bunx-clean` for other Bun tools.
 
 ---
 

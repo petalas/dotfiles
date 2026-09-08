@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Update every global AI agent skill, then drop agent links whose skill no
+# longer exists. The Zsh updater calls this as a subprocess.
+set -euo pipefail
+
+root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+# shellcheck source=../installers/install_ai_skills.sh
+source "$root_dir/installers/install_ai_skills.sh"
+
+update_ai_skills_global
+prune_ai_skill_links
