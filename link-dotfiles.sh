@@ -58,16 +58,7 @@ link_path "$dotfiles_dir/dot/.pi/agent/themes/seashells.json" \
     "$pi_agent_dir/themes/seashells.json"
 link_path "$dotfiles_dir/dot/.pi/agent/themes/seashells-light.json" \
     "$pi_agent_dir/themes/seashells-light.json"
-pi_settings_tmp=$(mktemp "$pi_agent_dir/settings.json.XXXXXX")
-trap 'rm -f "$pi_settings_tmp"' EXIT
-if [[ -f "$pi_settings" ]]; then
-    jq '.theme = "seashells"' "$pi_settings" >"$pi_settings_tmp"
-else
-    jq -n '{theme: "seashells"}' >"$pi_settings_tmp"
-fi
-chmod 600 "$pi_settings_tmp"
-mv "$pi_settings_tmp" "$pi_settings"
-trap - EXIT
+merge_json_setting "$pi_settings" '.theme = "seashells"'
 
 # Agent theme palettes are pinned to odysseyalive/omarchy-seashells-theme@00dca31761374d5526790dd8a10271edbc6f9ec8.
 # OMP owns its YAML layout and merges each managed setting into the current
@@ -158,9 +149,9 @@ for agents_target in "$HOME/.claude/AGENTS.md" "$HOME/.codex/AGENTS.md" \
     "$HOME/.pi/agent/AGENTS.md" "$HOME/.omp/agent/AGENTS.md"; do
     link_path "$dotfiles_dir/dot/AGENTS.md" "$agents_target"
 done
-if [[ -e "$dotfiles_dir/dot/claude/settings.json" ]]; then
-    link_path "$dotfiles_dir/dot/claude/settings.json" "$HOME/.claude/settings.json"
-fi
+# Claude Code owns ~/.claude/settings.json (it writes theme and prompt state into
+# it), so the file stays machine-local and only the managed keys are merged in.
+merge_json_setting "$HOME/.claude/settings.json" '.autoMemoryEnabled = false'
 
 # The knowledge-audit commands moved to project-local skills. Drop the links
 # older revisions created, but only when they still point into this repository.

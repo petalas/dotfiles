@@ -68,3 +68,25 @@ link_path() {
 
     echo "Linked $source -> $target"
 }
+
+# Apply a jq FILTER to the JSON settings file TARGET in place, creating it when
+# missing. The application that owns TARGET keeps every other key; only what the
+# filter sets is managed here. The result is prepared in a temporary file, so a
+# file that is not valid JSON fails without truncating or replacing TARGET.
+merge_json_setting() {
+    local target="$1"
+    local filter="$2"
+    local tmp
+
+    mkdir -p "$(dirname "$target")"
+    tmp=$(mktemp "$target.XXXXXX")
+    trap 'rm -f "$tmp"' EXIT
+    if [[ -f "$target" ]]; then
+        jq "$filter" "$target" >"$tmp"
+    else
+        jq -n "$filter" >"$tmp"
+    fi
+    chmod 600 "$tmp"
+    mv "$tmp" "$target"
+    trap - EXIT
+}

@@ -8,6 +8,8 @@ mkdir -p "$fixture/bin" "$fixture/home/.ssh" "$fixture/home/.pi/agent" \
     "$fixture/home/.omp/agent" "$fixture/home/git/notes"
 printf '# Include ~/.ssh/config.shared\nHost example\n' >"$fixture/home/.ssh/config"
 printf '{"defaultModel":"test"}\n' >"$fixture/home/.pi/agent/settings.json"
+mkdir -p "$fixture/home/.claude"
+printf '{"theme":"dark"}\n' >"$fixture/home/.claude/settings.json"
 printf 'old: settings\n' >"$fixture/home/.omp/agent/config.yml"
 # Links older revisions created for the retired global commands, plus a
 # user-owned command that must survive the prune.
@@ -42,6 +44,9 @@ jq -e '.alwaysUpdateLinks == true' \
 jq -e '.theme == "seashells" and .defaultModel == "test"' \
     "$fixture/home/.pi/agent/settings.json" >/dev/null
 [[ "$(stat -c '%a' "$fixture/home/.pi/agent/settings.json" 2>/dev/null || stat -f '%Lp' "$fixture/home/.pi/agent/settings.json")" == 600 ]]
+jq -e '.autoMemoryEnabled == false and .theme == "dark"' \
+    "$fixture/home/.claude/settings.json" >/dev/null
+[[ ! -L "$fixture/home/.claude/settings.json" ]]
 grep -Fxq 'old: settings' "$fixture/home/.omp/agent/config.yml"
 [[ ! -L "$fixture/home/.omp/agent/config.yml" ]]
 [[ -L "$fixture/home/.pi/agent/themes/seashells.json" ]]
