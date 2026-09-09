@@ -55,6 +55,14 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## ChatGPT replaces the Codex desktop cask
+
+- Homebrew deprecated `codex-app` on 2026-07-12 with `chatgpt` as its replacement. An existing `Codex.app` can update itself into the unified ChatGPT app while retaining its old bundle path. Installing `chatgpt` alongside it creates two copies with the same `com.openai.codex` identifier; Homebrew upgrading `ChatGPT.app` does not update `Codex.app`.
+- Keep the stable catalog ID `ai.codex-app` so saved selections survive, but use the `chatgpt` cask for installation and removal. The Codex CLI remains separate.
+- Remove an existing duplicate with `brew uninstall --cask codex-app` after quitting the desktop app. Never add `--zap`: both copies share Codex settings, tasks, and support data. Reopen `/Applications/ChatGPT.app` afterward.
+
+---
+
 ## Homebrew package name collisions
 
 - `maestro` on Homebrew splits into two completely unrelated projects:

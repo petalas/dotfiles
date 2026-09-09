@@ -100,7 +100,7 @@ desktop.stats	desktop	Stats	on
 desktop.integration	desktop	Desktop integration helpers	on
 ai.claude-code	ai	Claude Code	on
 ai.codex-cli	ai	Codex CLI	on	languages.node
-ai.codex-app	ai	Codex app	on
+ai.codex-app	ai	ChatGPT (includes Codex)	on
 ai.herdr	ai	Herdr	on
 ai.lm-studio	ai	LM Studio	on
 ai.omp	ai	Oh My Pi (OMP)	on	languages.bun

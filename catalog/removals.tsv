@@ -66,7 +66,7 @@ macos	creative.gimp	brew-cask	gimp
 macos	creative.qbittorrent	brew-cask	qbittorrent
 macos	creative.spotify	brew-cask	spotify
 macos	creative.vlc	brew-cask	vlc
-macos	ai.codex-app	brew-cask	codex-app
+macos	ai.codex-app	brew-cask	chatgpt
 macos	editors.dbeaver	brew-cask	dbeaver-community
 macos	editors.sublime	brew-cask	sublime-text
 macos	editors.t3-code	brew-cask	t3-code

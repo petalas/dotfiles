@@ -79,7 +79,7 @@ creative.gimp	brew	payload	brew-cask	gimp
 creative.qbittorrent	brew	payload	brew-cask	qbittorrent
 creative.spotify	brew	payload	brew-cask	spotify
 creative.vlc	brew	payload	brew-cask	vlc
-ai.codex-app	brew	payload	brew-cask	codex-app
+ai.codex-app	brew	payload	brew-cask	chatgpt
 editors.dbeaver	brew	payload	brew-cask	dbeaver-community
 editors.sublime	brew	payload	brew-cask	sublime-text
 editors.t3-code	brew	payload	brew-cask	t3-code
