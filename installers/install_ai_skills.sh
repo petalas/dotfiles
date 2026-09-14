@@ -50,10 +50,11 @@ _ai_skill_value_seen() {
     return 1
 }
 
-# Load `source<TAB>skill` rows into ai_skill_sources/ai_skill_names. Blank
-# lines and `#` comments are ignored; malformed or duplicate rows fail.
+# Load `source<TAB>skill` rows from the catalog at $1 into
+# ai_skill_sources/ai_skill_names. Blank lines and `#` comments are ignored;
+# malformed or duplicate rows fail.
 load_ai_skills_catalog() {
-    local catalog=${1:-$(ai_skills_catalog_path)} line_number=0 source skill extra
+    local catalog=$1 line_number=0 source skill extra
     ai_skill_sources=()
     ai_skill_names=()
     [[ -r "$catalog" ]] || {
@@ -201,7 +202,7 @@ update_ai_skills_global() {
 install_ai_skills() {
     local index source skill_index result=0
     local -a handled_sources source_skills
-    load_ai_skills_catalog || return 1
+    load_ai_skills_catalog "$(ai_skills_catalog_path)" || return 1
     if ((${#ai_skill_names[@]} == 0)); then
         echo "AI skills catalog is empty: $(ai_skills_catalog_path)" >&2
         return 1
