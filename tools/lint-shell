@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Lint and syntax-check the repository's shell scripts. CI, the pre-commit hook,
+# and developers run this same entry point so a lint failure reproduces locally.
+#
+# Usage: tools/lint-shell [FILE...]
+#   With no arguments, checks every tracked shell script. With arguments, checks
+#   only those files (the pre-commit hook passes the staged set).
+#   SHELLCHECK=/path/to/shellcheck selects a specific ShellCheck binary; the
+#   GitHub runner ships an older release than Homebrew, and older releases can
+#   report warnings that newer ones suppress.
+set -euo pipefail
+
+root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$root_dir"
+
+shellcheck_bin=${SHELLCHECK:-shellcheck}
+bash_scripts=(install lib/install-plan tools/generate-brewfile tools/lint-shell tools/run-install-tui .githooks/pre-commit)
+zsh_scripts=(dot/zshrc update-dotfiles)
+
+is_bash_script() {
+    local file=$1 candidate
+    case "$file" in *.sh) return 0 ;; esac
+    for candidate in "${bash_scripts[@]}"; do [[ "$file" == "$candidate" ]] && return 0; done
+    return 1
+}
+
+is_zsh_script() {
+    local file=$1 candidate
+    case "$file" in dot/*.zsh) return 0 ;; esac
+    for candidate in "${zsh_scripts[@]}"; do [[ "$file" == "$candidate" ]] && return 0; done
+    return 1
+}
+
+bash_files=()
+zsh_files=()
+if (($#)); then
+    for file in "$@"; do
+        if is_bash_script "$file"; then bash_files+=("$file")
+        elif is_zsh_script "$file"; then zsh_files+=("$file"); fi
+    done
+else
+    while IFS= read -r -d '' file; do bash_files+=("$file"); done < <(git ls-files -z '*.sh')
+    bash_files+=("${bash_scripts[@]}")
+    zsh_files=("${zsh_scripts[@]}")
+    while IFS= read -r -d '' file; do zsh_files+=("$file"); done < <(git ls-files -z 'dot/*.zsh')
+fi
+
+status=0
+if ((${#bash_files[@]})); then
+    if command -v "$shellcheck_bin" >/dev/null 2>&1; then
+        echo "[lint-shell] ShellCheck $("$shellcheck_bin" --version | awk '/^version:/ {print $2}'): ${#bash_files[@]} Bash files"
+        "$shellcheck_bin" --severity=warning --exclude=SC1090 "${bash_files[@]}" || status=1
+    else
+        echo "[lint-shell] shellcheck not installed; skipping ShellCheck." >&2
+    fi
+    for file in "${bash_files[@]}"; do bash -n "$file" || status=1; done
+fi
+if ((${#zsh_files[@]})); then
+    if command -v zsh >/dev/null 2>&1; then
+        zsh -n "${zsh_files[@]}" || status=1
+    else
+        echo "[lint-shell] zsh not installed; skipping Zsh syntax check." >&2
+    fi
+fi
+exit "$status"

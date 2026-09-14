@@ -144,6 +144,11 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - A trusted test plan skips live post-operation inspection; it does not suppress unrelated Ensure adapters in the same prepared run. Tests for absent-removal no-ops must assert that no `remove`/`force` adapter was invoked, not that the entire adapter log is absent.
 - A few happy-path transition examples are insufficient because availability, four presence values, three desired outcomes, and two removal capabilities are independent axes. Keep a literal 24-row availability × presence × outcome matrix at the interactive render seam, plus a 16-case presence × exact/cleanup capability matrix and separate required/retained/group tests. Literal expected transitions avoid reproducing the implementation algorithm inside the test.
 
+## CI shell lint and live smoke checks must be reproducible from one local entry point
+
+- GitHub's Ubuntu runner ships ShellCheck 0.9.0 while Homebrew ships 0.11.0, and the older release still reports SC2120 for a function whose only in-file caller relies on a `${1:-default}` parameter. Pass the argument explicitly at every call site instead of defaulting inside the function. `tools/lint-shell` is the single lint entry point for CI, `.githooks/pre-commit`, and developers; set `SHELLCHECK=/path/to/shellcheck-v0.9.0/shellcheck` (a release tarball from koalaman/shellcheck) to reproduce the runner's verdict before pushing.
+- The scheduled macOS inspection smoke must derive its expected application set from every catalog source the plan loads. It counted only `catalog/applications.tsv` rows and failed weekly, without diagnostics, once AI skills joined the inspection plan. `tests/live/test-macos-inspection.sh` now owns that check, prints the progress tail and the id diff on failure, and runs read-only on a developer Mac through the verified release binary.
+
 ## GitHub Action runtimes come from each action, not setup-node
 
 - `actions/checkout@v4` declares `using: node20` in its own `action.yml`. GitHub-hosted runners may temporarily force that action onto Node 24, but emit a deprecation warning on every job.
