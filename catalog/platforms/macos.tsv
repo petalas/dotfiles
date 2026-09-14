@@ -5,6 +5,7 @@ foundation.locale	provided	payload	provided	locale
 foundation.locale	provided	effect	installer	locale
 foundation.archives	provided	payload	provided	tar unzip zip
 terminal.zsh	provided	payload	provided	zsh
+containers.act	brew	payload	brew-formula	act
 cli.aria2	brew	payload	brew-formula	aria2
 terminal.bash	brew	payload	brew-formula	bash
 cli.bat	brew	payload	brew-formula	bat

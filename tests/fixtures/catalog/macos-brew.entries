@@ -1,3 +1,4 @@
+brew "act"
 brew "aria2"
 brew "bash"
 brew "bat"

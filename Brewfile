@@ -4,6 +4,7 @@
 #
 # This full artifact supports direct Homebrew inspection and cleanup. Normal
 # installation and reconciliation materialize only the selected declarations.
+brew "act"
 brew "aria2"
 brew "bash"
 brew "bat"

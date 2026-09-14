@@ -1,3 +1,4 @@
+macos	containers.act	brew-formula	act
 macos	cli.aria2	brew-formula	aria2
 macos	terminal.bash	brew-formula	bash
 macos	cli.bat	brew-formula	bat
@@ -213,6 +214,7 @@ debian	development.tree-sitter	cargo-package	tree-sitter-cli	missing-only
 debian	development.cargo-edit	cargo-package	cargo-edit	missing-only
 debian	development.wasm-bindgen	cargo-package	wasm-bindgen-cli	missing-only
 debian	development.watchexec	cargo-package	watchexec-cli	missing-only
+arch	containers.act	pacman-package	act
 arch	terminal.mosh	pacman-package	mosh
 arch	terminal.tmux	pacman-package	tmux
 arch	terminal.zsh	pacman-package	zsh
@@ -355,6 +357,7 @@ ubuntu	communication.chrome	managed-file	/etc/apt/sources.list.d/google-chrome.l
 ubuntu	editors.code	managed-file	/etc/apt/sources.list.d/vscode.list	deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main
 debian	communication.chrome	managed-file	/etc/apt/sources.list.d/google-chrome.list	deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main
 debian	editors.code	managed-file	/etc/apt/sources.list.d/vscode.list	deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main
+macos	containers.act	retain	~/.actrc	user-data
 macos	productivity.bitwarden	retain	~/Library/Application Support/Bitwarden	user-data
 macos	communication.chrome	retain	~/Library/Application Support/Google/Chrome	user-data
 macos	editors.code	retain	~/Library/Application Support/Code	user-data
@@ -430,6 +433,7 @@ debian	languages.uv	retain	~/.local/share/uv	user-data
 debian	languages.uv	retain	~/.config/uv	user-data
 debian	editors.zed	retain	~/.config/zed	user-data
 debian	editors.zed	retain	~/.local/share/zed	user-data
+arch	containers.act	retain	~/.actrc	user-data
 arch	productivity.bitwarden	retain	~/.config/Bitwarden	user-data
 arch	communication.chrome	retain	~/.config/google-chrome	user-data
 arch	editors.code	retain	~/.config/Code	user-data

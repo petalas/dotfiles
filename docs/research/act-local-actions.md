@@ -14,7 +14,7 @@ The stock medium runner image is intentionally smaller than a GitHub-hosted runn
 
 ## Usage
 
-Install `act` using an official method, ensure Docker is running, then execute:
+Install `act` through the visual installer's Containers group (Homebrew on macOS, pacman on Arch; Debian and Ubuntu have no first-party package) or another official method, ensure Docker is running, then execute:
 
 ```sh
 ./tools/run-act
