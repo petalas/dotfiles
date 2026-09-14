@@ -42,10 +42,17 @@ tests=(
     tests/test-zsh-startup.sh
 )
 
+# Tests are `set -e` scripts full of bare assertions such as `grep -q`, so a
+# failure would otherwise exit silently. Source each test inside a shell whose
+# ERR trap names the file, line, and command that failed.
+run_test() {
+    bash -c 'set -o errtrace; trap '"'"'echo "assertion failed at ${BASH_SOURCE[0]}:${LINENO}: ${BASH_COMMAND}" >&2'"'"' ERR; . "$0"' "$1"
+}
+
 failures=()
 for test_file in "${tests[@]}"; do
     printf '\n==> %s\n' "$test_file"
-    if ! "$test_file"; then
+    if ! run_test "$test_file"; then
         failures+=("$test_file")
     fi
 done

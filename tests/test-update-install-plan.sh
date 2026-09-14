@@ -132,10 +132,17 @@ export PNPM_HOME="$fixture/home/custom pnpm"
 
 log="$fixture/update.log"
 zsh_bin=$(command -v zsh)
-if ! env -u GITHUB_TOKEN -u GITHUB_ACCESS_TOKEN -u GH_TOKEN \
-    UPDATE_TEST_LOG="$log" DOTFILES_DIR="$fixture/repo" HOME="$fixture/home" \
-    XDG_STATE_HOME="$fixture/state" SDKMAN_DIR="$fixture/home/.sdkman" PATH="$fixture/bin:/bin:/usr/bin" \
-    "$zsh_bin" "$fixture/repo/update-dotfiles" >"$fixture/out" 2>"$fixture/err"; then
+# Run the updater against the fixture only. Every location the updater derives
+# from the environment is pinned here; GitHub's Ubuntu runners export
+# XDG_CONFIG_HOME, so overriding HOME alone would leave the Neovim fixture
+# unreachable. Extra VAR=value arguments select a scenario.
+run_updater() {
+    env -u GITHUB_TOKEN -u GITHUB_ACCESS_TOKEN -u GH_TOKEN \
+        DOTFILES_DIR="$fixture/repo" HOME="$fixture/home" XDG_CONFIG_HOME="$fixture/home/.config" \
+        SDKMAN_DIR="$fixture/home/.sdkman" PATH="$fixture/bin:/bin:/usr/bin" "$@" \
+        "$zsh_bin" "$fixture/repo/update-dotfiles"
+}
+if ! run_updater UPDATE_TEST_LOG="$log" XDG_STATE_HOME="$fixture/state" >"$fixture/out" 2>"$fixture/err"; then
     cat "$fixture/out" >&2
     cat "$fixture/err" >&2
     exit 1
@@ -186,10 +193,7 @@ fi
 # Without credentials, Bun is skipped rather than consuming GitHub's anonymous
 # API quota or failing the otherwise healthy update.
 no_auth_log="$fixture/no-auth-commands.log"
-if ! env -u GITHUB_TOKEN -u GITHUB_ACCESS_TOKEN -u GH_TOKEN \
-    GH_TEST_MODE=no-auth UPDATE_TEST_LOG="$no_auth_log" DOTFILES_DIR="$fixture/repo" HOME="$fixture/home" \
-    XDG_STATE_HOME="$fixture/no-auth-state" SDKMAN_DIR="$fixture/home/.sdkman" \
-    PATH="$fixture/bin:/bin:/usr/bin" "$zsh_bin" "$fixture/repo/update-dotfiles" \
+if ! run_updater GH_TEST_MODE=no-auth UPDATE_TEST_LOG="$no_auth_log" XDG_STATE_HOME="$fixture/no-auth-state" \
     >"$fixture/no-auth-out" 2>"$fixture/no-auth-err"; then
     cat "$fixture/no-auth-out" >&2
     cat "$fixture/no-auth-err" >&2
@@ -204,11 +208,8 @@ grep -Fq "Skipping Bun upgrade to avoid GitHub's anonymous API rate limit." "$fi
 # A failed step keeps its diagnostics and repeats the log path beside the final
 # failure summary.
 failure_state="$fixture/failure-state"
-if env -u GITHUB_TOKEN -u GITHUB_ACCESS_TOKEN -u GH_TOKEN \
-    PLAN_APPLY_FAIL=1 NVIM_SYNC_FAIL=1 UPDATE_TEST_LOG="$fixture/failure-commands.log" \
-    DOTFILES_DIR="$fixture/repo" HOME="$fixture/home" XDG_STATE_HOME="$failure_state" \
-    SDKMAN_DIR="$fixture/home/.sdkman" PATH="$fixture/bin:/bin:/usr/bin" \
-    "$zsh_bin" "$fixture/repo/update-dotfiles" >"$fixture/failure-out" 2>"$fixture/failure-err"; then
+if run_updater PLAN_APPLY_FAIL=1 NVIM_SYNC_FAIL=1 UPDATE_TEST_LOG="$fixture/failure-commands.log" \
+    XDG_STATE_HOME="$failure_state" >"$fixture/failure-out" 2>"$fixture/failure-err"; then
     echo "Expected a failed reconciliation to fail the updater" >&2
     exit 1
 fi
@@ -225,11 +226,8 @@ fi
 
 # Enabled self-updates run, and both tool failures reach the final summary.
 printf 'sdkman_selfupdate_feature=true\nsdkman_auto_answer=true\n' >"$fixture/home/.sdkman/etc/config"
-if env -u GITHUB_TOKEN -u GITHUB_ACCESS_TOKEN -u GH_TOKEN \
-    SDK_TEST_FAIL=selfupdate PNPM_TEST_FAIL=list UPDATE_TEST_LOG="$fixture/tool-failures.log" \
-    DOTFILES_DIR="$fixture/repo" HOME="$fixture/home" XDG_STATE_HOME="$fixture/tool-failures-state" \
-    SDKMAN_DIR="$fixture/home/.sdkman" PATH="$fixture/bin:/bin:/usr/bin" \
-    "$zsh_bin" "$fixture/repo/update-dotfiles" >"$fixture/tool-failures-out" 2>"$fixture/tool-failures-err"; then
+if run_updater SDK_TEST_FAIL=selfupdate PNPM_TEST_FAIL=list UPDATE_TEST_LOG="$fixture/tool-failures.log" \
+    XDG_STATE_HOME="$fixture/tool-failures-state" >"$fixture/tool-failures-out" 2>"$fixture/tool-failures-err"; then
     echo 'Expected SDKMAN and pnpm failures to fail the updater' >&2
     exit 1
 fi
