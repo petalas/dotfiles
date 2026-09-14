@@ -145,8 +145,8 @@ alias yt-dlp-best="yt-dlp --external-downloader=aria2c --external-downloader-arg
 alias fastfetch-now='fastfetch'
 alias lazygit-now='lazygit'
 alias highlight='rg --passthrough'
-alias claude-unsafe='claude --dangerously-skip-permissions'
-alias codex-unsafe='codex --dangerously-bypass-approvals-and-sandbox'
+alias c='claude --dangerously-skip-permissions'
+alias cdx='codex --dangerously-bypass-approvals-and-sandbox'
 
 docker-remove-all() {
   local -a containers
