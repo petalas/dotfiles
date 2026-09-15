@@ -61,52 +61,14 @@ link_path "$dotfiles_dir/dot/.pi/agent/themes/seashells-light.json" \
 merge_json_setting "$pi_settings" '.theme = "seashells"'
 
 # Agent theme palettes are pinned to odysseyalive/omarchy-seashells-theme@00dca31761374d5526790dd8a10271edbc6f9ec8.
-# OMP owns its YAML layout and merges each managed setting into the current
-# root config, leaving settings outside this contract untouched.
+# Link only preferences; credentials, sessions, and databases stay machine-local.
 omp_agent_dir="$HOME/.omp/agent"
-omp_config="$omp_agent_dir/config.yml"
+link_path "$dotfiles_dir/dot/.omp/agent/config.yml" "$omp_agent_dir/config.yml"
 mkdir -p "$omp_agent_dir/themes"
 link_path "$dotfiles_dir/dot/.omp/agent/themes/seashells.json" \
     "$omp_agent_dir/themes/seashells.json"
 link_path "$dotfiles_dir/dot/.omp/agent/themes/seashells-light.json" \
     "$omp_agent_dir/themes/seashells-light.json"
-
-# Older revisions linked this path to the tracked template. Materialize its
-# current contents before OMP's atomic partial-save so no write can reach Git.
-omp_tracked_config="$dotfiles_dir/dot/.omp/agent/config.yml"
-if [[ -L "$omp_config" ]] && [[ "$omp_config" -ef "$omp_tracked_config" ]]; then
-    omp_config_tmp=$(mktemp "$omp_agent_dir/config.yml.XXXXXX")
-    trap 'rm -f "$omp_config_tmp"' EXIT
-    cp "$omp_config" "$omp_config_tmp"
-    chmod 600 "$omp_config_tmp"
-    mv "$omp_config_tmp" "$omp_config"
-    trap - EXIT
-fi
-
-if command -v omp >/dev/null 2>&1; then
-    omp config set theme.dark seashells </dev/null >/dev/null
-    omp config set theme.light seashells-light </dev/null >/dev/null
-    omp config set setupVersion 2 </dev/null >/dev/null
-    omp_model_roles=$(
-        omp config get modelRoles --json |
-            jq -c '.value + {
-                default: "openai-codex/gpt-5.6-sol:medium",
-                smol: "openai-codex/gpt-5.6-luna:max",
-                slow: "openai-codex/gpt-5.6-sol:xhigh"
-            }'
-    )
-    omp config set modelRoles "$omp_model_roles" </dev/null >/dev/null
-    omp config set tui.codexResetFireworks true </dev/null >/dev/null
-    omp config set tui.tight false </dev/null >/dev/null
-    omp config set statusLine.sessionAccent false </dev/null >/dev/null
-    omp config set display.showTokenUsage true </dev/null >/dev/null
-    omp config set symbolPreset nerd </dev/null >/dev/null
-elif [[ ! -e "$omp_config" ]]; then
-    cp "$dotfiles_dir/dot/.omp/agent/config.yml" "$omp_config"
-    chmod 600 "$omp_config"
-else
-    printf 'OMP is not on PATH; preserving existing %s unchanged.\n' "$omp_config" >&2
-fi
 
 link_obsidian_vault_settings "$dotfiles_dir"
 

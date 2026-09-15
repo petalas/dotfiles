@@ -4,7 +4,11 @@ set -euo pipefail
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 fixture=$(mktemp -d /tmp/dotfiles-link-all.XXXXXX)
 trap 'rm -rf "$fixture"' EXIT
-mkdir -p "$fixture/bin" "$fixture/home/.ssh" "$fixture/home/.pi/agent" \
+# Writes through linked preferences must never touch the real checkout.
+git init -q "$fixture/repo"
+cp -R "$repo_dir/dot" "$repo_dir/lib" "$repo_dir/link-dotfiles.sh" "$fixture/repo/"
+repo_dir="$fixture/repo"
+mkdir -p "$fixture/home/.ssh" "$fixture/home/.pi/agent" \
     "$fixture/home/.omp/agent" "$fixture/home/git/notes"
 printf '# Include ~/.ssh/config.shared\nHost example\n' >"$fixture/home/.ssh/config"
 printf '{"defaultModel":"test"}\n' >"$fixture/home/.pi/agent/settings.json"
@@ -19,18 +23,8 @@ ln -s "$repo_dir/dot/claude/commands/knowledge-audit.md" \
 ln -s "$repo_dir/dot/claude/commands/knowledge-migrate-all.md" \
     "$fixture/home/.claude/commands/knowledge-migrate-all.md"
 ln -s "$fixture/home/own-command.md" "$fixture/home/.claude/commands/own-command.md"
-cat >"$fixture/bin/omp" <<'EOF'
-#!/usr/bin/env bash
-printf '%s\n' "$*" >>"$OMP_TEST_LOG"
-if [[ "$1 $2 $3" == 'config get modelRoles' ]]; then
-    printf '{"value":{"keep":"yes"}}\n'
-fi
-EOF
-chmod +x "$fixture/bin/omp"
-: >"$fixture/omp.log"
-
 for _ in 1 2; do
-    HOME="$fixture/home" PATH="$fixture/bin:/usr/bin:/bin" OMP_TEST_LOG="$fixture/omp.log" \
+    HOME="$fixture/home" PATH="/usr/bin:/bin" \
         "$repo_dir/link-dotfiles.sh"
 done
 
@@ -47,8 +41,10 @@ jq -e '.theme == "seashells" and .defaultModel == "test"' \
 jq -e '.autoMemoryEnabled == false and .theme == "dark"' \
     "$fixture/home/.claude/settings.json" >/dev/null
 [[ ! -L "$fixture/home/.claude/settings.json" ]]
-grep -Fxq 'old: settings' "$fixture/home/.omp/agent/config.yml"
-[[ ! -L "$fixture/home/.omp/agent/config.yml" ]]
+grep -Fxq 'old: settings' "$fixture/home/.omp/agent/config.yml.old"
+[[ -L "$fixture/home/.omp/agent/config.yml" ]]
+[[ "$(readlink "$fixture/home/.omp/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config.yml" ]]
+[[ ! -L "$fixture/home/.omp/agent" ]]
 [[ -L "$fixture/home/.pi/agent/themes/seashells.json" ]]
 [[ -L "$fixture/home/.pi/agent/themes/seashells-light.json" ]]
 [[ -L "$fixture/home/.omp/agent/themes/seashells.json" ]]
@@ -61,15 +57,20 @@ grep -Fq '@~/.claude/AGENTS.md' "$fixture/home/.claude/CLAUDE.md"
 [[ ! -L "$fixture/home/.claude/commands/knowledge-audit.md" ]]
 [[ ! -L "$fixture/home/.claude/commands/knowledge-migrate-all.md" ]]
 [[ -L "$fixture/home/.claude/commands/own-command.md" ]]
-[[ "$(grep -Fxc 'config set theme.dark seashells' "$fixture/omp.log")" == 2 ]]
-[[ "$(grep -Fxc 'config set theme.light seashells-light' "$fixture/omp.log")" == 2 ]]
-[[ "$(grep -Fxc 'config set statusLine.sessionAccent false' "$fixture/omp.log")" == 2 ]]
-grep -Fq 'config set modelRoles {"keep":"yes","default":"openai-codex/gpt-5.6-sol:medium","smol":"openai-codex/gpt-5.6-luna:max","slow":"openai-codex/gpt-5.6-sol:xhigh"}' \
-    "$fixture/omp.log"
 
 # Linking is local-only: generated repositories and plugin directories are not created.
 [[ ! -e "$fixture/home/.config/nvim" ]]
 [[ ! -e "$fixture/home/.tmux/plugins/tpm" ]]
+
+# Edits through OMP's path reach Git and survive relinking without old defaults.
+printf 'modelRoles:\n  default: openai-codex/gpt-6-astra:high\n' \
+    >"$fixture/home/.omp/agent/config.yml"
+grep -Fxq '  default: openai-codex/gpt-6-astra:high' \
+    "$repo_dir/dot/.omp/agent/config.yml"
+HOME="$fixture/home" PATH="/usr/bin:/bin" "$repo_dir/link-dotfiles.sh"
+grep -Fxq '  default: openai-codex/gpt-6-astra:high' \
+    "$repo_dir/dot/.omp/agent/config.yml"
+grep -Fxq 'old: settings' "$fixture/home/.omp/agent/config.yml.old"
 
 # Invalid Pi JSON fails without truncating or replacing the original file.
 printf '{invalid json\n' >"$fixture/home/.pi/agent/settings.json"
