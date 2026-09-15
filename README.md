@@ -133,11 +133,11 @@ With `modelRoleStorage: project`, role changes go to that project's `.omp/config
 
 ### OMP in Zed
 
-The linker symlinks `dot/.config/zed/settings.json` to `~/.config/zed/settings.json`, managing Zed preferences and an `OMP` [custom ACP agent](https://zed.dev/docs/ai/external-agents#custom-agents). Existing settings are backed up as `settings.json.old` on first linking; review that backup for machine-specific preferences. Other Zed state stays local.
+The linker symlinks `dot/.config/zed/settings.json` to `~/.config/zed/settings.json`, managing Zed preferences and three OMP [custom ACP agents](https://zed.dev/docs/ai/external-agents#custom-agents). Existing settings are backed up as `settings.json.old` on first linking; review that backup for machine-specific preferences. Other Zed state stays local.
 
-Open Zed's Agent Panel and select `OMP` from the new-thread menu. Zed starts `omp acp` using its project environment's `PATH`, so the installed `omp` command must be available there. OMP uses its own provider credentials and model configuration; no separate ACP adapter or Zed API key is needed. Zed detects settings changes automatically. Use `dev: open acp logs` from the command palette to troubleshoot the connection.
+Open Zed's Agent Panel and select `OMP`, `OMP Work`, or `OMP Cheap` from the new-thread menu. They launch `omp --profile default acp --auto-approve`, `omp --profile work acp --auto-approve`, and `omp --profile cheap acp --auto-approve`, respectively. Zed finds `omp` through its project environment's `PATH`. Each OMP profile owns its provider authentication and model configuration; no separate ACP adapter or Zed API key is needed. Zed detects settings changes automatically. Use `dev: open acp logs` from the command palette to troubleshoot the connection.
 
-The existing Zed launcher uses default unless Zed's process environment sets `OMP_PROFILE`. It does not select work or cheap automatically.
+Every entry passes an explicit `--profile`, so an inherited `OMP_PROFILE` cannot change its selection. All three enable automatic tool approval with `--auto-approve`. Model roles remain in the OMP profile YAML files, not in Zed settings. Authenticate separately in each profile, and select the intended agent when creating a new thread.
 
 ## Notes
 

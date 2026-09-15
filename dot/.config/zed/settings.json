@@ -3,7 +3,17 @@
     "OMP": {
       "type": "custom",
       "command": "omp",
-      "args": ["acp"]
+      "args": ["--profile", "default", "acp", "--auto-approve"]
+    },
+    "OMP Work": {
+      "type": "custom",
+      "command": "omp",
+      "args": ["--profile", "work", "acp", "--auto-approve"]
+    },
+    "OMP Cheap": {
+      "type": "custom",
+      "command": "omp",
+      "args": ["--profile", "cheap", "acp", "--auto-approve"]
     }
   },
   "diff_view_style": "split",
