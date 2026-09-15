@@ -104,6 +104,12 @@ After changing these choices in OMP:
 
 This covers global settings in the default OMP profile. With `modelRoleStorage: project`, role changes go to that project's `.omp/config.yml` instead; named profiles also have separate config paths. Keep secrets out of the tracked YAML, use OMP's auth store or environment variables, and review each diff before committing. Never link the entire `~/.omp/agent/` directory.
 
+### OMP in Zed
+
+The linker symlinks `dot/.config/zed/settings.json` to `~/.config/zed/settings.json`, managing Zed preferences and an `OMP` [custom ACP agent](https://zed.dev/docs/ai/external-agents#custom-agents). Existing settings are backed up as `settings.json.old` on first linking; review that backup for machine-specific preferences. Other Zed state stays local.
+
+Open Zed's Agent Panel and select `OMP` from the new-thread menu. Zed starts `omp acp` using its project environment's `PATH`, so the installed `omp` command must be available there. OMP uses its own provider credentials and model configuration; no separate ACP adapter or Zed API key is needed. Zed detects settings changes automatically. Use `dev: open acp logs` from the command palette to troubleshoot the connection.
+
 ## Notes
 
 - Ordinary users need sudo administrator access. Before selection starts, setup may request the sudo password once, installs a validated `/etc/sudoers.d/zz-dotfiles-<uid>` entry granting that user passwordless sudo, and verifies `sudo -n`. Linux root runs avoid sudo. macOS setup must run as the target non-root user because Homebrew refuses root installs; Command Line Tools must still be provisioned outside the script. After visual confirmation, child processes receive closed stdin and non-interactive package-manager settings.

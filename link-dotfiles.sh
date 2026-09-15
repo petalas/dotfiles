@@ -48,6 +48,9 @@ link_path "$dotfiles_dir/dot/.config/kitty/themes/seashells-light.conf" \
 link_path "$dotfiles_dir/dot/.config/yazi" "$HOME/.config/yazi"
 link_path "$dotfiles_dir/dot/.config/bat" "$HOME/.config/bat"
 
+# Zed preferences and custom ACP agents; editor state stays machine-local.
+link_path "$dotfiles_dir/dot/.config/zed/settings.json" "$HOME/.config/zed/settings.json"
+
 # Pi extensions/theme plus the one managed setting. Pi owns all other settings.
 pi_agent_dir="$HOME/.pi/agent"
 pi_settings="$pi_agent_dir/settings.json"
