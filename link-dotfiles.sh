@@ -66,7 +66,11 @@ merge_json_setting "$pi_settings" '.theme = "seashells"'
 # Agent theme palettes are pinned to odysseyalive/omarchy-seashells-theme@00dca31761374d5526790dd8a10271edbc6f9ec8.
 # Link only preferences; credentials, sessions, and databases stay machine-local.
 omp_agent_dir="$HOME/.omp/agent"
-link_path "$dotfiles_dir/dot/.omp/agent/config.yml" "$omp_agent_dir/config.yml"
+# The existing symlink is the machine-local choice; first-time setup uses personal.
+if [[ ! -L "$omp_agent_dir/config.yml" ||
+    ! "$omp_agent_dir/config.yml" -ef "$dotfiles_dir/dot/.omp/agent/config-work.yml" ]]; then
+    link_path "$dotfiles_dir/dot/.omp/agent/config.yml" "$omp_agent_dir/config.yml"
+fi
 mkdir -p "$omp_agent_dir/themes"
 link_path "$dotfiles_dir/dot/.omp/agent/themes/seashells.json" \
     "$omp_agent_dir/themes/seashells.json"

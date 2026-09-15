@@ -72,6 +72,25 @@ grep -Fxq '  default: openai-codex/gpt-6-astra:high' \
     "$repo_dir/dot/.omp/agent/config.yml"
 grep -Fxq 'old: settings' "$fixture/home/.omp/agent/config.yml.old"
 
+# Work selection survives relinking, whether its symlink is absolute or relative.
+printf 'modelRoles:\n  default: anthropic/claude-sonnet-4-6\n' \
+    >"$repo_dir/dot/.omp/agent/config-work.yml"
+for work_source in "$repo_dir/dot/.omp/agent/config-work.yml" \
+    "../../../repo/dot/.omp/agent/config-work.yml"; do
+    ln -sfn "$work_source" "$fixture/home/.omp/agent/config.yml"
+    HOME="$fixture/home" PATH="/usr/bin:/bin" "$repo_dir/link-dotfiles.sh"
+    [[ -L "$fixture/home/.omp/agent/config.yml" ]]
+    [[ "$(readlink "$fixture/home/.omp/agent/config.yml")" == "$work_source" ]]
+    grep -Fxq '  default: anthropic/claude-sonnet-4-6' "$fixture/home/.omp/agent/config.yml"
+    grep -Fxq '  default: openai-codex/gpt-6-astra:high' "$repo_dir/dot/.omp/agent/config.yml"
+    grep -Fxq 'old: settings' "$fixture/home/.omp/agent/config.yml.old"
+done
+
+# Switching back to personal replaces the local choice without another setting.
+ln -sfn "$repo_dir/dot/.omp/agent/config.yml" "$fixture/home/.omp/agent/config.yml"
+HOME="$fixture/home" PATH="/usr/bin:/bin" "$repo_dir/link-dotfiles.sh"
+grep -Fxq '  default: openai-codex/gpt-6-astra:high' "$fixture/home/.omp/agent/config.yml"
+
 # Invalid Pi JSON fails without truncating or replacing the original file.
 printf '{invalid json\n' >"$fixture/home/.pi/agent/settings.json"
 if HOME="$fixture/home" "$repo_dir/link-dotfiles.sh" >/dev/null 2>&1; then

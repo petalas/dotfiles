@@ -86,23 +86,35 @@ Neovim updates sync the maintained `custom` branch and update its plugins. Pendi
 
 Bun upgrades use an existing `GITHUB_TOKEN`, `GITHUB_ACCESS_TOKEN`, or `GH_TOKEN`, or a process-scoped token from an authenticated GitHub CLI. Without one, `upd` skips Bun and prints `gh auth login` guidance rather than consuming GitHub's anonymous API quota.
 
-OMP installs from its upstream Bun package after the managed Bun runtime is active. Its installer reruns `link-dotfiles.sh` only after the `omp` command is available. The linker symlinks `dot/.omp/agent/config.yml` and the tracked SeaShells theme files into `~/.omp/agent/`. Only configuration is linked; credentials, databases, and sessions stay machine-local.
+OMP installs from its upstream Bun package after the managed Bun runtime is active. Its installer reruns `link-dotfiles.sh` only after the `omp` command is available. The linker defaults to `dot/.omp/agent/config.yml`, preserves an existing link to `config-work.yml` in this checkout, and links the tracked SeaShells theme files into `~/.omp/agent/`. Only configuration is linked; credentials, databases, and sessions stay machine-local.
 
 ### Sync OMP model choices
 
-`~/.omp/agent/config.yml` links to `dot/.omp/agent/config.yml` in this checkout. OMP preserves that symlink when saving, so global changes made through `/model`, `/settings`, or `omp config set` appear directly in `git diff`. The tracked YAML is the single source of truth; relinking does not reapply hard-coded settings.
+`~/.omp/agent/config.yml` links to the personal `dot/.omp/agent/config.yml` in this checkout by default. OMP preserves that symlink when saving, so global changes made through `/model`, `/settings`, or `omp config set` update the linked YAML and appear directly in `git diff`. Relinking does not reapply hard-coded settings.
 
-The shared defaults assign DEFAULT and ADVISOR to `openai-codex/gpt-6-astra:xhigh`, and TINY and TASK to `opencode-go/muse-spark-1.3-contributor:xhigh`. TINY and TASK each fall back to `openai-codex/gpt-5.6-luna:max`. SMOL, SLOW, VISION, PLAN, and COMMIT stay unassigned for OMP auto-selection.
+`dot/.omp/agent/config-work.yml` is the work copy, initially with the same models and settings. Edit its `modelRoles` and `retry.fallbackChains` for the work subscription. Quit OMP before switching. From the repository root, select work:
+
+```sh
+ln -sfn "$PWD/dot/.omp/agent/config-work.yml" "$HOME/.omp/agent/config.yml"
+```
+
+Or select personal:
+
+```sh
+ln -sfn "$PWD/dot/.omp/agent/config.yml" "$HOME/.omp/agent/config.yml"
+```
+
+Start a new OMP session after switching. The symlink is the machine-local choice: `./link-dotfiles.sh` and `upd` preserve an existing link to this checkout's work config. First-time setup defaults to personal. No flag, environment variable, or extra local config file is needed.
 
 After changing these choices in OMP:
 
-1. Review `git diff -- dot/.omp/agent/config.yml` from this repository. Model assignments live under `modelRoles`; retry fallbacks live under `retry.fallbackChains`.
+1. Review `git diff -- dot/.omp/agent/config.yml dot/.omp/agent/config-work.yml` from this repository. Model assignments live under `modelRoles`; retry fallbacks live under `retry.fallbackChains`.
 2. Commit and push the configuration change. No manual export or linker edit is needed.
 3. On another machine, run `upd`. To sync configuration without upgrading software, run `git pull --ff-only` followed by `./link-dotfiles.sh` from this repository. Start a new OMP session and check `/model`; authenticate the required providers separately on each machine.
 
 `upd` refuses a dirty checkout, so commit or stash local OMP changes before updating. On first linking, an existing machine-local config is backed up as `~/.omp/agent/config.yml.old` and the tracked configuration becomes active. Review that backup if the machine had preferences you want to keep; the linker does not import it into Git.
 
-This covers global settings in the default OMP profile. With `modelRoleStorage: project`, role changes go to that project's `.omp/config.yml` instead; named profiles also have separate config paths. Keep secrets out of the tracked YAML, use OMP's auth store or environment variables, and review each diff before committing. Never link the entire `~/.omp/agent/` directory.
+Both configurations use the same machine-local credentials, sessions, and themes; no separate profiles are needed. With `modelRoleStorage: project`, role changes go to that project's `.omp/config.yml` instead of the linked file. Keep secrets out of the tracked YAML, use OMP's auth store or environment variables, and review each diff before committing. Never link the entire `~/.omp/agent/` directory.
 
 ### OMP in Zed
 
