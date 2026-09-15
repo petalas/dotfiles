@@ -65,17 +65,33 @@ merge_json_setting "$pi_settings" '.theme = "seashells"'
 
 # Agent theme palettes are pinned to odysseyalive/omarchy-seashells-theme@00dca31761374d5526790dd8a10271edbc6f9ec8.
 # Link only preferences; credentials, sessions, and databases stay machine-local.
-omp_agent_dir="$HOME/.omp/agent"
-# The existing symlink is the machine-local choice; first-time setup uses personal.
-if [[ ! -L "$omp_agent_dir/config.yml" ||
-    ! "$omp_agent_dir/config.yml" -ef "$dotfiles_dir/dot/.omp/agent/config-work.yml" ]]; then
-    link_path "$dotfiles_dir/dot/.omp/agent/config.yml" "$omp_agent_dir/config.yml"
-fi
-mkdir -p "$omp_agent_dir/themes"
-link_path "$dotfiles_dir/dot/.omp/agent/themes/seashells.json" \
-    "$omp_agent_dir/themes/seashells.json"
-link_path "$dotfiles_dir/dot/.omp/agent/themes/seashells-light.json" \
-    "$omp_agent_dir/themes/seashells-light.json"
+# Native OMP profiles are isolated agent dirs; selection is launch-time only via
+# --profile/OMP_PROFILE. A stale work-selected default symlink is restored to the
+# default source here through the usual .old backup semantics.
+for omp_profile in default work cheap; do
+    case "$omp_profile" in
+        default)
+            omp_profile_source="$dotfiles_dir/dot/.omp/agent/config.yml"
+            omp_profile_dir="$HOME/.omp/agent"
+            ;;
+        work)
+            omp_profile_source="$dotfiles_dir/dot/.omp/agent/config-work.yml"
+            omp_profile_dir="$HOME/.omp/profiles/work/agent"
+            ;;
+        cheap)
+            omp_profile_source="$dotfiles_dir/dot/.omp/agent/config-cheap.yml"
+            omp_profile_dir="$HOME/.omp/profiles/cheap/agent"
+            ;;
+    esac
+    mkdir -p "$omp_profile_dir/themes"
+    link_path "$omp_profile_source" "$omp_profile_dir/config.yml"
+    link_path "$dotfiles_dir/dot/.omp/agent/themes/seashells.json" \
+        "$omp_profile_dir/themes/seashells.json"
+    link_path "$dotfiles_dir/dot/.omp/agent/themes/seashells-light.json" \
+        "$omp_profile_dir/themes/seashells-light.json"
+    link_path "$dotfiles_dir/dot/AGENTS.md" "$omp_profile_dir/AGENTS.md"
+done
+unset omp_profile omp_profile_source omp_profile_dir
 
 link_obsidian_vault_settings "$dotfiles_dir"
 
@@ -113,9 +129,10 @@ chmod 600 "$ssh_config"
 link_path "$dotfiles_dir/dot/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
 
 # Harness-neutral global agent instructions. CLAUDE.md imports the Claude copy; the
-# other harnesses read their own global AGENTS.md path directly.
+# other harnesses read their own global AGENTS.md path directly. OMP links are
+# owned by the native-profile loop above, which covers every profile agent dir.
 for agents_target in "$HOME/.claude/AGENTS.md" "$HOME/.codex/AGENTS.md" \
-    "$HOME/.pi/agent/AGENTS.md" "$HOME/.omp/agent/AGENTS.md"; do
+    "$HOME/.pi/agent/AGENTS.md"; do
     link_path "$dotfiles_dir/dot/AGENTS.md" "$agents_target"
 done
 # Claude Code owns ~/.claude/settings.json (it writes theme and prompt state into

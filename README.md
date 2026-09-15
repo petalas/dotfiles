@@ -86,41 +86,58 @@ Neovim updates sync the maintained `custom` branch and update its plugins. Pendi
 
 Bun upgrades use an existing `GITHUB_TOKEN`, `GITHUB_ACCESS_TOKEN`, or `GH_TOKEN`, or a process-scoped token from an authenticated GitHub CLI. Without one, `upd` skips Bun and prints `gh auth login` guidance rather than consuming GitHub's anonymous API quota.
 
-OMP installs from its upstream Bun package after the managed Bun runtime is active. Its installer reruns `link-dotfiles.sh` only after the `omp` command is available. The linker defaults to `dot/.omp/agent/config.yml`, preserves an existing link to `config-work.yml` in this checkout, and links the tracked SeaShells theme files into `~/.omp/agent/`. Only configuration is linked; credentials, databases, and sessions stay machine-local.
+OMP installs from its upstream Bun package after the managed Bun runtime is active. Its installer reruns `link-dotfiles.sh` only after the `omp` command is available. The linker installs the default, work, and cheap native profiles, with the tracked SeaShells themes and global agent instructions in each. Only managed configuration is linked; credentials, databases, and sessions stay machine-local.
 
-### Sync OMP model choices
+### OMP profiles and model choices
 
-`~/.omp/agent/config.yml` links to the personal `dot/.omp/agent/config.yml` in this checkout by default. OMP preserves that symlink when saving, so global changes made through `/model`, `/settings`, or `omp config set` update the linked YAML and appear directly in `git diff`. Relinking does not reapply hard-coded settings.
+All three profiles are installed together. Their configuration files under `dot/.omp/agent/` are linked to OMP's native locations:
 
-`dot/.omp/agent/config-work.yml` is the work copy, initially with the same models and settings. Edit its `modelRoles` and `retry.fallbackChains` for the work subscription. Quit OMP before switching. From the repository root, select work:
+| Profile | Tracked file | OMP path |
+|---|---|---|
+| `default` | `config.yml` | `~/.omp/agent/config.yml` |
+| `work` | `config-work.yml` | `~/.omp/profiles/work/agent/config.yml` |
+| `cheap` | `config-cheap.yml` | `~/.omp/profiles/cheap/agent/config.yml` |
+
+Select a profile when starting OMP:
 
 ```sh
-ln -sfn "$PWD/dot/.omp/agent/config-work.yml" "$HOME/.omp/agent/config.yml"
+omp --profile default
+omp --profile work
+omp --profile cheap
 ```
 
-Or select personal:
+Bare `omp` uses default unless `OMP_PROFILE` selects another profile. For a preferred profile in the current shell, use `export OMP_PROFILE=work`; an explicit `--profile` overrides it. There is no custom switcher or saved selection file. Start a new OMP process to switch profiles.
+
+Default and work retain their existing model assignments and retry fallback chains. Cheap assigns `opencode-go/muse-spark-1.3-contributor` to all nine built-in roles, with `xhigh` effort except `tiny` at `minimal`. Cheap disables model fallback and has no GPT fallback chains. Project settings and explicit model overrides still take precedence, so this is a model preset, not an enforced spending limit.
+
+Each profile has separate stored authentication, sessions, databases, and caches. Authenticate the required providers separately in each profile and on each machine. The linker shares only tracked configuration, theme files, and global agent instructions; it never copies credentials or session history.
+
+**Migrating from manual work symlinks:** quit OMP before relinking. `./link-dotfiles.sh` and `upd` now restore the default source at `~/.omp/agent/config.yml` and install work at its named-profile path. The replaced work symlink is backed up as `config.yml.old`. Existing authentication and sessions remain under default; select `omp --profile work` and authenticate there to use work. Repeated linking preserves correctly installed links and their backups.
+
+OMP preserves each config symlink when saving. Global changes through `/model`, `/settings`, or `omp --profile work config set` update that profile's tracked YAML directly. Relinking does not reapply hard-coded model choices. Check the active values with:
 
 ```sh
-ln -sfn "$PWD/dot/.omp/agent/config.yml" "$HOME/.omp/agent/config.yml"
+omp --profile cheap config get modelRoles --json
+omp --profile cheap config get retry.modelFallback --json
 ```
-
-Start a new OMP session after switching. The symlink is the machine-local choice: `./link-dotfiles.sh` and `upd` preserve an existing link to this checkout's work config. First-time setup defaults to personal. No flag, environment variable, or extra local config file is needed.
 
 After changing these choices in OMP:
 
-1. Review `git diff -- dot/.omp/agent/config.yml dot/.omp/agent/config-work.yml` from this repository. Model assignments live under `modelRoles`; retry fallbacks live under `retry.fallbackChains`.
+1. Review `git diff -- dot/.omp/agent/config*.yml` from this repository. Model assignments live under `modelRoles`; retry fallbacks live under `retry.fallbackChains`.
 2. Commit and push the configuration change. No manual export or linker edit is needed.
-3. On another machine, run `upd`. To sync configuration without upgrading software, run `git pull --ff-only` followed by `./link-dotfiles.sh` from this repository. Start a new OMP session and check `/model`; authenticate the required providers separately on each machine.
+3. On another machine, run `upd`. To sync configuration without upgrading software, run `git pull --ff-only` followed by `./link-dotfiles.sh` from this repository. Start OMP with the intended profile and check `/model`.
 
-`upd` refuses a dirty checkout, so commit or stash local OMP changes before updating. On first linking, an existing machine-local config is backed up as `~/.omp/agent/config.yml.old` and the tracked configuration becomes active. Review that backup if the machine had preferences you want to keep; the linker does not import it into Git.
+`upd` refuses a dirty checkout, so commit or stash local OMP changes before updating. When replacing an existing machine-local config, the linker backs it up as `config.yml.old` beside that profile's config. Review the backup for preferences you want to keep; the linker does not import them into Git.
 
-Both configurations use the same machine-local credentials, sessions, and themes; no separate profiles are needed. With `modelRoleStorage: project`, role changes go to that project's `.omp/config.yml` instead of the linked file. Keep secrets out of the tracked YAML, use OMP's auth store or environment variables, and review each diff before committing. Never link the entire `~/.omp/agent/` directory.
+With `modelRoleStorage: project`, role changes go to that project's `.omp/config.yml` instead of the linked profile file. Keep secrets out of tracked YAML, use OMP's auth store or environment variables, and review each diff before committing. Never link an entire OMP profile or agent directory.
 
 ### OMP in Zed
 
 The linker symlinks `dot/.config/zed/settings.json` to `~/.config/zed/settings.json`, managing Zed preferences and an `OMP` [custom ACP agent](https://zed.dev/docs/ai/external-agents#custom-agents). Existing settings are backed up as `settings.json.old` on first linking; review that backup for machine-specific preferences. Other Zed state stays local.
 
 Open Zed's Agent Panel and select `OMP` from the new-thread menu. Zed starts `omp acp` using its project environment's `PATH`, so the installed `omp` command must be available there. OMP uses its own provider credentials and model configuration; no separate ACP adapter or Zed API key is needed. Zed detects settings changes automatically. Use `dev: open acp logs` from the command palette to troubleshoot the connection.
+
+The existing Zed launcher uses default unless Zed's process environment sets `OMP_PROFILE`. It does not select work or cheap automatically.
 
 ## Notes
 

@@ -3,3 +3,4 @@ dot/.config/nvim/plugin/packer_compiled.lua
 dot/.config/yazi/plugins/
 /dot/.omp/agent/config.yml.lock
 /dot/.omp/agent/config-work.yml.lock
+/dot/.omp/agent/config-cheap.yml.lock
