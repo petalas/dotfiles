@@ -4,3 +4,4 @@ dot/.config/yazi/plugins/
 /dot/.omp/agent/config.yml.lock
 /dot/.omp/agent/config-work.yml.lock
 /dot/.omp/agent/config-cheap.yml.lock
+/dot/.omp/agent/config-free.yml.lock

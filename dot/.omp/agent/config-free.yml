@@ -1,0 +1,22 @@
+theme:
+  dark: seashells
+  light: seashells-light
+setupVersion: 2
+modelRoles:
+  default: openrouter/stealth/union-alpha
+  advisor: openrouter/stealth/union-alpha
+  smol: openrouter/stealth/union-alpha
+  tiny: openrouter/stealth/union-alpha
+  slow: openrouter/stealth/union-alpha
+retry:
+  modelFallback: false
+tui:
+  codexResetFireworks: true
+  tight: false
+statusLine:
+  sessionAccent: false
+display:
+  showTokenUsage: true
+symbolPreset: nerd
+dev:
+  autoqaConsent: granted

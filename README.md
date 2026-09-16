@@ -86,17 +86,18 @@ Neovim updates sync the maintained `custom` branch and update its plugins. Pendi
 
 Bun upgrades use an existing `GITHUB_TOKEN`, `GITHUB_ACCESS_TOKEN`, or `GH_TOKEN`, or a process-scoped token from an authenticated GitHub CLI. Without one, `upd` skips Bun and prints `gh auth login` guidance rather than consuming GitHub's anonymous API quota.
 
-OMP installs from its upstream Bun package after the managed Bun runtime is active. Its installer reruns `link-dotfiles.sh` only after the `omp` command is available. The linker installs the default, work, and cheap native profiles, with the tracked SeaShells themes and global agent instructions in each. Only managed configuration is linked; credentials, databases, and sessions stay machine-local.
+OMP installs from its upstream Bun package after the managed Bun runtime is active. Its installer reruns `link-dotfiles.sh` only after the `omp` command is available. The linker installs the default, work, cheap, and free native profiles, with the tracked SeaShells themes and global agent instructions in each. Only managed configuration is linked; credentials, databases, and sessions stay machine-local.
 
 ### OMP profiles and model choices
 
-All three profiles are installed together. Their configuration files under `dot/.omp/agent/` are linked to OMP's native locations:
+All four profiles are installed together. Their configuration files under `dot/.omp/agent/` are linked to OMP's native locations:
 
 | Profile | Tracked file | OMP path |
 |---|---|---|
 | `default` | `config.yml` | `~/.omp/agent/config.yml` |
 | `work` | `config-work.yml` | `~/.omp/profiles/work/agent/config.yml` |
 | `cheap` | `config-cheap.yml` | `~/.omp/profiles/cheap/agent/config.yml` |
+| `free` | `config-free.yml` | `~/.omp/profiles/free/agent/config.yml` |
 
 Select a profile when starting OMP:
 
@@ -104,11 +105,12 @@ Select a profile when starting OMP:
 omp --profile default
 omp --profile work
 omp --profile cheap
+omp --profile free
 ```
 
 Bare `omp` uses default unless `OMP_PROFILE` selects another profile. For a preferred profile in the current shell, use `export OMP_PROFILE=work`; an explicit `--profile` overrides it. There is no custom switcher or saved selection file. Start a new OMP process to switch profiles.
 
-Default and work retain their existing model assignments and retry fallback chains. Cheap assigns `opencode-go/muse-spark-1.3-contributor` to all nine built-in roles, with `xhigh` effort except `tiny` at `minimal`. Cheap disables model fallback and has no GPT fallback chains. Project settings and explicit model overrides still take precedence, so this is a model preset, not an enforced spending limit.
+Default and work retain their existing model assignments and retry fallback chains. Cheap assigns `opencode-go/muse-spark-1.3-contributor` to all nine built-in roles, with `xhigh` effort except `tiny` at `minimal`. Cheap and free disable model fallback and have no GPT fallback chains. Free assigns `openrouter/stealth/union-alpha` to every built-in role at the model's default effort. Project settings and explicit model overrides still take precedence, so this is a model preset, not an enforced spending limit.
 
 Each profile has separate stored authentication, sessions, databases, and caches. Authenticate the required providers separately in each profile and on each machine. The linker shares only tracked configuration, theme files, and global agent instructions; it never copies credentials or session history.
 
@@ -133,11 +135,11 @@ With `modelRoleStorage: project`, role changes go to that project's `.omp/config
 
 ### OMP in Zed
 
-The linker symlinks `dot/.config/zed/settings.json` to `~/.config/zed/settings.json`, managing Zed preferences and three OMP [custom ACP agents](https://zed.dev/docs/ai/external-agents#custom-agents). Existing settings are backed up as `settings.json.old` on first linking; review that backup for machine-specific preferences. Other Zed state stays local.
+The linker symlinks `dot/.config/zed/settings.json` to `~/.config/zed/settings.json`, managing Zed preferences and four OMP [custom ACP agents](https://zed.dev/docs/ai/external-agents#custom-agents). Existing settings are backed up as `settings.json.old` on first linking; review that backup for machine-specific preferences. Other Zed state stays local.
 
-Open Zed's Agent Panel and select `OMP`, `OMP Work`, or `OMP Cheap` from the new-thread menu. They launch `omp --profile default acp --auto-approve`, `omp --profile work acp --auto-approve`, and `omp --profile cheap acp --auto-approve`, respectively. Zed finds `omp` through its project environment's `PATH`. Each OMP profile owns its provider authentication and model configuration; no separate ACP adapter or Zed API key is needed. Zed detects settings changes automatically. Use `dev: open acp logs` from the command palette to troubleshoot the connection.
+Open Zed's Agent Panel and select `OMP`, `OMP Work`, `OMP Cheap`, or `OMP Free` from the new-thread menu. They launch `omp --profile default acp --auto-approve`, `omp --profile work acp --auto-approve`, `omp --profile cheap acp --auto-approve`, and `omp --profile free acp --auto-approve`, respectively. Zed finds `omp` through its project environment's `PATH`. Each OMP profile owns its provider authentication and model configuration; no separate ACP adapter or Zed API key is needed. Zed detects settings changes automatically. Use `dev: open acp logs` from the command palette to troubleshoot the connection.
 
-Every entry passes an explicit `--profile`, so an inherited `OMP_PROFILE` cannot change its selection. All three enable automatic tool approval with `--auto-approve`. Model roles remain in the OMP profile YAML files, not in Zed settings. Authenticate separately in each profile, and select the intended agent when creating a new thread.
+Every entry passes an explicit `--profile`, so an inherited `OMP_PROFILE` cannot change its selection. All four enable automatic tool approval with `--auto-approve`. Model roles remain in the OMP profile YAML files, not in Zed settings. Authenticate separately in each profile, and select the intended agent when creating a new thread.
 
 ## Notes
 

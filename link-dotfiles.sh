@@ -68,7 +68,7 @@ merge_json_setting "$pi_settings" '.theme = "seashells"'
 # Native OMP profiles are isolated agent dirs; selection is launch-time only via
 # --profile/OMP_PROFILE. A stale work-selected default symlink is restored to the
 # default source here through the usual .old backup semantics.
-for omp_profile in default work cheap; do
+for omp_profile in default work cheap free; do
     case "$omp_profile" in
         default)
             omp_profile_source="$dotfiles_dir/dot/.omp/agent/config.yml"
@@ -81,6 +81,10 @@ for omp_profile in default work cheap; do
         cheap)
             omp_profile_source="$dotfiles_dir/dot/.omp/agent/config-cheap.yml"
             omp_profile_dir="$HOME/.omp/profiles/cheap/agent"
+            ;;
+        free)
+            omp_profile_source="$dotfiles_dir/dot/.omp/agent/config-free.yml"
+            omp_profile_dir="$HOME/.omp/profiles/free/agent"
             ;;
     esac
     mkdir -p "$omp_profile_dir/themes"

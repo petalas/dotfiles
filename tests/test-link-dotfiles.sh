@@ -11,13 +11,16 @@ repo_dir="$fixture/repo"
 # Distinguishable fixture OMP sources: profile independence is proven through
 # these markers, never through incidental model strings.
 [[ -f "$repo_dir/dot/.omp/agent/config-cheap.yml" ]]
+[[ -f "$repo_dir/dot/.omp/agent/config-free.yml" ]]
 printf 'profile: default-fixture\n' >"$repo_dir/dot/.omp/agent/config.yml"
 printf 'profile: work-fixture\n' >"$repo_dir/dot/.omp/agent/config-work.yml"
 printf 'profile: cheap-fixture\n' >"$repo_dir/dot/.omp/agent/config-cheap.yml"
+printf 'profile: free-fixture\n' >"$repo_dir/dot/.omp/agent/config-free.yml"
 mkdir -p "$fixture/home/.ssh" "$fixture/home/.pi/agent" \
     "$fixture/home/.omp/agent" \
     "$fixture/home/.omp/profiles/work/agent" \
     "$fixture/home/.omp/profiles/cheap/agent" \
+    "$fixture/home/.omp/profiles/free/agent" \
     "$fixture/home/git/notes"
 printf '# Include ~/.ssh/config.shared\nHost example\n' >"$fixture/home/.ssh/config"
 printf '{"defaultModel":"test"}\n' >"$fixture/home/.pi/agent/settings.json"
@@ -27,14 +30,17 @@ printf '{"theme":"dark"}\n' >"$fixture/home/.claude/settings.json"
 printf 'old: default settings\n' >"$fixture/home/.omp/agent/config.yml"
 printf 'old: work settings\n' >"$fixture/home/.omp/profiles/work/agent/config.yml"
 printf 'old: cheap settings\n' >"$fixture/home/.omp/profiles/cheap/agent/config.yml"
+printf 'old: free settings\n' >"$fixture/home/.omp/profiles/free/agent/config.yml"
 # Fixture-only runtime sentinels. These stand in for machine-local databases,
 # sessions, and caches; this test never opens real OMP SQLite files.
 mkdir -p "$fixture/home/.omp/agent/sessions" \
     "$fixture/home/.omp/profiles/work/agent/sessions" \
-    "$fixture/home/.omp/profiles/cheap/agent/sessions"
+    "$fixture/home/.omp/profiles/cheap/agent/sessions" \
+    "$fixture/home/.omp/profiles/free/agent/sessions"
 printf 'default-runtime\n' >"$fixture/home/.omp/agent/agent.db"
 printf 'work-runtime\n' >"$fixture/home/.omp/profiles/work/agent/agent.db"
 printf 'cheap-runtime\n' >"$fixture/home/.omp/profiles/cheap/agent/agent.db"
+printf 'free-runtime\n' >"$fixture/home/.omp/profiles/free/agent/agent.db"
 printf 'default-session\n' >"$fixture/home/.omp/agent/sessions/session.json"
 # Links older revisions created for the retired global commands, plus a
 # user-owned command that must survive the prune.
@@ -63,7 +69,7 @@ jq -e '.autoMemoryEnabled == false and .theme == "dark"' \
     "$fixture/home/.claude/settings.json" >/dev/null
 [[ ! -L "$fixture/home/.claude/settings.json" ]]
 
-# OMP native profiles: the default agent dir plus the work/cheap named dirs.
+# OMP native profiles: the default agent dir plus the work/cheap/free named dirs.
 grep -Fxq 'old: default settings' "$fixture/home/.omp/agent/config.yml.old"
 [[ ! -L "$fixture/home/.omp/agent/config.yml.old" ]]
 [[ -L "$fixture/home/.omp/agent/config.yml" ]]
@@ -79,6 +85,11 @@ grep -Fxq 'old: cheap settings' "$fixture/home/.omp/profiles/cheap/agent/config.
 [[ -L "$fixture/home/.omp/profiles/cheap/agent/config.yml" ]]
 [[ "$(readlink "$fixture/home/.omp/profiles/cheap/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config-cheap.yml" ]]
 grep -Fxq 'profile: cheap-fixture' "$fixture/home/.omp/profiles/cheap/agent/config.yml"
+grep -Fxq 'old: free settings' "$fixture/home/.omp/profiles/free/agent/config.yml.old"
+[[ ! -L "$fixture/home/.omp/profiles/free/agent/config.yml.old" ]]
+[[ -L "$fixture/home/.omp/profiles/free/agent/config.yml" ]]
+[[ "$(readlink "$fixture/home/.omp/profiles/free/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config-free.yml" ]]
+grep -Fxq 'profile: free-fixture' "$fixture/home/.omp/profiles/free/agent/config.yml"
 
 # Only files are linked; no whole-profile or agent directory is a symlink.
 [[ ! -L "$fixture/home/.omp/agent" ]]
@@ -87,12 +98,14 @@ grep -Fxq 'profile: cheap-fixture' "$fixture/home/.omp/profiles/cheap/agent/conf
 [[ ! -L "$fixture/home/.omp/profiles/work/agent" ]]
 [[ ! -L "$fixture/home/.omp/profiles/cheap" ]]
 [[ ! -L "$fixture/home/.omp/profiles/cheap/agent" ]]
+[[ ! -L "$fixture/home/.omp/profiles/free" ]]
+[[ ! -L "$fixture/home/.omp/profiles/free/agent" ]]
 
 [[ -L "$fixture/home/.pi/agent/themes/seashells.json" ]]
 [[ -L "$fixture/home/.pi/agent/themes/seashells-light.json" ]]
 
 # Shared themes are linked into every profile dir; theme dirs stay real.
-for profile_agent in .omp/agent .omp/profiles/work/agent .omp/profiles/cheap/agent; do
+for profile_agent in .omp/agent .omp/profiles/work/agent .omp/profiles/cheap/agent .omp/profiles/free/agent; do
     [[ ! -L "$fixture/home/$profile_agent/themes" ]]
     [[ -L "$fixture/home/$profile_agent/themes/seashells.json" ]]
     [[ "$(readlink "$fixture/home/$profile_agent/themes/seashells.json")" == "$repo_dir/dot/.omp/agent/themes/seashells.json" ]]
@@ -101,7 +114,7 @@ for profile_agent in .omp/agent .omp/profiles/work/agent .omp/profiles/cheap/age
 done
 
 # Global AGENTS.md is linked into every profile agent dir.
-for agents_link in .claude/AGENTS.md .codex/AGENTS.md .pi/agent/AGENTS.md .omp/agent/AGENTS.md .omp/profiles/work/agent/AGENTS.md .omp/profiles/cheap/agent/AGENTS.md; do
+for agents_link in .claude/AGENTS.md .codex/AGENTS.md .pi/agent/AGENTS.md .omp/agent/AGENTS.md .omp/profiles/work/agent/AGENTS.md .omp/profiles/cheap/agent/AGENTS.md .omp/profiles/free/agent/AGENTS.md; do
     [[ -L "$fixture/home/$agents_link" ]]
     [[ "$(readlink "$fixture/home/$agents_link")" == "$repo_dir/dot/AGENTS.md" ]]
 done
@@ -122,6 +135,8 @@ grep -Fxq 'work-runtime' "$fixture/home/.omp/profiles/work/agent/agent.db"
 [[ ! -L "$fixture/home/.omp/profiles/work/agent/agent.db" ]]
 grep -Fxq 'cheap-runtime' "$fixture/home/.omp/profiles/cheap/agent/agent.db"
 [[ ! -L "$fixture/home/.omp/profiles/cheap/agent/agent.db" ]]
+grep -Fxq 'free-runtime' "$fixture/home/.omp/profiles/free/agent/agent.db"
+[[ ! -L "$fixture/home/.omp/profiles/free/agent/agent.db" ]]
 grep -Fxq 'default-session' "$fixture/home/.omp/agent/sessions/session.json"
 [[ ! -e "$repo_dir/dot/.omp/agent/agent.db" ]]
 [[ ! -e "$repo_dir/dot/.omp/agent/sessions/session.json" ]]
@@ -131,14 +146,22 @@ printf 'profile: default-write\n' >"$fixture/home/.omp/agent/config.yml"
 grep -Fxq 'profile: default-write' "$repo_dir/dot/.omp/agent/config.yml"
 grep -Fxq 'profile: work-fixture' "$repo_dir/dot/.omp/agent/config-work.yml"
 grep -Fxq 'profile: cheap-fixture' "$repo_dir/dot/.omp/agent/config-cheap.yml"
+grep -Fxq 'profile: free-fixture' "$repo_dir/dot/.omp/agent/config-free.yml"
 printf 'profile: work-write\n' >"$fixture/home/.omp/profiles/work/agent/config.yml"
 grep -Fxq 'profile: work-write' "$repo_dir/dot/.omp/agent/config-work.yml"
 grep -Fxq 'profile: default-write' "$repo_dir/dot/.omp/agent/config.yml"
 grep -Fxq 'profile: cheap-fixture' "$repo_dir/dot/.omp/agent/config-cheap.yml"
+grep -Fxq 'profile: free-fixture' "$repo_dir/dot/.omp/agent/config-free.yml"
 printf 'profile: cheap-write\n' >"$fixture/home/.omp/profiles/cheap/agent/config.yml"
 grep -Fxq 'profile: cheap-write' "$repo_dir/dot/.omp/agent/config-cheap.yml"
 grep -Fxq 'profile: default-write' "$repo_dir/dot/.omp/agent/config.yml"
 grep -Fxq 'profile: work-write' "$repo_dir/dot/.omp/agent/config-work.yml"
+grep -Fxq 'profile: free-fixture' "$repo_dir/dot/.omp/agent/config-free.yml"
+printf 'profile: free-write\n' >"$fixture/home/.omp/profiles/free/agent/config.yml"
+grep -Fxq 'profile: free-write' "$repo_dir/dot/.omp/agent/config-free.yml"
+grep -Fxq 'profile: default-write' "$repo_dir/dot/.omp/agent/config.yml"
+grep -Fxq 'profile: work-write' "$repo_dir/dot/.omp/agent/config-work.yml"
+grep -Fxq 'profile: cheap-write' "$repo_dir/dot/.omp/agent/config-cheap.yml"
 
 # Repeated relinking keeps every profile link, keeps write-through content,
 # and leaves the original backups alone.
@@ -148,12 +171,15 @@ done
 [[ "$(readlink "$fixture/home/.omp/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config.yml" ]]
 [[ "$(readlink "$fixture/home/.omp/profiles/work/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config-work.yml" ]]
 [[ "$(readlink "$fixture/home/.omp/profiles/cheap/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config-cheap.yml" ]]
+[[ "$(readlink "$fixture/home/.omp/profiles/free/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config-free.yml" ]]
 grep -Fxq 'profile: default-write' "$fixture/home/.omp/agent/config.yml"
 grep -Fxq 'profile: work-write' "$fixture/home/.omp/profiles/work/agent/config.yml"
 grep -Fxq 'profile: cheap-write' "$fixture/home/.omp/profiles/cheap/agent/config.yml"
+grep -Fxq 'profile: free-write' "$fixture/home/.omp/profiles/free/agent/config.yml"
 grep -Fxq 'old: default settings' "$fixture/home/.omp/agent/config.yml.old"
 grep -Fxq 'old: work settings' "$fixture/home/.omp/profiles/work/agent/config.yml.old"
 grep -Fxq 'old: cheap settings' "$fixture/home/.omp/profiles/cheap/agent/config.yml.old"
+grep -Fxq 'old: free settings' "$fixture/home/.omp/profiles/free/agent/config.yml.old"
 
 # Migration from the old work-selected default symlink restores the default
 # link, whether the stale symlink is absolute or relative. The replaced link
@@ -171,12 +197,15 @@ for work_source in "$repo_dir/dot/.omp/agent/config-work.yml" \
     grep -Fxq 'profile: work-write' "$fixture/home/.omp/profiles/work/agent/config.yml"
     [[ "$(readlink "$fixture/home/.omp/profiles/cheap/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config-cheap.yml" ]]
     grep -Fxq 'profile: cheap-write' "$fixture/home/.omp/profiles/cheap/agent/config.yml"
+    [[ "$(readlink "$fixture/home/.omp/profiles/free/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config-free.yml" ]]
+    grep -Fxq 'profile: free-write' "$fixture/home/.omp/profiles/free/agent/config.yml"
 done
 
 # Runtime sentinels still unchanged after every relink and the migration.
 grep -Fxq 'default-runtime' "$fixture/home/.omp/agent/agent.db"
 grep -Fxq 'work-runtime' "$fixture/home/.omp/profiles/work/agent/agent.db"
 grep -Fxq 'cheap-runtime' "$fixture/home/.omp/profiles/cheap/agent/agent.db"
+grep -Fxq 'free-runtime' "$fixture/home/.omp/profiles/free/agent/agent.db"
 grep -Fxq 'default-session' "$fixture/home/.omp/agent/sessions/session.json"
 
 # Invalid Pi JSON fails without truncating or replacing the original file.
