@@ -70,6 +70,7 @@ ai.claude-code	direct	payload	installer	claude_code
 ai.herdr	direct	payload	installer	herdr
 containers.lazydocker	direct	payload	installer	lazydocker
 cli.yazi	direct	payload	installer	yazi
+development.vite-plus	direct	payload	installer	vite_plus
 languages.typescript	npm	payload	npm-package	typescript
 languages.typescript	npm	payload	npm-package	typescript-language-server
 ai.codex-cli	npm	payload	npm-package	@openai/codex

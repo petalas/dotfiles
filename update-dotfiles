@@ -114,6 +114,13 @@ update_pnpm_globals() {
   fi
 }
 
+update_vite_plus() {
+  # Repair this child's PATH without sourcing env, which can enable runtime shims.
+  local -x PATH="$HOME/.vite-plus/bin:$PATH"
+  env VP_HOME="$HOME/.vite-plus" CI=true VP_NODE_MANAGER=no VP_PM_MANAGER=no \
+    "$HOME/.vite-plus/bin/vp" upgrade </dev/null
+}
+
 linker=$DOTFILES_ROOT/link-dotfiles.sh
 if [[ -x $linker ]]; then
   run_step "managed dotfiles" "$linker"
@@ -174,6 +181,9 @@ if [[ -s ${SDKMAN_DIR:-$HOME/.sdkman}/bin/sdkman-init.sh ]]; then
 fi
 
 (( $+commands[bun] )) && run_step "Bun" update_bun
+
+# Only the managed global installation owns self-updates, not a project's vp.
+[[ -x $HOME/.vite-plus/bin/vp ]] && run_step "Vite+" update_vite_plus
 
 if (( $+commands[npm] )); then
   npm_packages=(${(f)"$(npm outdated -g --parseable 2>/dev/null | cut -d: -f4 | sed 's/@[^@]*$//' | grep -v '/\.' | sort -u)"})

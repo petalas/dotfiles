@@ -130,7 +130,36 @@ EOF
 chmod +x "$fixture/bin/pnpm"
 export PNPM_HOME="$fixture/home/custom pnpm"
 
+# The managed global binary is intentionally absent from the inherited PATH.
+# A project-local vp must never become the global self-update target.
+mkdir -p "$fixture/home/.vite-plus/bin"
+cat >"$fixture/home/.vite-plus/bin/vp" <<'EOF'
+#!/usr/bin/env bash
+[[ "$*" == upgrade && "${VP_HOME:-}" == "$HOME/.vite-plus" ]] || exit 41
+[[ "${CI:-}" == true && "${VP_NODE_MANAGER:-}" == no && "${VP_PM_MANAGER:-}" == no ]] || exit 42
+[[ "$PATH" == "$VP_HOME/bin:"* ]] || exit 43
+if read -r unexpected_input; then
+    echo 'Vite+ upgrade inherited interactive input' >&2
+    exit 44
+fi
+if [[ "${VP_TEST_FAIL:-0}" == 1 ]]; then
+    echo 'Vite+ upgrade failed' >&2
+    exit 45
+fi
+printf 'latest\n' >"$VP_HOME/version"
+EOF
+cat >"$fixture/bin/vp" <<'EOF'
+#!/usr/bin/env bash
+printf 'project-local vp invoked\n' >>"$UPDATE_TEST_LOG"
+exit 46
+EOF
+cat >"$fixture/home/.vite-plus/env" <<'EOF'
+printf 'Vite+ environment sourced\n' >>"$UPDATE_TEST_LOG"
+EOF
+chmod +x "$fixture/home/.vite-plus/bin/vp" "$fixture/bin/vp"
+
 log="$fixture/update.log"
+printf 'unexpected interactive input\n' >"$fixture/input"
 zsh_bin=$(command -v zsh)
 # Run the updater against the fixture only. Every location the updater derives
 # from the environment is pinned here; GitHub's Ubuntu runners export
@@ -139,10 +168,11 @@ zsh_bin=$(command -v zsh)
 run_updater() {
     env -u GITHUB_TOKEN -u GITHUB_ACCESS_TOKEN -u GH_TOKEN \
         DOTFILES_DIR="$fixture/repo" HOME="$fixture/home" XDG_CONFIG_HOME="$fixture/home/.config" \
-        SDKMAN_DIR="$fixture/home/.sdkman" PATH="$fixture/bin:/bin:/usr/bin" "$@" \
+        SDKMAN_DIR="$fixture/home/.sdkman" PATH="$fixture/bin:/bin:/usr/bin" \
+        VP_HOME="$fixture/home/unmanaged-vite-plus" VP_NODE_MANAGER=yes VP_PM_MANAGER=yes CI=false "$@" \
         "$zsh_bin" "$fixture/repo/update-dotfiles"
 }
-if ! run_updater UPDATE_TEST_LOG="$log" XDG_STATE_HOME="$fixture/state" >"$fixture/out" 2>"$fixture/err"; then
+if ! run_updater UPDATE_TEST_LOG="$log" XDG_STATE_HOME="$fixture/state" <"$fixture/input" >"$fixture/out" 2>"$fixture/err"; then
     cat "$fixture/out" >&2
     cat "$fixture/err" >&2
     exit 1
@@ -173,6 +203,11 @@ managed_theme="$fixture/home/.config/ghostty/themes/seashells-light"
 [[ -L "$managed_theme" ]]
 [[ "$(readlink "$managed_theme")" == "$fixture/repo/dot/.config/ghostty/themes/seashells-light" ]]
 grep -Fxq 'link managed themes' "$log"
+[[ "$(cat "$fixture/home/.vite-plus/version")" == latest ]]
+if grep -Eq 'project-local vp invoked|Vite\+ environment sourced' "$log"; then
+    echo 'Vite+ maintenance used a project CLI or sourced runtime ownership settings' >&2
+    exit 1
+fi
 
 latest_update_log="$fixture/state/dotfiles/latest-update.log"
 [[ -f "$latest_update_log" ]]
@@ -205,6 +240,22 @@ if grep -Fq 'bun upgrade' "$no_auth_log"; then
 fi
 grep -Fq "Skipping Bun upgrade to avoid GitHub's anonymous API rate limit." "$fixture/no-auth-out"
 
+# An absent global CLI is skipped, even when a project-local vp is on PATH.
+mv "$fixture/home/.vite-plus/bin/vp" "$fixture/managed-vp"
+printf 'not upgraded\n' >"$fixture/home/.vite-plus/version"
+if ! run_updater UPDATE_TEST_LOG="$fixture/no-vp.log" XDG_STATE_HOME="$fixture/no-vp-state" \
+    >"$fixture/no-vp-out" 2>"$fixture/no-vp-err"; then
+    cat "$fixture/no-vp-out" >&2
+    cat "$fixture/no-vp-err" >&2
+    exit 1
+fi
+[[ "$(cat "$fixture/home/.vite-plus/version")" == 'not upgraded' ]]
+if grep -Eq 'project-local vp invoked|Vite\+ environment sourced' "$fixture/no-vp.log"; then
+    echo 'Updater treated a project-local Vite+ CLI as a global installation' >&2
+    exit 1
+fi
+mv "$fixture/managed-vp" "$fixture/home/.vite-plus/bin/vp"
+
 # A failed step keeps its diagnostics and repeats the log path beside the final
 # failure summary.
 failure_state="$fixture/failure-state"
@@ -224,17 +275,18 @@ if grep -Fxq 'nvim plugins' "$fixture/failure-commands.log"; then
     exit 1
 fi
 
-# Enabled self-updates run, and both tool failures reach the final summary.
+# Enabled self-updates run, and tool failures reach the final summary.
 printf 'sdkman_selfupdate_feature=true\nsdkman_auto_answer=true\n' >"$fixture/home/.sdkman/etc/config"
-if run_updater SDK_TEST_FAIL=selfupdate PNPM_TEST_FAIL=list UPDATE_TEST_LOG="$fixture/tool-failures.log" \
+if run_updater SDK_TEST_FAIL=selfupdate VP_TEST_FAIL=1 PNPM_TEST_FAIL=list UPDATE_TEST_LOG="$fixture/tool-failures.log" \
     XDG_STATE_HOME="$fixture/tool-failures-state" >"$fixture/tool-failures-out" 2>"$fixture/tool-failures-err"; then
-    echo 'Expected SDKMAN and pnpm failures to fail the updater' >&2
+    echo 'Expected SDKMAN, Vite+ and pnpm failures to fail the updater' >&2
     exit 1
 fi
 grep -Fxq 'sdk selfupdate' "$fixture/tool-failures.log"
 grep -Fxq 'sdk upgrade' "$fixture/tool-failures.log"
 grep -Fxq 'update-ai-skills' "$fixture/tool-failures.log"
 grep -Fq 'pnpm inventory failed' "$fixture/tool-failures-err"
-grep -Fq 'Failed: SDKMAN self-update, pnpm global packages' "$fixture/tool-failures-err"
+grep -Fq 'Vite+ upgrade failed' "$fixture/tool-failures-err"
+grep -Fq 'Failed: SDKMAN self-update, Vite+, pnpm global packages' "$fixture/tool-failures-err"
 
 printf 'Update plan integration tests passed.\n'

@@ -586,6 +586,7 @@ installer_probe_command() {
         java) echo java ;; gradle) echo gradle ;; kotlin) echo kotlin ;; maven) echo mvn ;;
         claude_code) echo claude ;; herdr) echo herdr ;;
         lazydocker) echo lazydocker ;; yazi) echo yazi ;; locale) echo locale ;;
+        vite_plus) echo "$HOME/.vite-plus/bin/vp" ;;
         *) echo "$1" ;;
     esac
 }
@@ -609,7 +610,7 @@ installer_receipt_version() {
         version=$(dpkg-query -W -f='${Version}' "$package" 2>/dev/null || true)
     else
         case "$installer" in
-            bun|chrome|claude_code|code|docker|ghostty|gradle|herdr|java|kotlin|lazydocker|lazygit|locale|maven|neovim|node|rust|uv|yazi|zed)
+            bun|chrome|claude_code|code|docker|ghostty|gradle|herdr|java|kotlin|lazydocker|lazygit|locale|maven|neovim|node|rust|uv|vite_plus|yazi|zed)
                 output=$("$target" --version 2>/dev/null || true)
                 version=${output%%$'\n'*}
                 ;;

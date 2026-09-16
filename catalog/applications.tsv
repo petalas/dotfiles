@@ -47,6 +47,7 @@ development.tree-sitter	development	tree-sitter CLI	on	languages.rust
 development.cargo-edit	development	cargo-edit	on	languages.rust
 development.wasm-bindgen	development	wasm-bindgen CLI	on	languages.rust
 development.watchexec	development	watchexec	on	languages.rust
+development.vite-plus	development	Vite+	on
 languages.bun	languages	Bun	required
 languages.node	languages	Node and npm	required
 languages.rust	languages	Rust and Cargo	required

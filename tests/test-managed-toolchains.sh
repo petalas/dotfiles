@@ -189,4 +189,20 @@ grep -Fxq 'sdkman_auto_answer=true' "$SDKMAN_DIR/etc/config"
 [[ $(command -v mvn) == "$SDKMAN_DIR/candidates/maven/current/bin/mvn" ]]
 [[ $- == *u* ]]
 
+# A project-local vp does not satisfy the standalone global installation.
+PATH="$fixture/bin:/usr/bin:/bin"
+printf '#!/bin/sh\nprintf "project-local\\n"\n' >"$fixture/bin/vp"
+chmod +x "$fixture/bin/vp"
+run_downloaded_script() {
+    [[ "$1" == bash && "$2" == https://viteplus.dev/install.sh ]] || return 1
+    mkdir -p "$VP_HOME/bin"
+    printf '#!/bin/sh\nprintf "global-vp\\n"\n' >"$VP_HOME/bin/vp"
+    chmod +x "$VP_HOME/bin/vp"
+}
+install_vite_plus
+[[ $(vp) == global-vp ]]
+run_downloaded_script() { return 99; }
+install_vite_plus
+[[ $(vp) == global-vp ]]
+
 printf 'Managed toolchain installer tests passed.\n'

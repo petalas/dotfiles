@@ -81,6 +81,7 @@ ai.claude-code	direct	payload	installer	claude_code
 ai.herdr	direct	payload	installer	herdr
 languages.node	direct	payload	installer	node
 languages.rust	direct	payload	installer	rust
+development.vite-plus	direct	payload	installer	vite_plus
 languages.typescript	npm	payload	npm-package	typescript
 languages.typescript	npm	payload	npm-package	typescript-language-server
 ai.codex-cli	npm	payload	npm-package	@openai/codex
