@@ -113,7 +113,7 @@ omp --profile free
 
 Bare `omp` uses default unless `OMP_PROFILE` selects another profile. For a preferred profile in the current shell, use `export OMP_PROFILE=work`; an explicit `--profile` overrides it. There is no custom switcher or saved selection file. Start a new OMP process to switch profiles.
 
-Default and work retain their existing model assignments and retry fallback chains. Cheap assigns `opencode-go/muse-spark-1.3-contributor` to all nine built-in roles, with `xhigh` effort except `tiny` at `minimal`. Cheap and free disable model fallback and have no GPT fallback chains. Free assigns `openrouter/stealth/union-alpha` to every built-in role at the model's default effort. Project settings and explicit model overrides still take precedence, so this is a model preset, not an enforced spending limit.
+Default and work retain their existing model assignments and retry fallback chains. Cheap assigns `opencode-go/deepseek-v4.1-flash` to `default`, `task`, `smol`, `plan`, `tiny`, `advisor`, and `slow`, with `tiny` at `minimal` effort and the rest spread across the model's effort ladder. Cheap and free disable model fallback and have no GPT fallback chains. Free assigns `openrouter/stealth/union-alpha` to every built-in role at the model's default effort. Project settings and explicit model overrides still take precedence, so this is a model preset, not an enforced spending limit.
 
 Each profile has separate stored authentication, sessions, databases, and caches. Authenticate the required providers separately in each profile and on each machine. The linker shares only tracked configuration, theme files, and global agent instructions; it never copies credentials or session history.
 
