@@ -10,6 +10,10 @@ modelRoles:
   plan: openai-codex/gpt-6-astra:xhigh
   tiny: opencode-go/deepseek-v4.1-flash:low
   slow: openai-codex/gpt-6-astra:xhigh
+task:
+  eager: always
+plan:
+  defaultOnStartup: true
 prewalk:
   enabled: true
 retry:
