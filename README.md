@@ -89,7 +89,7 @@ Bun upgrades use an existing `GITHUB_TOKEN`, `GITHUB_ACCESS_TOKEN`, or `GH_TOKEN
 
 Vite+ installs its global `vp` CLI under `~/.vite-plus` using the [official installer](https://viteplus.dev/guide/global-cli). Fresh installs prefer the existing Node.js and package managers, leaving nvm and Bun as their owners. Existing installations at that location and their preferences are left unchanged. The managed Zsh config loads its environment, and `upd` runs `vp upgrade` for this installation even when Vite+ is deselected. Vite+ data is retained; use `vp implode` explicitly if you want to uninstall it.
 
-OMP installs from its upstream Bun package after the managed Bun runtime is active. Its installer reruns `link-dotfiles.sh` only after the `omp` command is available. The linker installs the default, work, cheap, and free native profiles, with the tracked SeaShells themes and global agent instructions in each. Only managed configuration is linked; credentials, databases, and sessions stay machine-local.
+OMP installs from its upstream Bun package after the managed Bun runtime is active. Its installer reruns `link-dotfiles.sh` only after the `omp` command is available. The linker installs the default, work, deepseek, and free native profiles, with the tracked SeaShells themes and global agent instructions in each. Only managed configuration is linked; credentials, databases, and sessions stay machine-local.
 
 ### OMP profiles and model choices
 
@@ -99,7 +99,7 @@ All four profiles are installed together. Their configuration files under `dot/.
 |---|---|---|
 | `default` | `config.yml` | `~/.omp/agent/config.yml` |
 | `work` | `config-work.yml` | `~/.omp/profiles/work/agent/config.yml` |
-| `cheap` | `config-cheap.yml` | `~/.omp/profiles/cheap/agent/config.yml` |
+| `deepseek` | `config-deepseek.yml` | `~/.omp/profiles/deepseek/agent/config.yml` |
 | `free` | `config-free.yml` | `~/.omp/profiles/free/agent/config.yml` |
 
 Select a profile when starting OMP:
@@ -107,23 +107,25 @@ Select a profile when starting OMP:
 ```sh
 omp --profile default
 omp --profile work
-omp --profile cheap
+omp --profile deepseek
 omp --profile free
 ```
 
 Bare `omp` uses default unless `OMP_PROFILE` selects another profile. For a preferred profile in the current shell, use `export OMP_PROFILE=work`; an explicit `--profile` overrides it. There is no custom switcher or saved selection file. Start a new OMP process to switch profiles.
 
-Default splits planning from implementation: `default`, `plan`, `slow`, and `advisor` stay on `openai-codex/gpt-6-astra`, while `task`, `smol`, and `tiny` move to `opencode-go/deepseek-v4.1-flash`. Its `prewalk.enabled` hands a session from astra to the `smol` role at the first `edit`/`write` after the planning nudge's todo list exists, so astra plans and deepseek carries the bulk of the implementation. `smol` deliberately omits an effort suffix so the fast subagents keep their own lower thinking level while the handoff inherits the session's. The `advisor` role stays assigned but the advisor itself is off until `/advisor on`. Work mirrors that split with `anthropic/claude-fable-5-1` in place of astra, for machines on an Anthropic subscription. Cheap assigns `opencode-go/deepseek-v4.1-flash` to `default`, `task`, `smol`, `plan`, `tiny`, `advisor`, and `slow`, with `tiny` at `minimal` effort and the rest spread across the model's effort ladder. Cheap and free disable model fallback and have no GPT fallback chains. Free assigns `openrouter/stealth/union-alpha` to every built-in role at the model's default effort. Project settings and explicit model overrides still take precedence, so this is a model preset, not an enforced spending limit.
+Default splits planning from implementation: `default`, `plan`, `slow`, and `advisor` stay on `openai-codex/gpt-6-astra`, while `task`, `smol`, and `tiny` move to `opencode-go/deepseek-v4.1-flash`. Its `prewalk.enabled` hands a session from astra to the `smol` role at the first `edit`/`write` after the planning nudge's todo list exists, so astra plans and deepseek carries the bulk of the implementation. `smol` deliberately omits an effort suffix so the fast subagents keep their own lower thinking level while the handoff inherits the session's. The `advisor` role stays assigned but the advisor itself is off until `/advisor on`. Work mirrors that split with `anthropic/claude-fable-5-1` in place of astra, for machines on an Anthropic subscription. DeepSeek pins every role, `vision` and `commit` included, to `opencode-go/deepseek-v4.1-flash`, so no role can select another model. Its suffixes come from that model's `low`/`high`/`max` ladder: `default`, `advisor`, and `vision` at `high`, `plan` and `slow` at `max`, `smol`, `tiny`, and `commit` at `low`, and `task` at `auto` so the bundled task agent classifies effort per prompt. DeepSeek and free disable model fallback and have no GPT fallback chains. Free assigns `openrouter/stealth/union-alpha` to every built-in role at the model's default effort. Project settings and explicit model overrides still take precedence, so this is a model preset, not an enforced spending limit.
 
 Each profile has separate stored authentication, sessions, databases, and caches. Authenticate the required providers separately in each profile and on each machine. The linker shares only tracked configuration, theme files, and global agent instructions; it never copies credentials or session history.
 
 **Migrating from manual work symlinks:** quit OMP before relinking. `./link-dotfiles.sh` and `upd` now restore the default source at `~/.omp/agent/config.yml` and install work at its named-profile path. The replaced work symlink is backed up as `config.yml.old`. Existing authentication and sessions remain under default; select `omp --profile work` and authenticate there to use work. Repeated linking preserves correctly installed links and their backups.
 
+**Renaming the cheap profile:** quit OMP before relinking. `./link-dotfiles.sh` renames `~/.omp/profiles/cheap` to `~/.omp/profiles/deepseek`, plus any `profiles/cheap` under an XDG data, state, or cache root that holds one. The whole directory moves, so stored logins, sessions, and caches stay with the profile. If both names exist, the linker stops before touching either and prints both paths for you to reconcile.
+
 OMP preserves each config symlink when saving. Global changes through `/model`, `/settings`, or `omp --profile work config set` update that profile's tracked YAML directly. Relinking does not reapply hard-coded model choices. Check the active values with:
 
 ```sh
-omp --profile cheap config get modelRoles --json
-omp --profile cheap config get retry.modelFallback --json
+omp --profile deepseek config get modelRoles --json
+omp --profile deepseek config get retry.modelFallback --json
 ```
 
 After changing these choices in OMP:
@@ -140,7 +142,7 @@ With `modelRoleStorage: project`, role changes go to that project's `.omp/config
 
 The linker symlinks `dot/.config/zed/settings.json` to `~/.config/zed/settings.json`, managing Zed preferences and four OMP [custom ACP agents](https://zed.dev/docs/ai/external-agents#custom-agents). Existing settings are backed up as `settings.json.old` on first linking; review that backup for machine-specific preferences. Other Zed state stays local.
 
-Open Zed's Agent Panel and select `OMP`, `OMP Work`, `OMP Cheap`, or `OMP Free` from the new-thread menu. They launch `omp --profile default acp --auto-approve`, `omp --profile work acp --auto-approve`, `omp --profile cheap acp --auto-approve`, and `omp --profile free acp --auto-approve`, respectively. Zed finds `omp` through its project environment's `PATH`. Each OMP profile owns its provider authentication and model configuration; no separate ACP adapter or Zed API key is needed. Zed detects settings changes automatically. Use `dev: open acp logs` from the command palette to troubleshoot the connection.
+Open Zed's Agent Panel and select `OMP`, `OMP Work`, `OMP DeepSeek`, or `OMP Free` from the new-thread menu. They launch `omp --profile default acp --auto-approve`, `omp --profile work acp --auto-approve`, `omp --profile deepseek acp --auto-approve`, and `omp --profile free acp --auto-approve`, respectively. Zed finds `omp` through its project environment's `PATH`. Each OMP profile owns its provider authentication and model configuration; no separate ACP adapter or Zed API key is needed. Zed detects settings changes automatically. Use `dev: open acp logs` from the command palette to troubleshoot the connection.
 
 Every entry passes an explicit `--profile`, so an inherited `OMP_PROFILE` cannot change its selection. All four enable automatic tool approval with `--auto-approve`. Model roles remain in the OMP profile YAML files, not in Zed settings. Authenticate separately in each profile, and select the intended agent when creating a new thread.
 

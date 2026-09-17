@@ -6,10 +6,12 @@ modelRoles:
   default: opencode-go/deepseek-v4.1-flash:high
   task: opencode-go/deepseek-v4.1-flash:auto
   smol: opencode-go/deepseek-v4.1-flash:low
-  plan: opencode-go/deepseek-v4.1-flash:xhigh
-  tiny: opencode-go/deepseek-v4.1-flash:minimal
-  advisor: opencode-go/deepseek-v4.1-flash:medium
-  slow: opencode-go/deepseek-v4.1-flash:xhigh
+  plan: opencode-go/deepseek-v4.1-flash:max
+  tiny: opencode-go/deepseek-v4.1-flash:low
+  advisor: opencode-go/deepseek-v4.1-flash:high
+  slow: opencode-go/deepseek-v4.1-flash:max
+  vision: opencode-go/deepseek-v4.1-flash:high
+  commit: opencode-go/deepseek-v4.1-flash:low
 retry:
   modelFallback: false
 tui:
