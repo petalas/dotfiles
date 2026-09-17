@@ -3,7 +3,7 @@ theme:
   light: seashells-light
 setupVersion: 2
 modelRoles:
-  default: openai-codex/gpt-6-astra:xhigh
+  default: openai-codex/gpt-5.6-sol:medium
   task: opencode-go/deepseek-v4.1-flash:auto
   advisor: openai-codex/gpt-6-astra:high
   smol: opencode-go/deepseek-v4.1-flash
