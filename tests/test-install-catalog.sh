@@ -17,11 +17,11 @@ for os in macos ubuntu debian arch; do
     grep -Fxq $'app\tai-skills.unslop\ton\toptional\tai-skills\tAI skill: unslop' "$fixture/$os.plan"
     grep -Fxq $'dependency\tai-skills.unslop\tlanguages.node' "$fixture/$os.plan"
     grep -Fxq $'action\tai-skills.unslop\tai-skill\thttps://github.com/petalas/skills.git\tunslop' "$fixture/$os.plan"
-    [[ "$(grep -c $'^action\tai-skills\..*\tai-skill\thttps://github.com/petalas/skills.git\t' "$fixture/$os.plan")" == 50 ]]
-    for skill in power-of-ten principle-attack-the-premise principle-test-behavior-not-implementation; do
+    [[ "$(grep -c $'^action\tai-skills\..*\tai-skill\thttps://github.com/petalas/skills.git\t' "$fixture/$os.plan")" == 51 ]]
+    for skill in gpt-image-2-5 power-of-ten principle-attack-the-premise principle-test-behavior-not-implementation; do
         grep -Fxq $'action\tai-skills.'"$skill"$'\tai-skill\thttps://github.com/petalas/skills.git\t'"$skill" "$fixture/$os.plan"
     done
-    if grep -Eq $'^action\tai-skills\..*\tai-skill\thttps://github.com/(cursor/plugins|mattpocock/skills)\.git\t' "$fixture/$os.plan" ||
+    if grep -Eq $'^action\tai-skills\..*\tai-skill\thttps://github.com/(agentspace-so/agent-skills|cursor/plugins|mattpocock/skills)\.git\t' "$fixture/$os.plan" ||
         grep -Fq $'action\tai-skills.fix-all-issues\tai-skill\t' "$fixture/$os.plan"; then
         echo "The AI skill plan contains a retired source or skill on $os." >&2
         exit 1
