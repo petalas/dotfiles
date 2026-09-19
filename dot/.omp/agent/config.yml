@@ -13,7 +13,7 @@ modelRoles:
 task:
   eager: always
 plan:
-  defaultOnStartup: true
+  defaultOnStartup: false
 prewalk:
   enabled: true
 retry:
