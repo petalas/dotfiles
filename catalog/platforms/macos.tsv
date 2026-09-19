@@ -70,6 +70,7 @@ desktop.rectangle	brew	payload	brew-cask	rectangle
 desktop.shottr	brew	payload	brew-cask	shottr
 desktop.stats	brew	payload	brew-cask	stats
 productivity.bitwarden	brew	payload	brew-cask	bitwarden
+productivity.handy	brew	payload	brew-cask	handy
 productivity.obsidian	brew	payload	brew-cask	obsidian
 productivity.pia	brew	payload	brew-cask	private-internet-access
 productivity.syncthing	brew	payload	brew-cask	syncthing-app

@@ -57,6 +57,7 @@ macos	desktop.rectangle	brew-cask	rectangle
 macos	desktop.shottr	brew-cask	shottr
 macos	desktop.stats	brew-cask	stats
 macos	productivity.bitwarden	brew-cask	bitwarden
+macos	productivity.handy	brew-cask	handy
 macos	productivity.obsidian	brew-cask	obsidian
 macos	productivity.pia	brew-cask	private-internet-access
 macos	productivity.syncthing	brew-cask	syncthing-app
@@ -359,6 +360,7 @@ debian	communication.chrome	managed-file	/etc/apt/sources.list.d/google-chrome.l
 debian	editors.code	managed-file	/etc/apt/sources.list.d/vscode.list	deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main
 macos	containers.act	retain	~/.actrc	user-data
 macos	productivity.bitwarden	retain	~/Library/Application Support/Bitwarden	user-data
+macos	productivity.handy	retain	~/Library/Application Support/com.pais.handy	user-data
 macos	communication.chrome	retain	~/Library/Application Support/Google/Chrome	user-data
 macos	editors.code	retain	~/Library/Application Support/Code	user-data
 macos	editors.code	retain	~/.vscode/extensions	user-data
