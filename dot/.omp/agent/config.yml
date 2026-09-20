@@ -28,3 +28,5 @@ display:
 symbolPreset: nerd
 dev:
   autoqaConsent: granted
+browser:
+  relay: true
