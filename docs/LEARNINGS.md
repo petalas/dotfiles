@@ -277,6 +277,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Symptom: Claude Code lists skills that were retired from `catalog/ai-skills.tsv` (e.g. `/tdd`, `/grill-me`), and `~/.claude/skills` holds broken symlinks into `~/.agents/skills` while `~/.pi/agent/skills` is clean.
 - Cause: the CLI removes the store entry and the lock record but does not reliably remove every agent root's symlink, and the lock alone said "installed", so nothing noticed.
 - Fix: `prune_ai_skill_links` removes dangling links that point into the store after every install, reconcile, removal, and `upd` skills step; `ai_skill_present` requires `SKILL.md` to be readable from each targeted root before a lock entry counts as installed. Links pointing anywhere else are never touched.
+- Removal must not reuse the install shape. `skills remove --global --skill <name> --agent claude-code pi universal --yes` unlinks only those agents and keeps the store directory and the lock record, so the skill still looks installed; the next `upd` skills step or reconcile restores it. The unscoped `skills remove --global --skill <name> --yes` cleans every agent link, the store entry, and the lock record. `remove_ai_skill_global` therefore passes no `--agent`; `prune_ai_skill_links` still covers any link the CLI leaves behind (verified against `skills` 1.7.0, 2026-09-21).
 
 ---
 

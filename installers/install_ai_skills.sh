@@ -158,12 +158,12 @@ install_ai_skill_batch() {
     ai_skills_cli add "$source" --skill "$@" --global --agent "${agents[@]}" --yes
 }
 
+# Removal must not pass `--agent`: with it the CLI only unlinks those agents and
+# leaves the store entry and lock record, so the next update reinstalls the
+# skill. Without it the CLI cleans every agent link, the store, and the lock;
+# prune_ai_skill_links then clears any link the CLI missed.
 remove_ai_skill_global() {
-    local skill=$1 agent
-    local -a agents
-    agents=()
-    while IFS= read -r agent; do agents+=("$agent"); done < <(ai_skill_global_agents)
-    ai_skills_cli remove --global --skill "$skill" --agent "${agents[@]}" --yes
+    ai_skills_cli remove --global --skill "$1" --yes
 }
 
 update_ai_skills_global() {

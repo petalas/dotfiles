@@ -341,14 +341,15 @@ grep -Fxq $'app\tai-skills.unslop\tremove\toptional\tai-skills\tAI skill: unslop
 grep -Fxq $'removal\tai-skills.unslop\texact\tai-skill\thttps://github.com/cursor/plugins.git\tunslop' \
     "$fixture/remove.plan"
 # The stubbed CLI leaves the store untouched; the removal path prunes links
-# whose store entry is already gone.
+# whose store entry is already gone. Removal passes no `--agent`: with it the
+# CLI only unlinks those agents and keeps the store entry and lock record.
 install_fake_skill unslop
 rm -rf "$store/unslop"
 : >"$log"
 DOTFILES_CATALOG_DIR="$skill_catalog" DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN=1 \
     "$repo_dir/lib/install-plan" execute --operation install --plan "$fixture/remove.plan" >/dev/null
 cat >"$fixture/expected-ai-skill-remove.log" <<EOF
---yes	skills	remove	--global	--skill	unslop${expected_agent_fields}
+--yes	skills	remove	--global	--skill	unslop	--yes
 EOF
 cmp -s "$fixture/expected-ai-skill-remove.log" "$log"
 [[ ! -L "$HOME/.claude/skills/unslop" && ! -L "$HOME/.pi/agent/skills/unslop" ]] || {
