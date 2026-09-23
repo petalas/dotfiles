@@ -78,6 +78,7 @@ macos	containers.docker	brew-cask	docker-desktop
 macos	containers.utm	brew-cask	utm
 macos	ai.herdr	brew-formula	herdr
 macos	ai.claude-code	brew-cask	claude-code@latest
+macos	ai.claude-desktop	brew-cask	claude
 macos	ai.lm-studio	brew-cask	lm-studio
 macos	mobile.applesimutils	brew-formula	wix-incubator/brew/applesimutils	trusted=true
 macos	mobile.bundletool	brew-formula	bundletool
@@ -376,6 +377,7 @@ macos	editors.neovim	retain	~/.local/share/nvim	user-data
 macos	productivity.obsidian	retain	~/Library/Application Support/obsidian	user-data
 macos	ai.claude-code	retain	~/.claude	user-data
 macos	ai.claude-code	retain	~/.claude.json	user-data
+macos	ai.claude-desktop	retain	~/Library/Application Support/Claude	user-data
 macos	ai.herdr	retain	~/.config/herdr	user-data
 macos	ai.omp	retain	~/.omp	user-data
 macos	containers.lazydocker	retain	~/.config/lazydocker	user-data

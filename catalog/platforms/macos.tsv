@@ -91,6 +91,7 @@ containers.docker	brew	payload	brew-cask	docker-desktop
 containers.utm	brew	payload	brew-cask	utm
 ai.herdr	brew	payload	brew-formula	herdr
 ai.claude-code	brew	payload	brew-cask	claude-code@latest
+ai.claude-desktop	brew	payload	brew-cask	claude
 ai.lm-studio	brew	payload	brew-cask	lm-studio
 mobile.applesimutils	brew	support	brew-tap	mobile-dev-inc/tap
 mobile.applesimutils	brew	payload	brew-formula	wix-incubator/brew/applesimutils	trusted=true

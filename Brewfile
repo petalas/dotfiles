@@ -86,6 +86,7 @@ cask "docker-desktop"
 cask "utm"
 brew "herdr"
 cask "claude-code@latest"
+cask "claude"
 cask "lm-studio"
 tap "mobile-dev-inc/tap"
 brew "wix-incubator/brew/applesimutils", trusted: true

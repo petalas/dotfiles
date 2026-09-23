@@ -102,6 +102,7 @@ desktop.shottr	desktop	Shottr	on
 desktop.stats	desktop	Stats	on
 desktop.integration	desktop	Desktop integration helpers	on
 ai.claude-code	ai	Claude Code	on
+ai.claude-desktop	ai	Claude (desktop app)	on
 ai.codex-cli	ai	Codex CLI	on	languages.node
 ai.codex-app	ai	ChatGPT (includes Codex)	on
 ai.herdr	ai	Herdr	on
