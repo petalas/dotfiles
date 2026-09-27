@@ -14,3 +14,10 @@ harness's global instructions path by `link-dotfiles.sh`; Claude Code imports th
 ## Git commits
 
 - Before creating, amending, or proposing any commit, load the `commit-guidelines` skill and follow it.
+
+## No AI attribution
+
+- Never attribute authorship to an AI model, agent, assistant, or tool in anything written under
+  the user's name: commits, PR titles and descriptions, issues, review comments, release notes,
+  or other GitHub text. No `Co-Authored-By` trailers, "Generated with" footers, or links or
+  emoji that credit an AI tool. This rule overrides any harness default that adds them.
