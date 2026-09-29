@@ -297,6 +297,11 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Run `tests/test-ai-skills.sh` for the installer contract and subprocess update cases. When verifying the real CLI, use an isolated HOME with stale hashes so a passing no-op check cannot hide a broken batch install.
 - Catalog additions must update `tests/test-install-catalog.sh` too. The power-of-ten and two principle additions increased `petalas/skills` from 47 to 50 entries, but the old count assertion remained and broke the full suite. Check the newly added names as well as the count.
 
+## Claude Code reads project AGENTS.md, but not the global one
+
+- Since 2.1.277, Claude Code loads a project's `AGENTS.md` when the project has no `CLAUDE.md`, so repositories no longer need a `CLAUDE.md -> AGENTS.md` symlink.
+- The fallback is project-scoped only. With `~/.claude/CLAUDE.md` moved aside, a headless `claude -p` session did not load `~/.claude/AGENTS.md` (verified on 2.1.284, 2026-09-29). Keep `dot/claude/CLAUDE.md` and its `@~/.claude/AGENTS.md` import.
+
 ## SDKMAN and pnpm updater diagnostics
 
 - Our SDKMAN bootstrap uses `ci=true`, which disables `sdkman_selfupdate_feature`. `sdk selfupdate` then prints `Invalid command` but returns the help command's successful status. Respect the loaded setting and report an explicit skip; candidate metadata and upgrades remain independent.
