@@ -13,7 +13,7 @@ export PATH="$fixture/bin:/usr/bin:/bin"
 # Every agent skill root lives under HOME, so an isolated HOME exercises the
 # real store, links, and lock paths without touching the machine.
 export HOME="$fixture/home"
-expected_agents=(claude-code pi universal)
+expected_agents=(claude-code universal)
 expected_agent_fields=$'\t--agent'
 for expected_agent in "${expected_agents[@]}"; do
     expected_agent_fields+=$'\t'"$expected_agent"
@@ -49,10 +49,9 @@ source "$repo_dir/installers/install_ai_skills.sh"
 store="$HOME/.agents/skills"
 install_fake_skill() {
     local skill=$1
-    mkdir -p "$store/$skill" "$HOME/.claude/skills" "$HOME/.pi/agent/skills"
+    mkdir -p "$store/$skill" "$HOME/.claude/skills"
     : >"$store/$skill/SKILL.md"
     ln -sfn "../../.agents/skills/$skill" "$HOME/.claude/skills/$skill"
-    ln -sfn "../../../.agents/skills/$skill" "$HOME/.pi/agent/skills/$skill"
 }
 
 # The catalog is kept sorted by source, then skill, so rows have one place.
@@ -86,6 +85,7 @@ if grep -Fq $'\t--agent\t*\t' "$log" || grep -Eq $'\t(eve|promptscript)(\t|$)' "
 fi
 cat >"$fixture/expected.log" <<EOF
 --yes	skills	add	https://github.com/conorbronsdon/avoid-ai-writing.git	--skill	avoid-ai-writing	--global${expected_agent_fields}
+--yes	skills	add	https://github.com/mattpocock/skills.git	--skill	ask-matt	code-review	codebase-design	diagnosing-bugs	domain-modeling	grill-me	grill-with-docs	grilling	handoff	implement	implement-spec	improve-codebase-architecture	pr	prototype	research	retro	setup-matt-pocock-skills	tdd	teach	to-questionnaire	to-spec	to-tickets	triage	wait-what	wayfinder	wizard	writing-for-agents	--global${expected_agent_fields}
 --yes	skills	add	https://github.com/petalas/skills.git	--skill	adversarial-review	architect	arena	auditable-run	automate-me	blast-radius	bro	commit-guidelines	configure-agent-models	create-verification-skill	engineering-mode	explain-code	gpt-image-2-5	how	maintain-verification-skill	power-of-ten	principle-attack-the-premise	principle-boundary-discipline	principle-build-the-lever	principle-encode-lessons-in-structure	principle-exhaust-the-design-space	principle-experience-first	principle-fix-root-causes	principle-foundational-thinking	principle-guard-the-context-window	principle-laziness-protocol	principle-local-autonomy	principle-make-operations-idempotent	principle-minimize-reader-load	principle-model-domain-in-code	principle-outcome-oriented-execution	principle-prove-it-works	principle-redesign-from-first-principles	principle-replace-internal-apis-atomically	principle-separate-before-serializing-shared-state	principle-sequence-verifiable-units	principle-subtract-before-you-add	principle-test-behavior-not-implementation	principle-type-system-discipline	recall	reflect	regression-test	review-code-comments	safe-refactor	show-me-your-work	swarm	technical-writing	typescript-best-practices	unslop	why	worktree-cleanup	--global${expected_agent_fields}
 EOF
 cmp -s "$fixture/expected.log" "$log" || {
@@ -122,21 +122,19 @@ grep -Fq 'AI skills catalog is empty' "$fixture/empty.err"
 # live links and links owned by anything else alone.
 install_fake_skill kept
 ln -s ../../.agents/skills/gone "$HOME/.claude/skills/gone"
-ln -s ../../../.agents/skills/gone "$HOME/.pi/agent/skills/gone"
 ln -s ../../elsewhere/foreign "$HOME/.claude/skills/foreign"
 prune_ai_skill_links >"$fixture/prune.out"
 [[ -L "$HOME/.claude/skills/kept" && -e "$HOME/.claude/skills/kept" ]]
-[[ ! -L "$HOME/.claude/skills/gone" && ! -L "$HOME/.pi/agent/skills/gone" ]]
+[[ ! -L "$HOME/.claude/skills/gone" ]]
 [[ -L "$HOME/.claude/skills/foreign" ]]
 grep -Fq 'removing stale claude-code skill link: gone' "$fixture/prune.out"
-grep -Fq 'removing stale pi skill link: gone' "$fixture/prune.out"
 rm -f "$HOME/.claude/skills/foreign"
 ai_skill_present kept
 if ai_skill_present gone; then
     echo "A skill without store files was reported present" >&2
     exit 1
 fi
-rm -f "$HOME/.pi/agent/skills/kept"
+rm -f "$HOME/.claude/skills/kept"
 if ai_skill_present kept; then
     echo "A skill missing from an agent root was reported present" >&2
     exit 1
@@ -283,7 +281,7 @@ cmp -s "$fixture/expected-repair.log" "$log" || {
     diff -u "$fixture/expected-repair.log" "$log" >&2 || true
     exit 1
 }
-[[ ! -L "$HOME/.claude/skills/gamma" && ! -L "$HOME/.pi/agent/skills/gamma" ]] || {
+[[ ! -L "$HOME/.claude/skills/gamma" ]] || {
     echo "Reconciliation left links to a removed skill store entry" >&2
     exit 1
 }
@@ -353,7 +351,7 @@ cat >"$fixture/expected-ai-skill-remove.log" <<EOF
 --yes	skills	remove	--global	--skill	unslop	--yes
 EOF
 cmp -s "$fixture/expected-ai-skill-remove.log" "$log"
-[[ ! -L "$HOME/.claude/skills/unslop" && ! -L "$HOME/.pi/agent/skills/unslop" ]] || {
+[[ ! -L "$HOME/.claude/skills/unslop" ]] || {
     echo "Removal left stale skill links in agent roots" >&2
     exit 1
 }

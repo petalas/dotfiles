@@ -22,7 +22,11 @@ for os in macos ubuntu debian arch; do
     for skill in gpt-image-2-5 power-of-ten principle-attack-the-premise principle-test-behavior-not-implementation; do
         grep -Fxq $'action\tai-skills.'"$skill"$'\tai-skill\thttps://github.com/petalas/skills.git\t'"$skill" "$fixture/$os.plan"
     done
-    if grep -Eq $'^action\tai-skills\..*\tai-skill\thttps://github.com/(agentspace-so/agent-skills|cursor/plugins|mattpocock/skills)\.git\t' "$fixture/$os.plan" ||
+    [[ "$(grep -c $'^action\tai-skills\..*\tai-skill\thttps://github.com/mattpocock/skills.git\t' "$fixture/$os.plan")" == 27 ]]
+    for skill in grill-me setup-matt-pocock-skills tdd wayfinder writing-for-agents; do
+        grep -Fxq $'action\tai-skills.'"$skill"$'\tai-skill\thttps://github.com/mattpocock/skills.git\t'"$skill" "$fixture/$os.plan"
+    done
+    if grep -Eq $'^action\tai-skills\..*\tai-skill\thttps://github.com/(agentspace-so/agent-skills|cursor/plugins)\.git\t' "$fixture/$os.plan" ||
         grep -Fq $'action\tai-skills.fix-all-issues\tai-skill\t' "$fixture/$os.plan"; then
         echo "The AI skill plan contains a retired source or skill on $os." >&2
         exit 1
