@@ -56,7 +56,7 @@ Before modifying code, find the matching file pattern and **read the linked doc 
 | `installers/install_ai_skills.sh`, `tests/test-ai-skills.sh`, `lib/ai-skill-updates.mjs`, `tools/update-ai-skills`, `tests/test-ai-skill-updates.mjs` | [LEARNINGS.md](docs/LEARNINGS.md) global skill update contract; the installed skills CLI owns lock writes and installation |
 | `.github/workflows/**` | README.md and [LEARNINGS.md](docs/LEARNINGS.md) |
 | `tools/lint-shell`, `.githooks/pre-commit`, `tests/live/**` | [LEARNINGS.md](docs/LEARNINGS.md) — CI parity: lint and smoke checks must stay reproducible locally |
-| `tests/test-yazi*.sh` | [LEARNINGS.md](docs/LEARNINGS.md) — cache migration and terminal-dependent compatibility probes |
+| `tests/test-yazi*.sh` | [LEARNINGS.md](docs/LEARNINGS.md) — terminal-dependent compatibility probes |
 | `tests/test-update-install-plan.sh` | [LEARNINGS.md](docs/LEARNINGS.md); use the host's Zsh path and respect its `OSTYPE` branch |
 | `dot/.config/**` | App's official docs for config syntax |
 | `dot/terminal/**`, `configure-macos-terminal.sh`, `tools/*macos-terminal*` | Terminal's profile import/export docs and [LEARNINGS.md](docs/LEARNINGS.md); never write live preferences while Terminal.app is running |

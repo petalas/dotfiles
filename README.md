@@ -117,10 +117,6 @@ Default splits planning from implementation: `default`, `plan`, `slow`, and `adv
 
 Each profile has separate stored authentication, sessions, databases, and caches. Authenticate the required providers separately in each profile and on each machine. The linker shares only tracked configuration, theme files, and global agent instructions; it never copies credentials or session history.
 
-**Migrating from manual work symlinks:** quit OMP before relinking. `./link-dotfiles.sh` and `upd` now restore the default source at `~/.omp/agent/config.yml` and install work at its named-profile path. The replaced work symlink is backed up as `config.yml.old`. Existing authentication and sessions remain under default; select `omp --profile work` and authenticate there to use work. Repeated linking preserves correctly installed links and their backups.
-
-**Renaming the cheap profile:** quit OMP before relinking. `./link-dotfiles.sh` renames `~/.omp/profiles/cheap` to `~/.omp/profiles/deepseek`, plus any `profiles/cheap` under an XDG data, state, or cache root that holds one. The whole directory moves, so stored logins, sessions, and caches stay with the profile. If both names exist, the linker stops before touching either and prints both paths for you to reconcile.
-
 OMP preserves each config symlink when saving. Global changes through `/model`, `/settings`, or `omp --profile work config set` update that profile's tracked YAML directly. Relinking does not reapply hard-coded model choices. Check the active values with:
 
 ```sh

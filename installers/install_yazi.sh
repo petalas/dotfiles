@@ -159,14 +159,5 @@ install_yazi() {
 		return 1
 	fi
 
-	# Remove the obsolete meta-package when migrating a machine that previously
-	# used this repository's Cargo-based provider. Its nested installer can
-	# report success without producing the Yazi binaries.
-	if command -v cargo >/dev/null 2>&1 &&
-		cargo install --list 2>/dev/null | grep -q '^yazi-build v[^:]*:$'; then
-		cargo uninstall yazi-build >/dev/null 2>&1 ||
-			echo "Warning: could not remove the obsolete yazi-build package." >&2
-	fi
-
 	echo "yazi $(yazi_fm_version) is installed with a matching ya CLI."
 }

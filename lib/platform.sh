@@ -78,7 +78,7 @@ run_as_root() {
 }
 
 configure_passwordless_sudo() {
-    local legacy_sudoers_target sudoers_source sudoers_target user_id
+    local sudoers_source sudoers_target user_id
     if [[ "${EUID:-$(id -u)}" == 0 ]]; then
         return 0
     fi
@@ -94,7 +94,6 @@ configure_passwordless_sudo() {
     }
     sudoers_source=$(mktemp "${TMPDIR:-/tmp}/dotfiles-sudoers.XXXXXX") || return 1
     sudoers_target=/etc/sudoers.d/zz-dotfiles-$user_id
-    legacy_sudoers_target=/etc/sudoers.d/dotfiles-$user_id
     {
         echo '# Managed by dotfiles easy-install.sh.'
         printf '\\#%s ALL=(ALL:ALL) NOPASSWD: ALL\n' "$user_id"
@@ -106,7 +105,6 @@ configure_passwordless_sudo() {
         set -eu
         source_file=$1
         target=$2
-        legacy_target=$3
         staging=${target}.tmp
         previous=${target}.previous
         had_previous=0
@@ -136,9 +134,8 @@ configure_passwordless_sudo() {
         visudo -cf /etc/sudoers >/dev/null
         committed=1
         rm -f "$previous"
-        if [ "$legacy_target" != "$target" ]; then rm -f "$legacy_target"; fi
         trap - EXIT HUP INT TERM
-    ' sh "$sudoers_source" "$sudoers_target" "$legacy_sudoers_target"; then
+    ' sh "$sudoers_source" "$sudoers_target"; then
         rm -f "$sudoers_source"
         echo "Could not configure passwordless sudo; administrator access is required." >&2
         return 1

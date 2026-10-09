@@ -1304,7 +1304,7 @@ parse_outcome_selection() {
             outcome)
                 [[ -z "${extra:-}" ]] || fail "malformed outcome selection for $id"
                 index=$(find_value_index "$id" "${app_ids[@]}") || fail "unknown outcome application: $id"
-                case "$value" in ensure|leave|remove|force) ;; *) fail "invalid desired outcome for $id: $value" ;; esac
+                case "$value" in ensure|leave|remove) ;; *) fail "invalid desired outcome for $id: $value" ;; esac
                 [[ "${app_states[$index]}" != required || "$value" == ensure ]] || fail "required application $id must be ensured"
                 app_outcomes[$index]=$value ;;
             '') ;;
@@ -1337,10 +1337,10 @@ prepare_outcome_dependencies() {
         done
     done
     for app_index in "${!app_ids[@]}"; do
-        [[ "${app_outcomes[$app_index]}" == remove || "${app_outcomes[$app_index]}" == force ]] || continue
+        [[ "${app_outcomes[$app_index]}" == remove ]] || continue
         for dependent_index in "${!app_ids[@]}"; do
             case ",${app_prerequisites[$dependent_index]}," in *",${app_ids[$app_index]},"*) ;; *) continue ;; esac
-            case "${app_outcomes[$dependent_index]}" in remove|force) continue ;; esac
+            [[ "${app_outcomes[$dependent_index]}" != remove ]] || continue
             observation_index=$(observation_index_for_app "${app_ids[$dependent_index]}") || continue
             case "${observation_presence[$observation_index]}" in present|partial|unknown)
                 app_outcomes[$app_index]=leave
@@ -1367,9 +1367,6 @@ write_outcome_plan() {
         if [[ "${app_outcomes[$app_index]}" == remove && "${observation_presence[$observation_index]}" != absent &&
               "${observation_exact[$observation_index]}" != enabled && "${observation_force[$observation_index]}" != enabled ]]; then
             fail "removal is disabled for ${app_ids[$app_index]}"
-        fi
-        if [[ "${app_outcomes[$app_index]}" == force && "${observation_force[$observation_index]}" != enabled ]]; then
-            fail "cleanup fallback is disabled for ${app_ids[$app_index]}"
         fi
         if [[ "${app_states[$app_index]}" == required ]]; then policy=required; else policy=optional; fi
         printf 'app\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "${app_ids[$app_index]}" "${app_outcomes[$app_index]}" \
@@ -1416,8 +1413,7 @@ write_outcome_plan() {
         app_index=$(find_value_index "${removal_apps[$index]}" "${app_ids[@]}")
         observation_index=$(observation_index_for_app "${app_ids[$app_index]}") || fail "missing observation for ${app_ids[$app_index]}"
         [[ "${observation_presence[$observation_index]}" != absent ]] || continue
-        if [[ "${app_outcomes[$app_index]}" == force ||
-              ( "${app_outcomes[$app_index]}" == remove && "${observation_exact[$observation_index]}" != enabled ) ]]; then
+        if [[ "${app_outcomes[$app_index]}" == remove && "${observation_exact[$observation_index]}" != enabled ]]; then
             printf 'removal\t%s\tforce\t%s\t%s\t%s\n' "${removal_apps[$index]}" "${removal_methods[$index]}" \
                 "${removal_targets[$index]}" "${removal_options[$index]}" >>"$output"
         fi
@@ -1529,7 +1525,7 @@ load_resolved_plan() {
                     presence=unknown
                 else
                     [[ -n "$sixth$seventh" && -z "$eighth${extra:-}" ]] || fail "malformed prepared application"
-                    case "$second" in ensure|leave|remove|force) outcome=$second ;; *) fail "invalid desired outcome" ;; esac
+                    case "$second" in ensure|leave|remove) outcome=$second ;; *) fail "invalid desired outcome" ;; esac
                     presence=$sixth
                 fi
                 apply_app_ids+=("$first"); apply_app_outcomes+=("$outcome"); apply_app_labels+=("$fifth"); apply_app_presences+=("$presence")
@@ -2063,9 +2059,9 @@ initialize_event_operations() {
         done
         for index in "${!apply_removal_apps[@]}"; do
             app_index=$(find_value_index "${apply_removal_apps[$index]}" "${apply_app_ids[@]}") || continue
-            case "${apply_app_outcomes[$app_index]}" in remove|force)
-                register_event_operation "removal:$index" "$(removal_operation_label "$index")" ;;
-            esac
+            if [[ "${apply_app_outcomes[$app_index]}" == remove ]]; then
+                register_event_operation "removal:$index" "$(removal_operation_label "$index")"
+            fi
         done
         for app_index in "${!apply_app_ids[@]}"; do
             outcome=${apply_app_outcomes[$app_index]}
@@ -2170,7 +2166,7 @@ execute_plan_removal() {
             dependent=${apply_dependency_apps[$dependency_index]}
             dependent_index=$(find_value_index "$dependent" "${apply_app_ids[@]}") || { settle_app_operation "$index" blocked; return 1; }
             case "${apply_app_outcomes[$dependent_index]}" in
-                remove|force) execute_plan_removal "$dependent" "$path|$id|" || { settle_app_operation "$index" blocked; return 1; } ;;
+                remove) execute_plan_removal "$dependent" "$path|$id|" || { settle_app_operation "$index" blocked; return 1; } ;;
                 *) settle_app_operation "$index" blocked; return 1 ;;
             esac
         fi
@@ -2371,21 +2367,15 @@ validate_prepared_removals() {
     while ((index < ${#apply_removal_apps[@]})); do
         app_index=$(find_value_index "${apply_removal_apps[$index]}" "${apply_app_ids[@]}") ||
             fail "prepared removal has no application: ${apply_removal_apps[$index]}"
-        if [[ "${apply_removal_modes[$index]}" == exact ]]; then
-            [[ "${apply_app_outcomes[$app_index]}" == remove ]] ||
-                fail "prepared removal differs from desired outcome: ${apply_removal_apps[$index]}"
-        else
-            case "${apply_app_outcomes[$app_index]}" in remove|force) ;;
-                *) fail "prepared removal differs from desired outcome: ${apply_removal_apps[$index]}" ;;
-            esac
-        fi
+        [[ "${apply_app_outcomes[$app_index]}" == remove ]] ||
+            fail "prepared removal differs from desired outcome: ${apply_removal_apps[$index]}"
         prepared_removal_is_catalogued "$apply_os" "${apply_removal_apps[$index]}" "${apply_removal_modes[$index]}" \
             "${apply_removal_kinds[$index]}" "${apply_removal_targets[$index]}" "${apply_removal_options[$index]}" ||
             fail "prepared removal is absent from catalog: ${apply_removal_apps[$index]} ${apply_removal_kinds[$index]}"
         index=$((index + 1))
     done
     for app_index in "${!apply_app_ids[@]}"; do
-        case "${apply_app_outcomes[$app_index]}" in remove|force) ;; *) continue ;; esac
+        [[ "${apply_app_outcomes[$app_index]}" == remove ]] || continue
         found=0
         for removal_index in "${!apply_removal_apps[@]}"; do
             if [[ "${apply_removal_apps[$removal_index]}" == "${apply_app_ids[$app_index]}" ]]; then found=1; break; fi
@@ -2590,9 +2580,9 @@ apply_plan() {
             app_index=0
             while ((app_index < ${#apply_app_ids[@]})); do
                 [[ "$interrupted" != 1 ]] || break
-                case "${apply_app_outcomes[$app_index]}" in
-                    remove|force) execute_plan_removal "${apply_app_ids[$app_index]}" || true ;;
-                esac
+                if [[ "${apply_app_outcomes[$app_index]}" == remove ]]; then
+                    execute_plan_removal "${apply_app_ids[$app_index]}" || true
+                fi
                 app_index=$((app_index + 1))
             done
             dependency_failed=0

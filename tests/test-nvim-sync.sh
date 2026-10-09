@@ -50,13 +50,7 @@ first_sync=$(git -C "$config" rev-parse custom)
 NVIM_SYNC_SKIP_SMOKE=1 nvim_sync_fork "$config"
 [[ "$(git -C "$config" rev-parse custom)" == "$first_sync" ]]
 
-# A stale lazy.nvim lockfile left behind by the vim.pack migration is safe to
-# prune before the dirty-worktree guard. Unknown untracked files still block.
-printf '{}\n' > "$config/lazy-lock.json"
-NVIM_SYNC_SKIP_SMOKE=1 nvim_sync_fork "$config"
-[[ ! -e "$config/lazy-lock.json" ]]
-[[ -z "$(git -C "$config" status --porcelain)" ]]
-
+# Unknown untracked files block the sync.
 printf 'scratch\n' > "$config/scratch.txt"
 if NVIM_SYNC_SKIP_SMOKE=1 nvim_sync_fork "$config"; then
     echo 'nvim sync unexpectedly accepted an unknown untracked file' >&2

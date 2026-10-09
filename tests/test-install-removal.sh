@@ -116,13 +116,15 @@ for cleanup in disabled enabled; do
 done
 cp "$fixture/absent-disabled.plan" "$fixture/absent.plan"
 
+# `force` is a removal mode, not a selectable outcome.
 sed $'s/outcome\ttools.loose\tremove/outcome\ttools.loose\tforce/' \
-    "$fixture/removal-selection.tsv" >"$fixture/legacy-force-selection.tsv"
-DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare \
-    --mode outcomes --os macos --selection "$fixture/legacy-force-selection.tsv" \
-    --observations "$fixture/observations.tsv" --output "$fixture/legacy-force.plan" >/dev/null
-grep -Fxq $'app\ttools.loose\tforce\toptional\ttools\tLoose\tpresent\tunverified' "$fixture/legacy-force.plan"
-grep -Fxq $'removal\ttools.loose\tforce\tpath\t~/.local/bin/loose\t' "$fixture/legacy-force.plan"
+    "$fixture/removal-selection.tsv" >"$fixture/force-selection.tsv"
+if DOTFILES_CATALOG_DIR="$catalog" "$repo_dir/lib/install-plan" prepare \
+    --mode outcomes --os macos --selection "$fixture/force-selection.tsv" \
+    --observations "$fixture/observations.tsv" --output "$fixture/force.plan" >/dev/null 2>&1; then
+    echo "A force outcome was accepted as a selection" >&2
+    exit 1
+fi
 
 cat >"$fixture/adapter" <<'EOF'
 #!/usr/bin/env bash

@@ -93,11 +93,7 @@ fm_version=$("$yazi_bin" --version | version_from_output)
 }
 
 # Exercise package restoration and repeatability with the real release binary.
-# Seed the old cache format that existed before Yazi 26.9.1.
 export XDG_CACHE_HOME="$fixture_dir/cache"
-legacy_cache="$XDG_CACHE_HOME/yazi/packages/89c23501b37716e3dfefb092388d1d58"
-git clone --quiet https://github.com/kirasok/torrent-preview.yazi.git "$legacy_cache"
-git -C "$legacy_cache" checkout --quiet 4ca5996
 # shellcheck source=lib/yazi.sh
 source "$repo_dir/lib/yazi.sh"
 for pass in 1 2; do

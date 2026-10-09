@@ -69,17 +69,8 @@ fi
 exit 2
 EOF
 
-cat >"$fixture_dir/bin/cargo" <<'EOF'
-#!/usr/bin/env bash
-printf 'cargo:%s\n' "$*" >>"$YAZI_TEST_LOG"
-case "$*" in
-	'install --list') printf 'yazi-build v26.8.15:\n    yazi-build\n' ;;
-	'uninstall yazi-build') ;;
-	*) exit 2 ;;
-esac
-EOF
 
-chmod +x "$fixture_dir/bin/ya" "$fixture_dir/bin/yazi" "$fixture_dir/bin/cargo"
+chmod +x "$fixture_dir/bin/ya" "$fixture_dir/bin/yazi"
 export PATH="$fixture_dir/bin:$PATH"
 
 export DOTFILES_OS_OVERRIDE=debian
@@ -124,9 +115,7 @@ if yazi_is_compatible; then
 	exit 1
 fi
 
-# A successful yazi-build installation is not proof that its nested installer
-# produced ya/yazi. Install and select the checksummed official release pair
-# without relying on the meta-package's build-script side effects.
+# Install and select the checksummed official release pair.
 download_stdout() {
 	cat <<'EOF'
 {"tag_name":"v26.8.15","assets":[{"name":"yazi-x86_64-unknown-linux-gnu.zip","digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","browser_download_url":"https://github.com/sxyazi/yazi/releases/download/v26.8.15/yazi-x86_64-unknown-linux-gnu.zip"}]}
@@ -153,8 +142,6 @@ install_yazi >/dev/null
 [[ $(command -v ya) == "$HOME/.local/bin/ya" ]]
 [[ $(command -v yazi) == "$HOME/.local/bin/yazi" ]]
 assert_log_line 'download:https://github.com/sxyazi/yazi/releases/download/v26.8.15/yazi-x86_64-unknown-linux-gnu.zip'
-assert_no_log_line 'cargo:install --locked yazi-build'
-assert_log_line 'cargo:uninstall yazi-build'
 
 [[ $(_yazi_release_layout macos arm64) == $'yazi-aarch64-apple-darwin.zip\tyazi-aarch64-apple-darwin' ]]
 [[ $(_yazi_release_layout ubuntu x86_64) == $'yazi-x86_64-unknown-linux-gnu.zip\tyazi-x86_64-unknown-linux-gnu' ]]
@@ -186,21 +173,5 @@ if grep -Fq 'pkg add' "$YAZI_TEST_LOG"; then
 	echo "Yazi packages must be restored from package.toml, not re-added" >&2
 	exit 1
 fi
-
-# Existing pre-26.9.1 caches contain real Git symlinks.
-export XDG_CACHE_HOME="$fixture_dir/cache"
-package_cache="$XDG_CACHE_HOME/yazi/packages/fixture"
-mkdir -p "$package_cache"
-git init --quiet "$package_cache"
-printf 'return {}\n' >"$package_cache/main.lua"
-ln -s main.lua "$package_cache/init.lua"
-git -C "$package_cache" add main.lua init.lua
-printf 'keep\n' >"$package_cache/untracked"
-install_yazi_packages
-[[ ! -L "$package_cache/init.lua" ]]
-[[ "$(cat "$package_cache/init.lua")" == main.lua ]]
-[[ "$(cat "$package_cache/main.lua")" == 'return {}' ]]
-[[ "$(cat "$package_cache/untracked")" == keep ]]
-install_yazi_packages
 
 echo "Yazi installer tests passed."

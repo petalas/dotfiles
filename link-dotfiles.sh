@@ -9,35 +9,6 @@ source "$dotfiles_dir/lib/link.sh"
 # shellcheck source=lib/obsidian.sh disable=SC1091
 source "$dotfiles_dir/lib/obsidian.sh"
 
-# Rename profile-local state before linking preferences. Quit OMP before relinking.
-# Preflight every native/XDG root so a collision cannot leave a partial migration.
-omp_profile_roots=(
-    "$HOME/.omp/profiles"
-    "${XDG_DATA_HOME:-$HOME/.local/share}/omp/profiles"
-    "${XDG_STATE_HOME:-$HOME/.local/state}/omp/profiles"
-    "${XDG_CACHE_HOME:-$HOME/.cache}/omp/profiles"
-)
-for omp_profile_root in "${omp_profile_roots[@]}"; do
-    if [[ ! -e "$omp_profile_root/cheap" && ! -L "$omp_profile_root/cheap" ]]; then
-        continue
-    fi
-    if [[ ! -d "$omp_profile_root/cheap" || -L "$omp_profile_root/cheap" ]]; then
-        echo "Cannot migrate non-directory OMP profile: $omp_profile_root/cheap" >&2
-        exit 1
-    fi
-    if [[ -e "$omp_profile_root/deepseek" || -L "$omp_profile_root/deepseek" ]]; then
-        echo "Cannot rename OMP profile: both $omp_profile_root/cheap and $omp_profile_root/deepseek exist. Reconcile them manually, then relink." >&2
-        exit 1
-    fi
-done
-for omp_profile_root in "${omp_profile_roots[@]}"; do
-    if [[ -d "$omp_profile_root/cheap" ]]; then
-        mv "$omp_profile_root/cheap" "$omp_profile_root/deepseek"
-        echo "Renamed OMP profile: $omp_profile_root/cheap -> $omp_profile_root/deepseek"
-    fi
-done
-unset omp_profile_root omp_profile_roots
-
 mkdir -p "$HOME/.config"
 git -C "$dotfiles_dir" config core.hooksPath .githooks
 
@@ -95,8 +66,7 @@ merge_json_setting "$pi_settings" '.theme = "seashells"'
 # Agent theme palettes are pinned to odysseyalive/omarchy-seashells-theme@00dca31761374d5526790dd8a10271edbc6f9ec8.
 # Link only preferences; credentials, sessions, and databases stay machine-local.
 # Native OMP profiles are isolated agent dirs; selection is launch-time only via
-# --profile/OMP_PROFILE. A stale work-selected default symlink is restored to the
-# default source here through the usual .old backup semantics.
+# --profile/OMP_PROFILE.
 for omp_profile in default work deepseek free; do
     case "$omp_profile" in
         default)
@@ -171,14 +141,3 @@ done
 # Claude Code owns ~/.claude/settings.json (it writes theme and prompt state into
 # it), so the file stays machine-local and only the managed keys are merged in.
 merge_json_setting "$HOME/.claude/settings.json" '.autoMemoryEnabled = false'
-
-# The knowledge-audit commands moved to project-local skills. Drop the links
-# older revisions created, but only when they still point into this repository.
-for retired_command in knowledge-audit.md knowledge-migrate-all.md; do
-    retired_link="$HOME/.claude/commands/$retired_command"
-    if [[ -L "$retired_link" ]] &&
-        [[ "$(readlink "$retired_link")" == "$dotfiles_dir/dot/claude/commands/"* ]]; then
-        rm -f "$retired_link"
-        echo "Removed retired command link: $retired_link"
-    fi
-done
