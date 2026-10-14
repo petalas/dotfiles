@@ -48,7 +48,7 @@ link_path "$dotfiles_dir/dot/.config/kitty/themes/seashells-light.conf" \
 link_path "$dotfiles_dir/dot/.config/yazi" "$HOME/.config/yazi"
 link_path "$dotfiles_dir/dot/.config/bat" "$HOME/.config/bat"
 
-# Zed preferences and custom ACP agents; editor state stays machine-local.
+# Zed preferences; editor state stays machine-local.
 link_path "$dotfiles_dir/dot/.config/zed/settings.json" "$HOME/.config/zed/settings.json"
 
 # Pi extensions/theme plus the one managed setting. Pi owns all other settings.
@@ -63,38 +63,31 @@ link_path "$dotfiles_dir/dot/.pi/agent/themes/seashells-light.json" \
     "$pi_agent_dir/themes/seashells-light.json"
 merge_json_setting "$pi_settings" '.theme = "seashells"'
 
-# Agent theme palettes are pinned to odysseyalive/omarchy-seashells-theme@00dca31761374d5526790dd8a10271edbc6f9ec8.
-# Link only preferences; credentials, sessions, and databases stay machine-local.
-# Native OMP profiles are isolated agent dirs; selection is launch-time only via
-# --profile/OMP_PROFILE.
-for omp_profile in default work deepseek free; do
-    case "$omp_profile" in
-        default)
-            omp_profile_source="$dotfiles_dir/dot/.omp/agent/config.yml"
-            omp_profile_dir="$HOME/.omp/agent"
-            ;;
-        work)
-            omp_profile_source="$dotfiles_dir/dot/.omp/agent/config-work.yml"
-            omp_profile_dir="$HOME/.omp/profiles/work/agent"
-            ;;
-        deepseek)
-            omp_profile_source="$dotfiles_dir/dot/.omp/agent/config-deepseek.yml"
-            omp_profile_dir="$HOME/.omp/profiles/deepseek/agent"
-            ;;
-        free)
-            omp_profile_source="$dotfiles_dir/dot/.omp/agent/config-free.yml"
-            omp_profile_dir="$HOME/.omp/profiles/free/agent"
-            ;;
-    esac
-    mkdir -p "$omp_profile_dir/themes"
-    link_path "$omp_profile_source" "$omp_profile_dir/config.yml"
-    link_path "$dotfiles_dir/dot/.omp/agent/themes/seashells.json" \
-        "$omp_profile_dir/themes/seashells.json"
-    link_path "$dotfiles_dir/dot/.omp/agent/themes/seashells-light.json" \
-        "$omp_profile_dir/themes/seashells-light.json"
-    link_path "$dotfiles_dir/dot/AGENTS.md" "$omp_profile_dir/AGENTS.md"
+# Retire only this checkout's former OMP links, including dangling config/theme
+# links. Machine-owned files, backups, credentials, and session history stay put.
+for omp_agent_dir in "$HOME/.omp/agent" "$HOME/.omp/profiles/work/agent" \
+    "$HOME/.omp/profiles/deepseek/agent" "$HOME/.omp/profiles/free/agent"; do
+    for omp_link in "$omp_agent_dir/config.yml" "$omp_agent_dir/AGENTS.md" \
+        "$omp_agent_dir/themes/seashells.json" "$omp_agent_dir/themes/seashells-light.json"; do
+        if [[ ! -L "$omp_link" ]]; then
+            continue
+        fi
+        omp_source=$(readlink "$omp_link")
+        case "$omp_source" in
+            "$dotfiles_dir/dot/.omp/agent/config.yml"|\
+            "$dotfiles_dir/dot/.omp/agent/config-work.yml"|\
+            "$dotfiles_dir/dot/.omp/agent/config-deepseek.yml"|\
+            "$dotfiles_dir/dot/.omp/agent/config-free.yml"|\
+            "$dotfiles_dir/dot/.omp/agent/themes/seashells.json"|\
+            "$dotfiles_dir/dot/.omp/agent/themes/seashells-light.json"|\
+            "$dotfiles_dir/dot/AGENTS.md")
+                rm -f -- "$omp_link"
+                echo "Removed retired OMP link: $omp_link"
+                ;;
+        esac
+    done
 done
-unset omp_profile omp_profile_source omp_profile_dir
+unset omp_agent_dir omp_link omp_source
 
 link_obsidian_vault_settings "$dotfiles_dir"
 
@@ -132,8 +125,7 @@ chmod 600 "$ssh_config"
 link_path "$dotfiles_dir/dot/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
 
 # Harness-neutral global agent instructions. CLAUDE.md imports the Claude copy; the
-# other harnesses read their own global AGENTS.md path directly. OMP links are
-# owned by the native-profile loop above, which covers every profile agent dir.
+# other harnesses read their own global AGENTS.md path directly.
 for agents_target in "$HOME/.claude/AGENTS.md" "$HOME/.codex/AGENTS.md" \
     "$HOME/.pi/agent/AGENTS.md"; do
     link_path "$dotfiles_dir/dot/AGENTS.md" "$agents_target"

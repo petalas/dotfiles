@@ -379,7 +379,6 @@ macos	ai.claude-code	retain	~/.claude	user-data
 macos	ai.claude-code	retain	~/.claude.json	user-data
 macos	ai.claude-desktop	retain	~/Library/Application Support/Claude	user-data
 macos	ai.herdr	retain	~/.config/herdr	user-data
-macos	ai.omp	retain	~/.omp	user-data
 macos	containers.lazydocker	retain	~/.config/lazydocker	user-data
 macos	cli.yazi	retain	~/.config/yazi	user-data
 macos	cli.yazi	retain	~/.local/share/yazi	user-data
@@ -401,7 +400,6 @@ ubuntu	productivity.obsidian	retain	~/.config/obsidian	user-data
 ubuntu	ai.claude-code	retain	~/.claude	user-data
 ubuntu	ai.claude-code	retain	~/.claude.json	user-data
 ubuntu	ai.herdr	retain	~/.config/herdr	user-data
-ubuntu	ai.omp	retain	~/.omp	user-data
 ubuntu	containers.lazydocker	retain	~/.config/lazydocker	user-data
 ubuntu	cli.yazi	retain	~/.config/yazi	user-data
 ubuntu	cli.yazi	retain	~/.local/share/yazi	user-data
@@ -428,7 +426,6 @@ debian	productivity.obsidian	retain	~/.config/obsidian	user-data
 debian	ai.claude-code	retain	~/.claude	user-data
 debian	ai.claude-code	retain	~/.claude.json	user-data
 debian	ai.herdr	retain	~/.config/herdr	user-data
-debian	ai.omp	retain	~/.omp	user-data
 debian	containers.lazydocker	retain	~/.config/lazydocker	user-data
 debian	cli.yazi	retain	~/.config/yazi	user-data
 debian	cli.yazi	retain	~/.local/share/yazi	user-data
@@ -456,7 +453,6 @@ arch	productivity.obsidian	retain	~/.config/obsidian	user-data
 arch	ai.claude-code	retain	~/.claude	user-data
 arch	ai.claude-code	retain	~/.claude.json	user-data
 arch	ai.herdr	retain	~/.config/herdr	user-data
-arch	ai.omp	retain	~/.omp	user-data
 arch	containers.lazydocker	retain	~/.config/lazydocker	user-data
 arch	cli.yazi	retain	~/.config/yazi	user-data
 arch	cli.yazi	retain	~/.local/share/yazi	user-data

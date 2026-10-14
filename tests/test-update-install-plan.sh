@@ -188,7 +188,10 @@ fi
 [[ "$(grep -c '^plan apply ' "$log")" == 1 ]]
 grep -Fxq 'bun upgrade' "$log"
 grep -Fxq 'pi update --all' "$log"
-grep -Fxq 'omp update' "$log"
+if grep -Fq 'omp ' "$log"; then
+    echo 'Updater invoked the retired OMP command.' >&2
+    exit 1
+fi
 grep -Fxq 'update-ai-skills' "$log"
 grep -Fxq 'nvim plugins' "$log"
 grep -Fxq 'pnpm globals updated' "$log"

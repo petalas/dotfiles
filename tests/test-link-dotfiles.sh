@@ -8,43 +8,32 @@ trap 'rm -rf "$fixture"' EXIT
 git init -q "$fixture/repo"
 cp -R "$repo_dir/dot" "$repo_dir/lib" "$repo_dir/link-dotfiles.sh" "$fixture/repo/"
 repo_dir="$fixture/repo"
-# Distinguishable fixture OMP sources: profile independence is proven through
-# these markers, never through incidental model strings.
-[[ -f "$repo_dir/dot/.omp/agent/config-deepseek.yml" ]]
-[[ -f "$repo_dir/dot/.omp/agent/config-free.yml" ]]
-printf 'profile: default-fixture\n' >"$repo_dir/dot/.omp/agent/config.yml"
-printf 'profile: work-fixture\n' >"$repo_dir/dot/.omp/agent/config-work.yml"
-printf 'profile: deepseek-fixture\n' >"$repo_dir/dot/.omp/agent/config-deepseek.yml"
-printf 'profile: free-fixture\n' >"$repo_dir/dot/.omp/agent/config-free.yml"
 mkdir -p "$fixture/home/.ssh" "$fixture/home/.pi/agent" \
-    "$fixture/home/.omp/agent" \
-    "$fixture/home/.omp/profiles/work/agent" \
-    "$fixture/home/.omp/profiles/deepseek/agent" \
-    "$fixture/home/.omp/profiles/free/agent" \
-    "$fixture/home/git/notes"
+    "$fixture/home/git/notes" "$fixture/home/.claude"
 printf '# Include ~/.ssh/config.shared\nHost example\n' >"$fixture/home/.ssh/config"
 printf '{"defaultModel":"test"}\n' >"$fixture/home/.pi/agent/settings.json"
-mkdir -p "$fixture/home/.claude"
 printf '{"theme":"dark"}\n' >"$fixture/home/.claude/settings.json"
-# Pre-existing regular configs: each profile must keep its prior content as .old.
-printf 'old: default settings\n' >"$fixture/home/.omp/agent/config.yml"
-printf 'old: work settings\n' >"$fixture/home/.omp/profiles/work/agent/config.yml"
-printf 'old: deepseek settings\n' >"$fixture/home/.omp/profiles/deepseek/agent/config.yml"
-printf 'old: free settings\n' >"$fixture/home/.omp/profiles/free/agent/config.yml"
-# Fixture-only runtime sentinels. These stand in for machine-local databases,
-# sessions, and caches; this test never opens real OMP SQLite files.
-mkdir -p "$fixture/home/.omp/agent/sessions" \
-    "$fixture/home/.omp/profiles/work/agent/sessions" \
-    "$fixture/home/.omp/profiles/deepseek/agent/sessions" \
-    "$fixture/home/.omp/profiles/free/agent/sessions"
-printf 'default-runtime\n' >"$fixture/home/.omp/agent/agent.db"
-printf 'work-runtime\n' >"$fixture/home/.omp/profiles/work/agent/agent.db"
-printf 'deepseek-runtime\n' >"$fixture/home/.omp/profiles/deepseek/agent/agent.db"
-printf 'free-runtime\n' >"$fixture/home/.omp/profiles/free/agent/agent.db"
-printf 'default-session\n' >"$fixture/home/.omp/agent/sessions/session.json"
+
+# Simulate a previously linked machine after the tracked OMP sources are deleted.
+# Runtime sentinels and backups must survive cleanup and repeated relinking.
+omp_agents=(.omp/agent .omp/profiles/work/agent .omp/profiles/deepseek/agent .omp/profiles/free/agent)
+omp_configs=(config.yml config-work.yml config-deepseek.yml config-free.yml)
+for index in 0 1 2 3; do
+    agent_dir="$fixture/home/${omp_agents[index]}"
+    mkdir -p "$agent_dir/themes" "$agent_dir/sessions"
+    ln -s "$repo_dir/dot/.omp/agent/${omp_configs[index]}" "$agent_dir/config.yml"
+    ln -s "$repo_dir/dot/.omp/agent/themes/seashells.json" "$agent_dir/themes/seashells.json"
+    ln -s "$repo_dir/dot/.omp/agent/themes/seashells-light.json" "$agent_dir/themes/seashells-light.json"
+    ln -s "$repo_dir/dot/AGENTS.md" "$agent_dir/AGENTS.md"
+    printf 'machine-runtime\n' >"$agent_dir/agent.db"
+    printf 'machine-session\n' >"$agent_dir/sessions/session.json"
+    printf 'old: machine settings\n' >"$agent_dir/config.yml.old"
+done
+# Profiles that were never managed remain untouched.
+mkdir -p "$fixture/home/.omp/profiles/personal/agent"
+printf 'personal: settings\n' >"$fixture/home/.omp/profiles/personal/agent/config.yml"
 for _ in 1 2; do
-    HOME="$fixture/home" PATH="/usr/bin:/bin" \
-        "$repo_dir/link-dotfiles.sh"
+    HOME="$fixture/home" PATH="/usr/bin:/bin" "$repo_dir/link-dotfiles.sh"
 done
 
 [[ -L "$fixture/home/.zshrc" ]]
@@ -57,147 +46,71 @@ jq -e '.alwaysUpdateLinks == true' \
 jq -e '.theme == "seashells" and .defaultModel == "test"' \
     "$fixture/home/.pi/agent/settings.json" >/dev/null
 [[ "$(stat -c '%a' "$fixture/home/.pi/agent/settings.json" 2>/dev/null || stat -f '%Lp' "$fixture/home/.pi/agent/settings.json")" == 600 ]]
+[[ ! -L "$fixture/home/.pi/agent/settings.json" ]]
 jq -e '.autoMemoryEnabled == false and .theme == "dark"' \
     "$fixture/home/.claude/settings.json" >/dev/null
 [[ ! -L "$fixture/home/.claude/settings.json" ]]
 
-# OMP native profiles: the default agent dir plus the work/deepseek/free named
-# dirs.
-grep -Fxq 'old: default settings' "$fixture/home/.omp/agent/config.yml.old"
-[[ ! -L "$fixture/home/.omp/agent/config.yml.old" ]]
-[[ -L "$fixture/home/.omp/agent/config.yml" ]]
-[[ "$(readlink "$fixture/home/.omp/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config.yml" ]]
-grep -Fxq 'profile: default-fixture' "$fixture/home/.omp/agent/config.yml"
-grep -Fxq 'old: work settings' "$fixture/home/.omp/profiles/work/agent/config.yml.old"
-[[ ! -L "$fixture/home/.omp/profiles/work/agent/config.yml.old" ]]
-[[ -L "$fixture/home/.omp/profiles/work/agent/config.yml" ]]
-[[ "$(readlink "$fixture/home/.omp/profiles/work/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config-work.yml" ]]
-grep -Fxq 'profile: work-fixture' "$fixture/home/.omp/profiles/work/agent/config.yml"
-grep -Fxq 'old: deepseek settings' "$fixture/home/.omp/profiles/deepseek/agent/config.yml.old"
-[[ ! -L "$fixture/home/.omp/profiles/deepseek/agent/config.yml.old" ]]
-[[ -L "$fixture/home/.omp/profiles/deepseek/agent/config.yml" ]]
-[[ "$(readlink "$fixture/home/.omp/profiles/deepseek/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config-deepseek.yml" ]]
-grep -Fxq 'profile: deepseek-fixture' "$fixture/home/.omp/profiles/deepseek/agent/config.yml"
-grep -Fxq 'old: free settings' "$fixture/home/.omp/profiles/free/agent/config.yml.old"
-[[ ! -L "$fixture/home/.omp/profiles/free/agent/config.yml.old" ]]
-[[ -L "$fixture/home/.omp/profiles/free/agent/config.yml" ]]
-[[ "$(readlink "$fixture/home/.omp/profiles/free/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config-free.yml" ]]
-grep -Fxq 'profile: free-fixture' "$fixture/home/.omp/profiles/free/agent/config.yml"
-
-# Only files are linked; no whole-profile or agent directory is a symlink.
-[[ ! -L "$fixture/home/.omp/agent" ]]
-[[ ! -L "$fixture/home/.omp/profiles" ]]
-[[ ! -L "$fixture/home/.omp/profiles/work" ]]
-[[ ! -L "$fixture/home/.omp/profiles/work/agent" ]]
-[[ ! -L "$fixture/home/.omp/profiles/deepseek" ]]
-[[ ! -L "$fixture/home/.omp/profiles/deepseek/agent" ]]
-[[ ! -L "$fixture/home/.omp/profiles/free" ]]
-[[ ! -L "$fixture/home/.omp/profiles/free/agent" ]]
-
-[[ -L "$fixture/home/.pi/agent/themes/seashells.json" ]]
-[[ -L "$fixture/home/.pi/agent/themes/seashells-light.json" ]]
-
-# Shared themes are linked into every profile dir; theme dirs stay real.
-for profile_agent in .omp/agent .omp/profiles/work/agent .omp/profiles/deepseek/agent .omp/profiles/free/agent; do
-    [[ ! -L "$fixture/home/$profile_agent/themes" ]]
-    [[ -L "$fixture/home/$profile_agent/themes/seashells.json" ]]
-    [[ "$(readlink "$fixture/home/$profile_agent/themes/seashells.json")" == "$repo_dir/dot/.omp/agent/themes/seashells.json" ]]
-    [[ -L "$fixture/home/$profile_agent/themes/seashells-light.json" ]]
-    [[ "$(readlink "$fixture/home/$profile_agent/themes/seashells-light.json")" == "$repo_dir/dot/.omp/agent/themes/seashells-light.json" ]]
+for variant in seashells seashells-light; do
+    theme="$fixture/home/.pi/agent/themes/$variant.json"
+    [[ -L "$theme" ]]
+    [[ "$(readlink "$theme")" == "$repo_dir/dot/.pi/agent/themes/$variant.json" ]]
+    jq -e --arg name "$variant" '.name == $name' "$theme" >/dev/null
 done
+[[ -L "$fixture/home/.pi/agent/extensions/openai-fast-mode.ts" ]]
+[[ -L "$fixture/home/.config/zed/settings.json" ]]
+jq -e 'has("agent_servers") == false and .diff_view_style == "split" and
+    .terminal.font_family == "Hack Nerd Font"' \
+    "$fixture/home/.config/zed/settings.json" >/dev/null
 
-# Global AGENTS.md is linked into every profile agent dir.
-for agents_link in .claude/AGENTS.md .codex/AGENTS.md .pi/agent/AGENTS.md .omp/agent/AGENTS.md .omp/profiles/work/agent/AGENTS.md .omp/profiles/deepseek/agent/AGENTS.md .omp/profiles/free/agent/AGENTS.md; do
+for agents_link in .claude/AGENTS.md .codex/AGENTS.md .pi/agent/AGENTS.md; do
     [[ -L "$fixture/home/$agents_link" ]]
     [[ "$(readlink "$fixture/home/$agents_link")" == "$repo_dir/dot/AGENTS.md" ]]
 done
 grep -Fq '@~/.claude/AGENTS.md' "$fixture/home/.claude/CLAUDE.md"
 
-# Linking is local-only: generated repositories and plugin directories are not created.
-[[ ! -e "$fixture/home/.config/nvim" ]]
-[[ ! -e "$fixture/home/.tmux/plugins/tpm" ]]
+for agent in "${omp_agents[@]}"; do
+    agent_dir="$fixture/home/$agent"
+    for retired in config.yml AGENTS.md themes/seashells.json themes/seashells-light.json; do
+        [[ ! -e "$agent_dir/$retired" && ! -L "$agent_dir/$retired" ]]
+    done
+    [[ -d "$agent_dir" && ! -L "$agent_dir" ]]
+    [[ -d "$agent_dir/themes" && ! -L "$agent_dir/themes" ]]
+    grep -Fxq 'machine-runtime' "$agent_dir/agent.db"
+    [[ ! -L "$agent_dir/agent.db" ]]
+    grep -Fxq 'machine-session' "$agent_dir/sessions/session.json"
+    grep -Fxq 'old: machine settings' "$agent_dir/config.yml.old"
+done
+grep -Fxq 'personal: settings' "$fixture/home/.omp/profiles/personal/agent/config.yml"
+[[ ! -e "$repo_dir/dot/.omp" ]]
 
-# Machine-local runtime state is untouched: sentinels keep their content, stay
-# regular files, and are never copied into the checkout.
-grep -Fxq 'default-runtime' "$fixture/home/.omp/agent/agent.db"
-[[ ! -L "$fixture/home/.omp/agent/agent.db" ]]
-grep -Fxq 'work-runtime' "$fixture/home/.omp/profiles/work/agent/agent.db"
-[[ ! -L "$fixture/home/.omp/profiles/work/agent/agent.db" ]]
-grep -Fxq 'deepseek-runtime' "$fixture/home/.omp/profiles/deepseek/agent/agent.db"
-[[ ! -L "$fixture/home/.omp/profiles/deepseek/agent/agent.db" ]]
-grep -Fxq 'free-runtime' "$fixture/home/.omp/profiles/free/agent/agent.db"
-[[ ! -L "$fixture/home/.omp/profiles/free/agent/agent.db" ]]
-grep -Fxq 'default-session' "$fixture/home/.omp/agent/sessions/session.json"
-[[ ! -e "$repo_dir/dot/.omp/agent/agent.db" ]]
-[[ ! -e "$repo_dir/dot/.omp/agent/sessions/session.json" ]]
-
-# Writes through each linked profile reach only their own backing file.
-printf 'profile: default-write\n' >"$fixture/home/.omp/agent/config.yml"
-grep -Fxq 'profile: default-write' "$repo_dir/dot/.omp/agent/config.yml"
-grep -Fxq 'profile: work-fixture' "$repo_dir/dot/.omp/agent/config-work.yml"
-grep -Fxq 'profile: deepseek-fixture' "$repo_dir/dot/.omp/agent/config-deepseek.yml"
-grep -Fxq 'profile: free-fixture' "$repo_dir/dot/.omp/agent/config-free.yml"
-printf 'profile: work-write\n' >"$fixture/home/.omp/profiles/work/agent/config.yml"
-grep -Fxq 'profile: work-write' "$repo_dir/dot/.omp/agent/config-work.yml"
-grep -Fxq 'profile: default-write' "$repo_dir/dot/.omp/agent/config.yml"
-grep -Fxq 'profile: deepseek-fixture' "$repo_dir/dot/.omp/agent/config-deepseek.yml"
-grep -Fxq 'profile: free-fixture' "$repo_dir/dot/.omp/agent/config-free.yml"
-printf 'profile: deepseek-write\n' >"$fixture/home/.omp/profiles/deepseek/agent/config.yml"
-grep -Fxq 'profile: deepseek-write' "$repo_dir/dot/.omp/agent/config-deepseek.yml"
-grep -Fxq 'profile: default-write' "$repo_dir/dot/.omp/agent/config.yml"
-grep -Fxq 'profile: work-write' "$repo_dir/dot/.omp/agent/config-work.yml"
-grep -Fxq 'profile: free-fixture' "$repo_dir/dot/.omp/agent/config-free.yml"
-printf 'profile: free-write\n' >"$fixture/home/.omp/profiles/free/agent/config.yml"
-grep -Fxq 'profile: free-write' "$repo_dir/dot/.omp/agent/config-free.yml"
-grep -Fxq 'profile: default-write' "$repo_dir/dot/.omp/agent/config.yml"
-grep -Fxq 'profile: work-write' "$repo_dir/dot/.omp/agent/config-work.yml"
-grep -Fxq 'profile: deepseek-write' "$repo_dir/dot/.omp/agent/config-deepseek.yml"
-
-# Repeated relinking keeps every profile link, keeps write-through content,
-# and leaves the original backups alone.
+# Replacement machine-owned configs and unrelated symlinks must not be removed.
+printf 'machine: settings\n' >"$fixture/home/.omp/agent/config.yml"
+printf 'machine: theme\n' >"$fixture/home/.omp/agent/themes/seashells.json"
+printf 'external: settings\n' >"$fixture/external.yml"
+ln -s "$fixture/external.yml" "$fixture/home/.omp/profiles/work/agent/config.yml"
+ln -s "$fixture/missing.json" "$fixture/home/.omp/profiles/work/agent/themes/seashells.json"
+ln -s '../../../../../external.yml' "$fixture/home/.omp/profiles/deepseek/agent/config.yml"
 for _ in 1 2; do
     HOME="$fixture/home" PATH="/usr/bin:/bin" "$repo_dir/link-dotfiles.sh"
 done
-[[ "$(readlink "$fixture/home/.omp/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config.yml" ]]
-[[ "$(readlink "$fixture/home/.omp/profiles/work/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config-work.yml" ]]
-[[ "$(readlink "$fixture/home/.omp/profiles/deepseek/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config-deepseek.yml" ]]
-[[ "$(readlink "$fixture/home/.omp/profiles/free/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config-free.yml" ]]
-grep -Fxq 'profile: default-write' "$fixture/home/.omp/agent/config.yml"
-grep -Fxq 'profile: work-write' "$fixture/home/.omp/profiles/work/agent/config.yml"
-grep -Fxq 'profile: deepseek-write' "$fixture/home/.omp/profiles/deepseek/agent/config.yml"
-grep -Fxq 'profile: free-write' "$fixture/home/.omp/profiles/free/agent/config.yml"
-grep -Fxq 'old: default settings' "$fixture/home/.omp/agent/config.yml.old"
-grep -Fxq 'old: work settings' "$fixture/home/.omp/profiles/work/agent/config.yml.old"
-grep -Fxq 'old: deepseek settings' "$fixture/home/.omp/profiles/deepseek/agent/config.yml.old"
-grep -Fxq 'old: free settings' "$fixture/home/.omp/profiles/free/agent/config.yml.old"
+grep -Fxq 'machine: settings' "$fixture/home/.omp/agent/config.yml"
+grep -Fxq 'machine: theme' "$fixture/home/.omp/agent/themes/seashells.json"
+[[ "$(readlink "$fixture/home/.omp/profiles/work/agent/config.yml")" == "$fixture/external.yml" ]]
+grep -Fxq 'external: settings' "$fixture/external.yml"
+[[ "$(readlink "$fixture/home/.omp/profiles/work/agent/themes/seashells.json")" == "$fixture/missing.json" ]]
+[[ "$(readlink "$fixture/home/.omp/profiles/deepseek/agent/config.yml")" == '../../../../../external.yml' ]]
 
-# Migration from the old work-selected default symlink restores the default
-# link, whether the stale symlink is absolute or relative. The replaced link
-# is kept once as config.yml.old per link_path semantics; future selection is
-# --profile/OMP_PROFILE, not this symlink.
-for work_source in "$repo_dir/dot/.omp/agent/config-work.yml" \
-    "../../../repo/dot/.omp/agent/config-work.yml"; do
-    ln -sfn "$work_source" "$fixture/home/.omp/agent/config.yml"
-    HOME="$fixture/home" PATH="/usr/bin:/bin" "$repo_dir/link-dotfiles.sh"
-    [[ -L "$fixture/home/.omp/agent/config.yml" ]]
-    [[ "$(readlink "$fixture/home/.omp/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config.yml" ]]
-    [[ "$(readlink "$fixture/home/.omp/agent/config.yml.old")" == "$work_source" ]]
-    grep -Fxq 'profile: default-write' "$fixture/home/.omp/agent/config.yml"
-    [[ "$(readlink "$fixture/home/.omp/profiles/work/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config-work.yml" ]]
-    grep -Fxq 'profile: work-write' "$fixture/home/.omp/profiles/work/agent/config.yml"
-    [[ "$(readlink "$fixture/home/.omp/profiles/deepseek/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config-deepseek.yml" ]]
-    grep -Fxq 'profile: deepseek-write' "$fixture/home/.omp/profiles/deepseek/agent/config.yml"
-    [[ "$(readlink "$fixture/home/.omp/profiles/free/agent/config.yml")" == "$repo_dir/dot/.omp/agent/config-free.yml" ]]
-    grep -Fxq 'profile: free-write' "$fixture/home/.omp/profiles/free/agent/config.yml"
-done
+# A fresh home gets Pi configuration without creating any OMP profile directory.
+HOME="$fixture/fresh-home" PATH="/usr/bin:/bin" "$repo_dir/link-dotfiles.sh"
+[[ ! -e "$fixture/fresh-home/.omp" ]]
+jq -e '.theme == "seashells"' "$fixture/fresh-home/.pi/agent/settings.json" >/dev/null
+[[ -L "$fixture/fresh-home/.pi/agent/themes/seashells.json" ]]
+[[ -L "$fixture/fresh-home/.pi/agent/themes/seashells-light.json" ]]
 
-# Runtime sentinels still unchanged after every relink.
-grep -Fxq 'default-runtime' "$fixture/home/.omp/agent/agent.db"
-grep -Fxq 'work-runtime' "$fixture/home/.omp/profiles/work/agent/agent.db"
-grep -Fxq 'deepseek-runtime' "$fixture/home/.omp/profiles/deepseek/agent/agent.db"
-[[ -d "$fixture/home/.omp/profiles/deepseek/agent/sessions" ]]
-grep -Fxq 'free-runtime' "$fixture/home/.omp/profiles/free/agent/agent.db"
-grep -Fxq 'default-session' "$fixture/home/.omp/agent/sessions/session.json"
+# Linking is local-only: generated repositories and plugin directories are not created.
+[[ ! -e "$fixture/home/.config/nvim" ]]
+[[ ! -e "$fixture/home/.tmux/plugins/tpm" ]]
 
 # Invalid Pi JSON fails without truncating or replacing the original file.
 printf '{invalid json\n' >"$fixture/home/.pi/agent/settings.json"

@@ -10,9 +10,6 @@ kitty_dark="$repo_dir/dot/.config/kitty/themes/seashells.conf"
 kitty_light="$repo_dir/dot/.config/kitty/themes/seashells-light.conf"
 pi_dark="$repo_dir/dot/.pi/agent/themes/seashells.json"
 pi_light="$repo_dir/dot/.pi/agent/themes/seashells-light.json"
-omp_dark="$repo_dir/dot/.omp/agent/themes/seashells.json"
-omp_light="$repo_dir/dot/.omp/agent/themes/seashells-light.json"
-omp_config="$repo_dir/dot/.omp/agent/config.yml"
 
 fail() {
     printf 'Seashells palette contract failed: %s\n' "$1" >&2
@@ -122,16 +119,8 @@ assert_agent_theme() {
 }
 
 pi_schema='https://raw.githubusercontent.com/earendil-works/pi/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json'
-omp_schema='https://raw.githubusercontent.com/can1357/oh-my-pi/main/packages/coding-agent/src/modes/theme/theme-schema.json'
 assert_agent_theme "$pi_dark" "$pi_schema" seashells "$expected_dark_vars"
 assert_agent_theme "$pi_light" "$pi_schema" seashells-light "$expected_light_vars"
-assert_agent_theme "$omp_dark" "$omp_schema" seashells "$expected_dark_vars"
-assert_agent_theme "$omp_light" "$omp_schema" seashells-light "$expected_light_vars"
-awk '
-    $1 == "dark:" && $2 == "seashells" { dark = 1 }
-    $1 == "light:" && $2 == "seashells-light" { light = 1 }
-    END { exit !(dark && light) }
-' "$omp_config" || fail 'OMP does not select both managed theme slots'
 
 if command -v zsh >/dev/null 2>&1; then
     fixture=$(mktemp -d /tmp/dotfiles-seashells-shell.XXXXXX)

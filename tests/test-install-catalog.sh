@@ -33,9 +33,14 @@ for os in macos ubuntu debian arch; do
     fi
     grep -Fxq $'action\tlanguages.node\tinstaller\tnode\t' "$fixture/$os.plan"
     grep -Fxq $'action\tlanguages.rust\tinstaller\trust\t' "$fixture/$os.plan"
-    grep -Fxq $'app\tai.omp\ton\toptional\tai\tOh My Pi (OMP)' "$fixture/$os.plan"
-    grep -Fxq $'dependency\tai.omp\tlanguages.bun' "$fixture/$os.plan"
-    grep -Fxq $'action\tai.omp\tinstaller\tomp\t' "$fixture/$os.plan"
+    grep -Fxq $'app\tai.pi\ton\toptional\tai\tPi' "$fixture/$os.plan"
+    "$repo_dir/lib/install-plan" prepare --mode defaults --os "$os" \
+        --output "$fixture/$os.defaults.plan" >/dev/null
+    grep -Fxq $'app\tai.pi\ton\toptional\tai\tPi' "$fixture/$os.defaults.plan"
+    if grep -Fq $'\tai.omp\t' "$fixture/$os.plan" "$fixture/$os.defaults.plan"; then
+        echo "Retired OMP application is still in the plan on $os." >&2
+        exit 1
+    fi
     for sdkman_candidate in java gradle kotlin maven; do
         grep -Fxq $'action\tlanguages.'"$sdkman_candidate"$'\tinstaller\t'"$sdkman_candidate"$'\t' "$fixture/$os.plan"
     done
@@ -44,6 +49,23 @@ for os in macos ubuntu debian arch; do
         exit 1
     fi
 done
+
+# A saved OMP selection cannot reinstall the retired application.
+printf 'format=1\napp.ai.omp=on\n' >"$fixture/omp-selection"
+"$repo_dir/lib/install-plan" prepare --mode record --record "$fixture/omp-selection" \
+    --os macos --output "$fixture/omp.plan" >"$fixture/omp.out"
+grep -Fxq 'Warning: ignoring stale application ai.omp' "$fixture/omp.out"
+grep -Fxq $'app\tai.pi\ton\toptional\tai\tPi' "$fixture/omp.plan"
+if grep -Fq $'\tai.omp\t' "$fixture/omp.plan"; then
+    echo "A saved selection restored retired OMP." >&2
+    exit 1
+fi
+"$repo_dir/install" list >"$fixture/installers.out"
+grep -Fxq '    ai_skills' "$fixture/installers.out"
+if grep -Fxq '    omp' "$fixture/installers.out"; then
+    echo "Retired OMP installer is still listed." >&2
+    exit 1
+fi
 
 for os in macos ubuntu debian; do
     grep -Fxq "$os"$'\tcli.yazi\tpath\t~/.local/bin/ya' "$repo_dir/catalog/removals.tsv"
@@ -55,9 +77,6 @@ for os in macos ubuntu debian arch; do
         grep -Fxq "$os"$'\tlanguages.'"$sdkman_candidate"$'\tpayload-tree\t~/.sdkman/candidates/'"$sdkman_candidate" \
             "$repo_dir/catalog/removals.tsv"
     done
-    grep -Fxq "$os"$'\tai.omp\tretain\t~/.omp\tuser-data' "$repo_dir/catalog/removals.tsv"
-    [[ $(awk -F '\t' -v os="$os" '$1 == os && $2 == "ai.omp" { count++ } END { print count + 0 }' \
-        "$repo_dir/catalog/removals.tsv") -eq 1 ]]
 done
 for os in ubuntu debian; do
     grep -Fxq "$os"$'\tlanguages.uv\tpath\t~/.local/bin/uv' "$repo_dir/catalog/removals.tsv"
@@ -65,7 +84,6 @@ for os in ubuntu debian; do
     grep -Fxq "$os"$'\teditors.zed\tpath\t~/.local/bin/zed' "$repo_dir/catalog/removals.tsv"
     grep -Fxq "$os"$'\teditors.zed\tpayload-tree\t~/.local/zed.app' "$repo_dir/catalog/removals.tsv"
 done
-grep -Fxq $'AI tools\tomp' "$repo_dir/catalog/installers.tsv"
 if grep -Fq $'cli.yazi\tcargo-package\tyazi-build' "$repo_dir/catalog/removals.tsv"; then
     echo "The obsolete yazi-build meta-package still owns Yazi cleanup." >&2
     exit 1

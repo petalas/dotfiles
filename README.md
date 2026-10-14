@@ -77,9 +77,9 @@ From Zsh, run `upd`, or invoke the underlying command directly:
 ~/git/dotfiles/update-dotfiles
 ```
 
-It fast-forwards this repository, relinks managed files from the new revision, resolves the saved installation plan, reconciles selected missing software/state, then upgrades software already present, including deselected applications, installed OMP and Pi packages, and global AI agent skills. Deselection never suppresses maintenance or triggers uninstallation. Independent failures are collected and reported at the end. The complete output is saved with mode 0600 in `${XDG_STATE_HOME:-~/.local/state}/dotfiles/latest-update.log`, and failed summaries repeat that path.
+It fast-forwards this repository, relinks managed files from the new revision, resolves the saved installation plan, reconciles selected missing software/state, then upgrades software already present, including deselected applications, installed Pi packages, and global AI agent skills. Deselection never suppresses maintenance or triggers uninstallation. Independent failures are collected and reported at the end. The complete output is saved with mode 0600 in `${XDG_STATE_HOME:-~/.local/state}/dotfiles/latest-update.log`, and failed summaries repeat that path.
 
-Global AI agent skills come from `catalog/ai-skills.tsv` (`source<TAB>skill`, sorted by source then skill; append `#<ref>` to a source to pin a branch, tag, or full commit). The `skills` CLI keeps the files in `~/.agents/skills` (the `universal` store shared by Pi, OMP, Codex, and Zed), symlinks them into `~/.claude/skills`, and records them in `~/.agents/.skill-lock.json`. A skill counts as installed only when the lock matches the catalog row and every root can read it; reconciliation, removal, and `upd` also prune links whose store entry no longer exists.
+Global AI agent skills come from `catalog/ai-skills.tsv` (`source<TAB>skill`, sorted by source then skill; append `#<ref>` to a source to pin a branch, tag, or full commit). The `skills` CLI keeps the files in `~/.agents/skills` (the `universal` store shared by Pi, Codex, and Zed), symlinks them into `~/.claude/skills`, and records them in `~/.agents/.skill-lock.json`. A skill counts as installed only when the lock matches the catalog row and every root can read it; reconciliation, removal, and `upd` also prune links whose store entry no longer exists.
 
 `upd` checks installed GitHub skills by source and ref, compares their folder hashes, and installs changed skills in one batch per source/ref. It uses `gh api` when available and falls back to Git for the tree lookup. Other source types and moved skill paths use the CLI's update behavior. Failed checks and installations fail the skills step while independent sources continue. Run `./tools/update-ai-skills --check` to preview the batches without installing or pruning links. `./install ai_skills` remains the full catalog install/repair command, including skills not currently installed.
 
@@ -89,58 +89,15 @@ Bun upgrades use an existing `GITHUB_TOKEN`, `GITHUB_ACCESS_TOKEN`, or `GH_TOKEN
 
 Vite+ installs its global `vp` CLI under `~/.vite-plus` using the [official installer](https://viteplus.dev/guide/global-cli). Fresh installs prefer the existing Node.js and package managers, leaving nvm and Bun as their owners. Existing installations at that location and their preferences are left unchanged. The managed Zsh config loads its environment, and `upd` runs `vp upgrade` for this installation even when Vite+ is deselected. Vite+ data is retained; use `vp implode` explicitly if you want to uninstall it.
 
-OMP installs from its upstream Bun package after the managed Bun runtime is active. Its installer reruns `link-dotfiles.sh` only after the `omp` command is available. The linker installs the default, work, deepseek, and free native profiles, with the tracked SeaShells themes and global agent instructions in each. Only managed configuration is linked; credentials, databases, and sessions stay machine-local.
+### Pi and SeaShells
 
-### OMP profiles and model choices
+Pi is the default terminal coding agent. The linker installs the dark `seashells` and light `seashells-light` themes from `dot/.pi/agent/themes/` and selects `seashells` in `~/.pi/agent/settings.json`. Both use Pi's native theme format. Other Pi settings, authentication, and sessions stay machine-local. Select `seashells-light` through `/settings` for a light palette.
 
-All four profiles are installed together. Their configuration files under `dot/.omp/agent/` are linked to OMP's native locations:
+The former OMP default, work, deepseek, and free presets and their Zed ACP entries are retired. Relinking removes only their managed absolute config, theme, and instruction symlinks pointing into this checkout. It preserves profile directories, credentials, databases, sessions, backups, regular files, and unrelated symlinks.
 
-| Profile | Tracked file | OMP path |
-|---|---|---|
-| `default` | `config.yml` | `~/.omp/agent/config.yml` |
-| `work` | `config-work.yml` | `~/.omp/profiles/work/agent/config.yml` |
-| `deepseek` | `config-deepseek.yml` | `~/.omp/profiles/deepseek/agent/config.yml` |
-| `free` | `config-free.yml` | `~/.omp/profiles/free/agent/config.yml` |
+OMP is no longer in the installation catalog or updater. Saved OMP selections are ignored with a stale-application warning, so they cannot reinstall it. Removing the program on an existing machine does not delete `~/.omp`, which contains login data and session history. Keep Bun and the shared AI skill store; other tools still use them.
 
-Select a profile when starting OMP:
-
-```sh
-omp --profile default
-omp --profile work
-omp --profile deepseek
-omp --profile free
-```
-
-Bare `omp` uses default unless `OMP_PROFILE` selects another profile. For a preferred profile in the current shell, use `export OMP_PROFILE=work`; an explicit `--profile` overrides it. There is no custom switcher or saved selection file. Start a new OMP process to switch profiles.
-
-Default splits planning from implementation: `default`, `plan`, `slow`, and `advisor` stay on `openai-codex/gpt-6-astra`, while `task`, `smol`, and `tiny` move to `opencode-go/deepseek-v4.1-flash`. Its `prewalk.enabled` hands a session from astra to the `smol` role at the first `edit`/`write` after the planning nudge's todo list exists, so astra plans and deepseek carries the bulk of the implementation. `smol` deliberately omits an effort suffix so the fast subagents keep their own lower thinking level while the handoff inherits the session's. The `advisor` role stays assigned but the advisor itself is off until `/advisor on`. Work mirrors that split with `anthropic/claude-fable-5-1` in place of astra, for machines on an Anthropic subscription. DeepSeek pins every role, `vision` and `commit` included, to `opencode-go/deepseek-v4.1-flash`, so no role can select another model. Its suffixes come from that model's `low`/`high`/`max` ladder: `default`, `advisor`, and `vision` at `high`, `plan` and `slow` at `max`, `smol`, `tiny`, and `commit` at `low`, and `task` at `auto` so the bundled task agent classifies effort per prompt. DeepSeek and free disable model fallback and have no GPT fallback chains. Free assigns `openrouter/stealth/union-alpha` to every built-in role at the model's default effort. Project settings and explicit model overrides still take precedence, so this is a model preset, not an enforced spending limit.
-
-Each profile has separate stored authentication, sessions, databases, and caches. Authenticate the required providers separately in each profile and on each machine. The linker shares only tracked configuration, theme files, and global agent instructions; it never copies credentials or session history.
-
-OMP preserves each config symlink when saving. Global changes through `/model`, `/settings`, or `omp --profile work config set` update that profile's tracked YAML directly. Relinking does not reapply hard-coded model choices. Check the active values with:
-
-```sh
-omp --profile deepseek config get modelRoles --json
-omp --profile deepseek config get retry.modelFallback --json
-```
-
-After changing these choices in OMP:
-
-1. Review `git diff -- dot/.omp/agent/config*.yml` from this repository. Model assignments live under `modelRoles`; retry fallbacks live under `retry.fallbackChains`.
-2. Commit and push the configuration change. No manual export or linker edit is needed.
-3. On another machine, run `upd`. To sync configuration without upgrading software, run `git pull --ff-only` followed by `./link-dotfiles.sh` from this repository. Start OMP with the intended profile and check `/model`.
-
-`upd` refuses a dirty checkout, so commit or stash local OMP changes before updating. When replacing an existing machine-local config, the linker backs it up as `config.yml.old` beside that profile's config. Review the backup for preferences you want to keep; the linker does not import them into Git.
-
-With `modelRoleStorage: project`, role changes go to that project's `.omp/config.yml` instead of the linked profile file. Keep secrets out of tracked YAML, use OMP's auth store or environment variables, and review each diff before committing. Never link an entire OMP profile or agent directory.
-
-### OMP in Zed
-
-The linker symlinks `dot/.config/zed/settings.json` to `~/.config/zed/settings.json`, managing Zed preferences and four OMP [custom ACP agents](https://zed.dev/docs/ai/external-agents#custom-agents). Existing settings are backed up as `settings.json.old` on first linking; review that backup for machine-specific preferences. Other Zed state stays local.
-
-Open Zed's Agent Panel and select `OMP`, `OMP Work`, `OMP DeepSeek`, or `OMP Free` from the new-thread menu. They launch `omp --profile default acp --auto-approve`, `omp --profile work acp --auto-approve`, `omp --profile deepseek acp --auto-approve`, and `omp --profile free acp --auto-approve`, respectively. Zed finds `omp` through its project environment's `PATH`. Each OMP profile owns its provider authentication and model configuration; no separate ACP adapter or Zed API key is needed. Zed detects settings changes automatically. Use `dev: open acp logs` from the command palette to troubleshoot the connection.
-
-Every entry passes an explicit `--profile`, so an inherited `OMP_PROFILE` cannot change its selection. All four enable automatic tool approval with `--auto-approve`. Model roles remain in the OMP profile YAML files, not in Zed settings. Authenticate separately in each profile, and select the intended agent when creating a new thread.
+The linker still manages Zed preferences through `dot/.config/zed/settings.json`. Existing settings are backed up as `settings.json.old` on first linking; other Zed state stays local.
 
 ## Notes
 
