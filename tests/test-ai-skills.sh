@@ -365,7 +365,13 @@ cat >"$fixture/expected-update.log" <<'EOF'
 EOF
 cmp -s "$fixture/expected-update.log" "$log"
 [[ ! -L "$HOME/.claude/skills/retired" ]]
-if PATH="/usr/bin:/bin" "$repo_dir/tools/update-ai-skills" >/dev/null 2>"$fixture/update.err"; then
+missing_npx_bin="$fixture/missing-npx-bin"
+mkdir -p "$missing_npx_bin"
+for command_name in bash dirname node; do
+    command_path=$(command -v "$command_name")
+    ln -s "$command_path" "$missing_npx_bin/$command_name"
+done
+if PATH="$missing_npx_bin" "$repo_dir/tools/update-ai-skills" >/dev/null 2>"$fixture/update.err"; then
     echo "Expected the skills updater to fail without npx" >&2
     exit 1
 fi
