@@ -49,6 +49,16 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Pi model choices are session-local unless explicitly persisted
+
+- Pi 1.2.0 selects a `/model` result without persisting it when Enter is pressed. Ctrl+S saves the startup default. Removing a stale `defaultModel` alone therefore does not implement last-selected-model behavior.
+- The linked `dot/.pi/agent/extensions/remember-model.ts` saves `model_select` events from terminal sessions, except `source: "restore"`. It does not save startup models or selections from RPC, JSON, or print invocations. No provider or model ID is pinned in the extension or linker.
+- Use Pi's exported `SettingsManager.setDefaultModelAndProvider()` and await `flush()`. Its writer locks and merges modified fields, so model persistence does not overwrite preferences changed by another session. Drain and propagate its errors; malformed settings must remain untouched. Project defaults still take precedence and are not rewritten.
+- `bash tests/test-pi-remember-model.sh` discovers the actual linked extensions in an isolated agent directory, emits selection events, and checks the next model through Pi's installed startup resolver without provider requests. It also checks restore/automation exclusions, preference preservation, and malformed JSON.
+- Power of Ten deviations for this extension: rule 3 uses managed-runtime allocations for one short-lived Pi settings writer per selection, with no retained cache or background work; rules 8 and 9 use Pi's required registration and dispatch for one known event handler. Upstream owns settings-file size, allocations, and lock retries; this extension does not bound them. Loader/resolver tests and strict TypeScript checks verify the handler and error path. Reassess these dependencies if Pi adds a public persistence action or changes its settings writer.
+
+---
+
 ## Retiring OMP preserves machine-local data
 
 - Pi's `dot/.pi/agent/themes/seashells.json` and `seashells-light.json` already contain the same pinned palettes as the retired OMP copies. They use Pi's schema and omit OMP-only Python-mode and status-line tokens. Keep these Pi files as the agent-theme definitions; no YAML model-role settings belong in Pi's `settings.json`.

@@ -58,6 +58,7 @@ for variant in seashells seashells-light; do
     jq -e --arg name "$variant" '.name == $name' "$theme" >/dev/null
 done
 [[ -L "$fixture/home/.pi/agent/extensions/openai-fast-mode.ts" ]]
+[[ "$(readlink "$fixture/home/.pi/agent/extensions/remember-model.ts")" == "$repo_dir/dot/.pi/agent/extensions/remember-model.ts" ]]
 [[ -L "$fixture/home/.config/zed/settings.json" ]]
 jq -e 'has("agent_servers") == false and .diff_view_style == "split" and
     .terminal.font_family == "Hack Nerd Font"' \

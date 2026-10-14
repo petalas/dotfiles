@@ -93,6 +93,8 @@ Vite+ installs its global `vp` CLI under `~/.vite-plus` using the [official inst
 
 Pi is the default terminal coding agent. The linker installs the dark `seashells` and light `seashells-light` themes from `dot/.pi/agent/themes/` and selects `seashells` in `~/.pi/agent/settings.json`. Both use Pi's native theme format. Other Pi settings, authentication, and sessions stay machine-local. Select `seashells-light` through `/settings` for a light palette.
 
+The linked `remember-model.ts` extension saves interactive `/model` selections and model cycling as the default for new sessions. It follows the last selected provider/model without pinning an ID. Restoring an older session and automated invocations do not change that default. Run `/reload` after first linking the extension into a running Pi session.
+
 The former OMP default, work, deepseek, and free presets and their Zed ACP entries are retired. Relinking removes only their managed absolute config, theme, and instruction symlinks pointing into this checkout. It preserves profile directories, credentials, databases, sessions, backups, regular files, and unrelated symlinks.
 
 OMP is no longer in the installation catalog or updater. Saved OMP selections are ignored with a stale-application warning, so they cannot reinstall it. Removing the program on an existing machine does not delete `~/.omp`, which contains login data and session history. Keep Bun and the shared AI skill store; other tools still use them.

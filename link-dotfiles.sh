@@ -57,6 +57,8 @@ pi_settings="$pi_agent_dir/settings.json"
 mkdir -p "$pi_agent_dir/extensions" "$pi_agent_dir/themes"
 link_path "$dotfiles_dir/dot/.pi/agent/extensions/openai-fast-mode.ts" \
     "$pi_agent_dir/extensions/openai-fast-mode.ts"
+link_path "$dotfiles_dir/dot/.pi/agent/extensions/remember-model.ts" \
+    "$pi_agent_dir/extensions/remember-model.ts"
 link_path "$dotfiles_dir/dot/.pi/agent/themes/seashells.json" \
     "$pi_agent_dir/themes/seashells.json"
 link_path "$dotfiles_dir/dot/.pi/agent/themes/seashells-light.json" \
