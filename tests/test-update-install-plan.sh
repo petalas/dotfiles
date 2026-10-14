@@ -29,6 +29,11 @@ elif [[ "$1" == apply && "${PLAN_APPLY_FAIL:-0}" == 1 ]]; then
 fi
 EOF
 cat >"$fixture/repo/lib/packages.sh" <<'EOF'
+linux_github_cli_installed() { [[ "${GH_PACKAGE_INSTALLED:-1}" == 1 ]]; }
+linux_github_cli_prepare_repository() {
+    printf 'gh repository\n' >>"$UPDATE_TEST_LOG"
+    [[ "${GH_REPOSITORY_FAIL:-0}" == 0 ]]
+}
 linux_packages_upgrade() { printf 'system upgrade\n' >>"$UPDATE_TEST_LOG"; }
 EOF
 cat >"$fixture/repo/lib/platform.sh" <<'EOF'
@@ -181,6 +186,9 @@ grep -Fq 'plan prepare --mode defaults' "$log"
 grep -Fq 'plan apply --operation reconcile' "$log"
 if [[ "$OSTYPE" == linux* ]]; then
     grep -Fxq 'system upgrade' "$log"
+    grep -Fxq 'gh repository' "$log"
+    [[ $(grep -n '^gh repository$' "$log" | cut -d: -f1) -lt \
+        $(grep -n '^system upgrade$' "$log" | cut -d: -f1) ]]
 elif grep -Fq 'system upgrade' "$log"; then
     echo "Unexpected Linux system upgrade on $OSTYPE" >&2
     exit 1
@@ -291,5 +299,52 @@ grep -Fxq 'update-ai-skills' "$fixture/tool-failures.log"
 grep -Fq 'pnpm inventory failed' "$fixture/tool-failures-err"
 grep -Fq 'Vite+ upgrade failed' "$fixture/tool-failures-err"
 grep -Fq 'Failed: SDKMAN self-update, Vite+, pnpm global packages' "$fixture/tool-failures-err"
+
+# An installed but deselected GitHub CLI still receives repository maintenance.
+# A missing CLI does not cause installation, and repository failures remain
+# visible without suppressing independent system/tool upgrades.
+if [[ "$OSTYPE" == linux* ]]; then
+    run_updater GH_PACKAGE_INSTALLED=0 UPDATE_TEST_LOG="$fixture/no-gh.log" \
+        XDG_STATE_HOME="$fixture/no-gh-state" >"$fixture/no-gh-out" 2>"$fixture/no-gh-err"
+    if grep -Fxq 'gh repository' "$fixture/no-gh.log"; then
+        echo 'Updater configured GitHub CLI when its package was absent' >&2
+        exit 1
+    fi
+    if run_updater GH_REPOSITORY_FAIL=1 UPDATE_TEST_LOG="$fixture/gh-failure.log" \
+        XDG_STATE_HOME="$fixture/gh-failure-state" >"$fixture/gh-failure-out" 2>"$fixture/gh-failure-err"; then
+        echo 'Expected a failed GitHub CLI repository migration to fail the updater' >&2
+        exit 1
+    fi
+    grep -Fq 'Failed: GitHub CLI repository' "$fixture/gh-failure-err"
+    grep -Fxq 'system upgrade' "$fixture/gh-failure.log"
+    grep -Fxq 'pi update --all' "$fixture/gh-failure.log"
+fi
+
+# Exercise the actual macOS branch on either host. Only this fixture invocation
+# overrides Zsh's OSTYPE; it uses the real Homebrew helper with a fake brew.
+cp "$repo_dir/lib/homebrew.sh" "$fixture/repo/lib/homebrew.sh"
+cat >"$fixture/bin/brew" <<'EOF'
+#!/usr/bin/env bash
+printf 'brew %s\n' "$*" >>"$UPDATE_TEST_LOG"
+case "$*" in
+    update|'outdated --cask --quiet') : ;;
+    'outdated --formula --quiet') printf 'gh\n' ;;
+    'upgrade --formula gh') : ;;
+    *) exit 2 ;;
+esac
+EOF
+chmod +x "$fixture/bin/brew"
+env -u GITHUB_TOKEN -u GITHUB_ACCESS_TOKEN -u GH_TOKEN \
+    DOTFILES_DIR="$fixture/repo" HOME="$fixture/home" XDG_CONFIG_HOME="$fixture/home/.config" \
+    SDKMAN_DIR="$fixture/home/.sdkman" PATH="$fixture/bin:/bin:/usr/bin" \
+    UPDATE_TEST_LOG="$fixture/macos.log" XDG_STATE_HOME="$fixture/macos-state" \
+    "$zsh_bin" -c 'OSTYPE=darwin; source "$1" --after-dotfiles-pull' zsh "$fixture/repo/update-dotfiles" \
+    >"$fixture/macos-out" 2>"$fixture/macos-err"
+grep -Fxq 'brew update' "$fixture/macos.log"
+grep -Fxq 'brew upgrade --formula gh' "$fixture/macos.log"
+if grep -Eq '^(system upgrade|gh repository)$' "$fixture/macos.log"; then
+    echo 'macOS updater invoked Linux package maintenance' >&2
+    exit 1
+fi
 
 printf 'Update plan integration tests passed.\n'

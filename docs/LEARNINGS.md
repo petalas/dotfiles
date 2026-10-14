@@ -365,6 +365,19 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## GitHub CLI needs its official APT repository to follow current releases
+
+- Debian trixie's `gh` package remained at `2.46.0-3` while GitHub published `2.102.0`. `upd` did run upgrades, but APT correctly reported the distro package as its newest candidate. Keep the catalog's native `apt-package gh` ownership and removal mechanism; fix its repository rather than introducing a second binary installer.
+- `lib/packages-github-cli.sh` configures only `keyrings/githubcli-archive-keyring.gpg` and `sources.list.d/github-cli.list` under `${DOTFILES_APT_ROOT:-/etc/apt}`. It accepts the official repository's amd64, arm64, armhf, and i386 architectures. Validate the entire keyring against the SHA-256 published in [GitHub's install docs](https://github.com/cli/cli/blob/trunk/docs/install_linux.md), not just the first fingerprint in a multi-key file. Keyring changes require a reviewed checksum update; package releases require no script change.
+- Package installation prepares the repository and refreshes metadata when `gh` is requested. Before system upgrades, `update-dotfiles` prepares it for an already installed Debian/Ubuntu `gh` package regardless of saved selection. An absent, deselected CLI is not installed. Failed repository setup appears in the final summary while independent updates continue. macOS retains `brew update` and isolated formula upgrades.
+- Verified cached keyrings are reused, changed or missing source files are reconciled, and per-call temporary directories are removed on success and failure. Downloads use the shared helper's optional byte limit of 65536 for this keyring. Older curl may retrieve an oversized unknown-length response before the helper rejects and deletes it; download deadlines still apply.
+- The hash-fallback fixture in `tests/test-github-cli.sh` removes system directories from `PATH` to hide `sha256sum`. Supply `env` explicitly alongside the other fixture commands: this repository's `run_as_root` executes `env DEBIAN_FRONTEND=...` even with `DOTFILES_PACKAGE_NO_SUDO=1`. The absolute `/usr/bin/env` in fake-command shebangs does not make the bare `env` command available to that helper.
+- `tests/test-script-contracts.sh` mocks curl instead of redefining `download_file`, so size validation and downloaded-script argument checks exercise the real shared helper. This also avoids ShellCheck's ambiguous function-order analysis when a sourced function is redefined later in the test.
+- `tests/test-github-cli.sh` checks public package operations, trust failures, partial-write recovery, architecture checks, and Bash/Zsh compatibility without touching host APT files. `tests/test-update-install-plan.sh` checks migration ordering, absence, failure reporting, and the actual macOS branch with fake Homebrew. `tests/test-homebrew.sh` checks that an unrelated failed upgrade cannot hide `gh`.
+- Power of Ten rule 3 deviation: Bash/Zsh and external commands allocate at runtime. This setup has fixed local state, one keyring capped at 64 KiB after download, one source line, and one temporary directory per call, with no retained model or package cache. Package-manager waits, installer argument batches, and curl's streaming internals remain existing external boundaries. Tests verify cleanup and byte-limit failures; reassess the bounds if this helper gains additional repositories or retained state.
+
+---
+
 ## apt-fast must be configured before its package is installed
 
 - `apt-fast` is not assumed to exist in Debian/Ubuntu's configured repositories. Add its signed Launchpad PPA through a deb822 source and install `apt-fast` with `aria2` in one bootstrap transaction; fall back to Nala or `apt-get` if that setup fails.

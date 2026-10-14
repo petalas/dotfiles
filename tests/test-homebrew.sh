@@ -20,9 +20,12 @@ case "$*" in
     'bundle list --formula '*) printf '%s\n' working vendor/tap/tool ;;
     'bundle list --cask '*) printf '%s\n' claude-code@latest ;;
     'bundle check --file='*) exit 1 ;;
-    'outdated --formula --quiet') printf '%s\n' first second third ;;
+    'outdated --formula --quiet') printf '%s\n' first gh second third ;;
     'outdated --cask --quiet') : ;;
-    'upgrade --formula '*) cat >/dev/null ;;
+    'upgrade --formula '*)
+        cat >/dev/null
+        [[ "$*" != "upgrade --formula ${HOMEBREW_UPGRADE_FAILURE:-}" ]]
+        ;;
     *) exit 0 ;;
 esac
 EOF
@@ -42,7 +45,17 @@ grep -Fq 'bundle list --formula' "$log"
 # so it cannot consume the remaining package names from the loop.
 : >"$log"
 homebrew_upgrade_individually
-for package in first second third; do
+for package in first gh second third; do
+    grep -Fxq "upgrade --formula $package" "$log"
+done
+
+# A broken unrelated formula must not prevent GitHub CLI or later upgrades.
+: >"$log"
+if HOMEBREW_UPGRADE_FAILURE=first homebrew_upgrade_individually; then
+    echo 'Failed Homebrew upgrade was not reported' >&2
+    exit 1
+fi
+for package in gh second third; do
     grep -Fxq "upgrade --formula $package" "$log"
 done
 

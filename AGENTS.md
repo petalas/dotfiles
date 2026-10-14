@@ -57,6 +57,7 @@ Before modifying code, find the matching file pattern and **read the linked doc 
 | `.github/workflows/**` | README.md and [LEARNINGS.md](docs/LEARNINGS.md) |
 | `tools/lint-shell`, `.githooks/pre-commit`, `tests/live/**` | [LEARNINGS.md](docs/LEARNINGS.md) — CI parity: lint and smoke checks must stay reproducible locally |
 | `tests/test-yazi*.sh` | [LEARNINGS.md](docs/LEARNINGS.md) — terminal-dependent compatibility probes |
+| `tests/test-github-cli.sh`, `tests/test-script-contracts.sh` | [LEARNINGS.md](docs/LEARNINGS.md) — GitHub CLI repository trust, download limits, and restricted-PATH fixture dependencies |
 | `tests/test-update-install-plan.sh` | [LEARNINGS.md](docs/LEARNINGS.md); use the host's Zsh path and respect its `OSTYPE` branch |
 | `dot/.config/**` | App's official docs for config syntax |
 | `dot/terminal/**`, `configure-macos-terminal.sh`, `tools/*macos-terminal*` | Terminal's profile import/export docs and [LEARNINGS.md](docs/LEARNINGS.md); never write live preferences while Terminal.app is running |

@@ -63,8 +63,18 @@ _linux_packages_install_once() {
 }
 
 linux_packages_install() {
+    local package
     (($#)) || return 0
     linux_packages_prepare || return 1
+    case "$(linux_distribution)" in
+        debian|ubuntu)
+            for package in "$@"; do
+                [[ "$package" == gh ]] || continue
+                linux_github_cli_prepare_repository && _linux_apt_run update || return 1
+                break
+            done
+            ;;
+    esac
     run_resilient_batch 'distro packages' _linux_packages_install_once "$@"
 }
 

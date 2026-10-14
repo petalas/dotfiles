@@ -22,6 +22,8 @@ source "$_packages_lib_dir/packages-common.sh"
 source "$_packages_lib_dir/packages-apt.sh"
 # shellcheck source=packages-pacman.sh
 source "$_packages_lib_dir/packages-pacman.sh"
+# shellcheck source=packages-github-cli.sh
+source "$_packages_lib_dir/packages-github-cli.sh"
 # shellcheck source=packages-manager.sh
 source "$_packages_lib_dir/packages-manager.sh"
 # shellcheck source=packages-mirrors.sh

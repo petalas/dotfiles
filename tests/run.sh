@@ -11,6 +11,7 @@ tests=(
     tests/test-dependency-wrapper.sh
     tests/test-easy-install-noninteractive.sh
     tests/test-git-sync.sh
+    tests/test-github-cli.sh
     tests/test-homebrew.sh
     tests/test-install-catalog.sh
     tests/test-install-observation.sh

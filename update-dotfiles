@@ -147,6 +147,11 @@ if [[ $OSTYPE == linux* ]]; then
   package_helpers=$DOTFILES_ROOT/lib/packages.sh
   if [[ -r $package_helpers ]]; then
     source "$package_helpers"
+    # Maintain an installed CLI even when its application is deselected. The
+    # normal APT upgrade below then migrates it off the older distro package.
+    if linux_github_cli_installed; then
+      run_step "GitHub CLI repository" linux_github_cli_prepare_repository
+    fi
     run_step "system packages" linux_packages_upgrade
   else
     record_missing "Linux package helpers" "$package_helpers"

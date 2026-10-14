@@ -67,6 +67,10 @@ if DOTFILES_DOWNLOAD_RETRIES=0 download_file https://example.invalid "$fixture/d
     echo "Invalid download retry count was accepted." >&2
     exit 1
 fi
+if download_file https://example.invalid "$fixture/download" invalid-size; then
+    echo 'Invalid download size limit was accepted.' >&2
+    exit 1
+fi
 
 # GitHub API metadata uses a process-scoped authenticated token when gh can
 # read one from the keychain. Other hosts must never receive that header.
@@ -78,7 +82,25 @@ EOF
 cat >"$fixture/bin/curl" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$DOWNLOAD_TEST_LOG"
-printf '{}\n'
+destination=
+url=
+while (($#)); do
+    case "$1" in
+        -o) destination=$2; shift 2 ;;
+        https://*) url=$1; shift ;;
+        *) shift ;;
+    esac
+done
+# Ignore the size flag to simulate older curl with an unknown Content-Length.
+if [[ "$url" == https://example.invalid/installer ]]; then
+    cat >"$destination" <<'SCRIPT'
+#!/usr/bin/env sh
+output=$1
+shift
+printf '%s\n' "$@" >"$output"
+SCRIPT
+elif [[ -n "$destination" ]]; then printf '12345678' >"$destination"
+else printf '{}\n'; fi
 EOF
 chmod +x "$fixture/bin/gh" "$fixture/bin/curl"
 : >"$fixture/download.log"
@@ -95,17 +117,21 @@ if grep -Fq 'Authorization:' "$fixture/download.log"; then
     exit 1
 fi
 
+PATH="$fixture/bin:/usr/bin:/bin" DOWNLOAD_TEST_LOG="$fixture/download.log" \
+    download_file https://example.invalid/file "$fixture/small-download" 16
+[[ $(wc -c <"$fixture/small-download") -eq 8 ]]
+grep -Fq -- '--max-filesize 16' "$fixture/download.log"
+if PATH="$fixture/bin:/usr/bin:/bin" DOWNLOAD_TEST_LOG="$fixture/download.log" \
+    download_file https://example.invalid/file "$fixture/oversized-download" 4; then
+    echo 'Oversized download was accepted.' >&2
+    exit 1
+fi
+[[ ! -e "$fixture/oversized-download" ]]
+
 # Downloaded installers receive their non-secret CLI arguments after the
 # temporary script path (rustup uses this for its unattended profile/channel).
-download_file() {
-    cat >"$2" <<'EOF'
-#!/usr/bin/env sh
-output=$1
-shift
-printf '%s\n' "$@" >"$output"
-EOF
-}
-run_downloaded_script sh https://example.invalid/installer \
+PATH="$fixture/bin:/usr/bin:/bin" DOWNLOAD_TEST_LOG="$fixture/download.log" \
+    run_downloaded_script sh https://example.invalid/installer \
     "$fixture/downloaded-script-args" alpha 'two words'
 printf '%s\n' alpha 'two words' >"$fixture/expected-script-args"
 cmp -s "$fixture/expected-script-args" "$fixture/downloaded-script-args"

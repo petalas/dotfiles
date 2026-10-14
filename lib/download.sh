@@ -32,15 +32,21 @@ _download_github_api_token() {
     fi
 }
 
+# Optional third argument caps bytes; zero keeps the ordinary download behavior.
 download_file() {
     local url="$1"
     local destination="$2"
+    local maximum_size="${3:-0}"
 
+    case "$maximum_size" in
+        *[!0-9]*) echo 'Download size limit must be a nonnegative integer.' >&2; return 1 ;;
+    esac
     _download_validate_settings || return 1
     if ! curl --fail --location --silent --show-error \
         --retry "${DOTFILES_DOWNLOAD_RETRIES:-3}" \
         --connect-timeout "${DOTFILES_CONNECT_TIMEOUT:-15}" \
         --max-time "${DOTFILES_DOWNLOAD_TIMEOUT:-600}" \
+        --max-filesize "$maximum_size" \
         "$url" -o "$destination"; then
         rm -f "$destination"
         return 1
@@ -48,6 +54,13 @@ download_file() {
     if [[ ! -s "$destination" ]]; then
         rm -f "$destination"
         echo "Downloaded file is empty: $url" >&2
+        return 1
+    fi
+    # Older curl versions only enforce --max-filesize when Content-Length is
+    # present. Also check completed downloads with unknown lengths.
+    if ! test "$maximum_size" -eq 0 && ! test "$(wc -c <"$destination")" -le "$maximum_size"; then
+        rm -f "$destination"
+        echo "Downloaded file exceeds its size limit: $url" >&2
         return 1
     fi
 }
