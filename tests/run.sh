@@ -32,6 +32,7 @@ tests=(
     tests/test-neovim-install.sh
     tests/test-nvim-github-auth.sh
     tests/test-nvim-sync.sh
+    tests/test-pi-fast-mode.sh
     tests/test-script-contracts.sh
     tests/test-seashells-palette.sh
     tests/test-setup-tools.sh

@@ -1,10 +1,9 @@
 import { isAbsolute, relative, resolve, sep } from "node:path";
-import type { AssistantMessage, Usage } from "@earendil-works/pi-ai";
+import type { Usage } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 const TARGET_PROVIDER = "openai-codex";
-const TARGET_MODEL = "gpt-5.6-sol";
 const SEPARATOR = " • ";
 const LIVE_RENDER_INTERVAL_MS = 250;
 const ROLLING_MIN_WINDOW_MS = 1_500;
@@ -23,11 +22,6 @@ type ThroughputSample = {
 	chars: number;
 };
 
-type RequestPayload = Record<string, unknown> & {
-	model?: unknown;
-	service_tier?: unknown;
-};
-
 type UsageEntry = {
 	type: string;
 	message?: {
@@ -37,8 +31,8 @@ type UsageEntry = {
 	usage?: Usage;
 };
 
-function isTargetModel(ctx: ExtensionContext): boolean {
-	return ctx.model?.provider === TARGET_PROVIDER && ctx.model.id === TARGET_MODEL;
+function isCodexModel(ctx: ExtensionContext): boolean {
+	return ctx.model?.provider === TARGET_PROVIDER;
 }
 
 function formatTps(tps: number | undefined): string {
@@ -318,14 +312,14 @@ export default function (pi: ExtensionAPI) {
 							: `${contextPercent.toFixed(1)}%/${formatTokens(contextWindow)}`,
 					);
 
-					if (isTargetModel(ctx)) stats.push(formatTps(displayedTps()));
+					if (isCodexModel(ctx)) stats.push(formatTps(displayedTps()));
 
 					const rightParts = [ctx.model?.id ?? "no-model"];
 					if (ctx.model?.reasoning) {
 						const thinkingLevel = pi.getThinkingLevel();
 						rightParts.push(thinkingLevel === "off" ? "thinking off" : thinkingLevel);
 					}
-					if (isTargetModel(ctx)) rightParts.push(mode());
+					if (isCodexModel(ctx)) rightParts.push(mode());
 
 					const statsLine = alignFooter(stats.join(" "), rightParts.join(SEPARATOR), width);
 					const lines = [
@@ -348,12 +342,16 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", (_event, ctx) => {
 		// Clear the separate status line used by the first version of this extension.
 		ctx.ui.setStatus("openai-fast-mode", undefined);
-		if (isTargetModel(ctx)) installFooter(ctx);
+		if (isCodexModel(ctx)) installFooter(ctx);
 	});
 
 	pi.on("model_select", (_event, ctx) => {
 		resetLiveRequest();
-		if (isTargetModel(ctx)) {
+		latestTps.fast = undefined;
+		latestTps.standard = undefined;
+		charsPerToken.fast = DEFAULT_CHARS_PER_TOKEN;
+		charsPerToken.standard = DEFAULT_CHARS_PER_TOKEN;
+		if (isCodexModel(ctx)) {
 			installFooter(ctx);
 		} else {
 			ctx.ui.setFooter(undefined);
@@ -368,21 +366,24 @@ export default function (pi: ExtensionAPI) {
 	pi.on("before_provider_request", (event, ctx) => {
 		resetLiveRequest();
 
-		if (!isTargetModel(ctx)) return;
+		if (
+			!isCodexModel(ctx) ||
+			!event.payload ||
+			typeof event.payload !== "object" ||
+			!("model" in event.payload) ||
+			event.payload.model !== ctx.model?.id
+		) return;
+
 		requestMode = mode();
 		startLiveRenderTimer();
 		renderFooter();
-		if (!fastMode || !event.payload || typeof event.payload !== "object") return;
-
-		const payload = event.payload as RequestPayload;
-		if (payload.model !== TARGET_MODEL) return;
-		return { ...payload, service_tier: "priority" };
+		if (fastMode) return { ...event.payload, service_tier: "priority" };
 	});
 
-	pi.on("message_update", (event) => {
+	pi.on("message_update", (event, ctx) => {
 		if (event.message.role !== "assistant" || requestMode === undefined) return;
-		const message = event.message as AssistantMessage;
-		if (message.provider !== TARGET_PROVIDER || message.model !== TARGET_MODEL) return;
+		const message = event.message;
+		if (message.provider !== TARGET_PROVIDER || message.model !== ctx.model?.id) return;
 
 		const now = performance.now();
 		if (event.assistantMessageEvent.type === "text_start" && textStartedAt === undefined) {
@@ -400,10 +401,10 @@ export default function (pi: ExtensionAPI) {
 		renderFooter();
 	});
 
-	pi.on("message_end", (event) => {
+	pi.on("message_end", (event, ctx) => {
 		if (event.message.role !== "assistant") return;
-		const message = event.message as AssistantMessage;
-		if (message.provider !== TARGET_PROVIDER || message.model !== TARGET_MODEL) return;
+		const message = event.message;
+		if (message.provider !== TARGET_PROVIDER || message.model !== ctx.model?.id) return;
 
 		const startedAt = textStartedAt;
 		const endedAt = textEndedAt ?? performance.now();
@@ -432,8 +433,14 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("fast", {
-		description: "Toggle OpenAI priority processing and show TPS comparisons",
+		description: "Toggle OpenAI Codex priority processing for the current model",
 		handler: async (args, ctx) => {
+			const model = ctx.model;
+			if (model?.provider !== TARGET_PROVIDER) {
+				ctx.ui.notify("Fast mode is only available for OpenAI Codex models.", "warning");
+				return;
+			}
+
 			const action = args.trim().toLowerCase();
 			if (action === "on") fastMode = true;
 			else if (action === "off") fastMode = false;
@@ -446,7 +453,7 @@ export default function (pi: ExtensionAPI) {
 			resetLiveRequest();
 			renderFooter();
 			ctx.ui.notify(
-				`Fast mode ${fastMode ? "on" : "off"} for ${TARGET_MODEL}. Latest: fast ${formatTps(latestTps.fast)}, standard ${formatTps(latestTps.standard)}.`,
+				`Fast mode ${fastMode ? "on" : "off"} for ${model.id}. Latest: fast ${formatTps(latestTps.fast)}, standard ${formatTps(latestTps.standard)}.`,
 				"info",
 			);
 		},

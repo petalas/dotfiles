@@ -40,7 +40,9 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ## Pi Codex fast-mode benchmarks need visible-token timing and socket cleanup
 
-- `gpt-5.6-sol` advertises Codex's `fast` speed tier as request `service_tier: "priority"`; this is the correct mapping, not a reversed toggle.
+- Codex's `fast` speed tier maps to request `service_tier: "priority"`; this is the correct mapping, not a reversed toggle. Match the current `openai-codex` model in context, request payloads, streamed messages, and status text rather than pinning a model ID. Other providers must remain unchanged and `/fast` must warn instead of claiming to enable unsupported priority processing.
+- `/fast` remains default-on and session-wide across Codex model switches. Reset TPS comparisons and character/token calibration on model selection so measurements from different models do not mix. Keep these two fixed mode slots rather than accumulating per-model history.
+- `bash tests/test-pi-fast-mode.sh` loads the actual extension with the installed Pi loader and checks request payloads, command notifications, footer rendering, and streamed TPS without provider calls. It skips when the Pi npm package is unavailable. The changed request boundary uses type narrowing instead of a payload cast; event messages already have discriminated types.
 - Pi's `usage.output` includes hidden reasoning tokens. For the footer's user-visible TPS, subtract `usage.reasoning` and measure from the first `text_start` through the last `text_end`. Measuring all output from stream start mixes reasoning/prefill latency into TPS and can make a faster tier look slower.
 - Short responses are noisy, and prompt-cache state can dominate comparisons. The first manual fast test after `/reload` had a full cache miss while the standard test immediately reused the prompt cache, so those two numbers were not comparable.
 - Standalone Codex WebSocket benchmarks must call `closeOpenAICodexWebSocketSessions()` when finished; otherwise Pi's reusable connection timer keeps Node alive for several minutes and looks like a hung benchmark.
