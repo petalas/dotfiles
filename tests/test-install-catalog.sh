@@ -17,9 +17,10 @@ for os in macos ubuntu debian arch; do
     grep -Fxq $'app\tai-skills.unslop\ton\toptional\tai-skills\tAI skill: unslop' "$fixture/$os.plan"
     grep -Fxq $'dependency\tai-skills.unslop\tlanguages.node' "$fixture/$os.plan"
     grep -Fxq $'action\tai-skills.unslop\tai-skill\thttps://github.com/petalas/skills.git\tunslop' "$fixture/$os.plan"
-    [[ "$(grep -c $'^action\tai-skills\..*\tai-skill\thttps://github.com/petalas/skills.git\t' "$fixture/$os.plan")" == 51 ]]
+    [[ "$(grep -c $'^action\tai-skills\..*\tai-skill\thttps://github.com/petalas/skills.git\t' "$fixture/$os.plan")" == 59 ]]
     grep -Fxq $'action\tai-skills.avoid-ai-writing\tai-skill\thttps://github.com/conorbronsdon/avoid-ai-writing.git\tavoid-ai-writing' "$fixture/$os.plan"
-    for skill in gpt-image-2-5 power-of-ten principle-attack-the-premise principle-test-behavior-not-implementation; do
+    for skill in gpt-image-2-5 power-of-ten principle-attack-the-premise principle-test-behavior-not-implementation \
+        principle-explain-the-number benchmark-checklist correct ketchup sharpen in-your-own-words knowledge-audit knowledge-migrate-all; do
         grep -Fxq $'action\tai-skills.'"$skill"$'\tai-skill\thttps://github.com/petalas/skills.git\t'"$skill" "$fixture/$os.plan"
     done
     [[ "$(grep -c $'^action\tai-skills\..*\tai-skill\thttps://github.com/mattpocock/skills.git\t' "$fixture/$os.plan")" == 27 ]]
