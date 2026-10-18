@@ -68,6 +68,7 @@ languages.rust	direct	payload	installer	rust
 languages.uv	direct	payload	installer	uv
 ai.claude-code	direct	payload	installer	claude_code
 ai.herdr	direct	payload	installer	herdr
+ai.opencode	direct	payload	installer	opencode
 containers.lazydocker	direct	payload	installer	lazydocker
 cli.yazi	direct	payload	installer	yazi
 development.vite-plus	direct	payload	installer	vite_plus

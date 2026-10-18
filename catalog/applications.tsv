@@ -108,6 +108,7 @@ ai.chatgpt	ai	ChatGPT (includes Codex)	on
 ai.herdr	ai	Herdr	on
 ai.lm-studio	ai	LM Studio	on
 ai.pi	ai	Pi	on	languages.node
+ai.opencode	ai	OpenCode	on
 mobile.applesimutils	mobile	Apple simulator utilities	on
 mobile.bundletool	mobile	Bundletool	on	mobile.java17
 mobile.cocoapods	mobile	CocoaPods	on

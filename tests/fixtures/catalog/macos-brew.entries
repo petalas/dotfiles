@@ -1,4 +1,5 @@
 brew "act"
+brew "anomalyco/tap/opencode-v2", trusted: true
 brew "aria2"
 brew "bash"
 brew "bat"

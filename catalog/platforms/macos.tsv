@@ -93,6 +93,7 @@ ai.herdr	brew	payload	brew-formula	herdr
 ai.claude-code	brew	payload	brew-cask	claude-code@latest
 ai.claude-desktop	brew	payload	brew-cask	claude
 ai.lm-studio	brew	payload	brew-cask	lm-studio
+ai.opencode	brew	payload	brew-formula	anomalyco/tap/opencode-v2	trusted=true
 mobile.applesimutils	brew	support	brew-tap	mobile-dev-inc/tap
 mobile.applesimutils	brew	payload	brew-formula	wix-incubator/brew/applesimutils	trusted=true
 mobile.bundletool	brew	payload	brew-formula	bundletool

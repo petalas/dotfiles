@@ -88,6 +88,7 @@ brew "herdr"
 cask "claude-code@latest"
 cask "claude"
 cask "lm-studio"
+brew "anomalyco/tap/opencode-v2", trusted: true
 tap "mobile-dev-inc/tap"
 brew "wix-incubator/brew/applesimutils", trusted: true
 brew "bundletool"

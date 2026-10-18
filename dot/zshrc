@@ -28,6 +28,7 @@ path=(
     "$HOME/bin"
     "$HOME/.local/bin"
     "$HOME/.cargo/bin"
+    "$HOME/.opencode/bin"
     $path
 )
 if [[ $OSTYPE == darwin* ]]; then

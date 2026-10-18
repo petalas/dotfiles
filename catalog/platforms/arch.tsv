@@ -79,6 +79,7 @@ containers.docker	direct	payload	installer	docker
 editors.neovim	direct	payload	installer	neovim
 ai.claude-code	direct	payload	installer	claude_code
 ai.herdr	direct	payload	installer	herdr
+ai.opencode	direct	payload	installer	opencode
 languages.node	direct	payload	installer	node
 languages.rust	direct	payload	installer	rust
 development.vite-plus	direct	payload	installer	vite_plus
