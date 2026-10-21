@@ -20,8 +20,17 @@ case "$*" in
     'bundle list --formula '*) printf '%s\n' working vendor/tap/tool ;;
     'bundle list --cask '*) printf '%s\n' claude-code@latest ;;
     'bundle check --file='*) exit 1 ;;
-    'outdated --formula --quiet') printf '%s\n' first gh second third ;;
-    'outdated --cask --quiet') printf '%s' "${HOMEBREW_OUTDATED_CASKS:-}" ;;
+    'outdated --json=v2')
+        outdated() {
+            printf '%s\n' "$@" | jq -Rn '[inputs | select(length > 0)
+                | {name: ., installed_versions: ["1.0"], current_version: "2.0", pinned: (. == "pinned")}]'
+        }
+        jq -n --argjson formulae "$(outdated first gh second third pinned)" \
+            --argjson casks "$(outdated ${HOMEBREW_OUTDATED_CASKS:-})" '{$formulae, $casks}'
+        ;;
+    'list --formula --installed-on-request') printf '%s\n' gh current ;;
+    'list --formula --versions') printf '%s\n' 'first 1.0' 'gh 1.0' 'current 3.0' 'dependency 4.0' ;;
+    'list --cask --versions') printf '%s\n' 'zed 0.9' ;;
     'upgrade --'*)
         cat >/dev/null
         [[ "$*" != "upgrade --${HOMEBREW_UPGRADE_FAILURE:-}" ]]
@@ -35,6 +44,8 @@ printf 'sudo %s\n' "$*" >>"$HOMEBREW_TEST_LOG"
 [[ -z ${HOMEBREW_TEST_SUDO_DENIED:-} ]]
 EOF
 chmod +x "$fixture/bin/brew" "$fixture/bin/sudo"
+# Outdated entries are JSON; the restricted PATH below omits Homebrew's bin.
+ln -s "$(command -v jq)" "$fixture/bin/jq"
 PATH="$fixture/bin:/usr/bin:/bin"
 docker_installer="$fixture/Docker.app/Contents/MacOS/install"
 export PATH HOMEBREW_TEST_LOG="$log" HOMEBREW_MAIN_FILE="$fixture/Brewfile"
@@ -51,17 +62,29 @@ grep -Fq 'bundle list --formula' "$log"
 # Homebrew builds may read stdin. Each isolated upgrade must receive /dev/null
 # so it cannot consume the remaining package names from the loop.
 : >"$log"
-homebrew_upgrade_individually
+homebrew_upgrade_individually >"$fixture/results"
 for package in first gh second third; do
     grep -Fxq "upgrade --formula $package" "$log"
 done
+# One line per outdated entry, requested formula, and cask; pinned formulae are
+# left alone and unchanged dependencies are not listed.
+grep -Fxq 'Upgraded gh 1.0 ==> 2.0' "$fixture/results"
+grep -Fxq 'current 3.0 ==> already latest' "$fixture/results"
+grep -Fxq 'zed 0.9 ==> already latest' "$fixture/results"
+grep -Fxq 'pinned 1.0 ==> skipped' "$fixture/results"
+if grep -Fq 'upgrade --formula pinned' "$log" || grep -Fq dependency "$fixture/results"; then
+    echo 'Pinned or unchanged dependency entries were handled as upgrades' >&2
+    exit 1
+fi
+[[ $(grep -c '^Upgraded gh ' "$fixture/results") == 1 ]]
 
 # A broken unrelated formula must not prevent GitHub CLI or later upgrades.
 : >"$log"
-if HOMEBREW_UPGRADE_FAILURE='formula first' homebrew_upgrade_individually; then
+if HOMEBREW_UPGRADE_FAILURE='formula first' homebrew_upgrade_individually >"$fixture/results" 2>/dev/null; then
     echo 'Failed Homebrew upgrade was not reported' >&2
     exit 1
 fi
+grep -Fxq 'first 1.0 ==> failed to update' "$fixture/results"
 for package in gh second third; do
     grep -Fxq "upgrade --formula $package" "$log"
 done
@@ -69,20 +92,26 @@ done
 # The cask upgrade deletes Docker's privileged helpers. Reinstalling them
 # headlessly keeps Docker Desktop from asking for a password on next launch.
 : >"$log"
-HOMEBREW_OUTDATED_CASKS=$'slack\ndocker-desktop\n' homebrew_upgrade_individually
+HOMEBREW_OUTDATED_CASKS=$'slack\ndocker-desktop\n' homebrew_upgrade_individually >/dev/null
 grep -Fxq 'upgrade --cask docker-desktop' "$log"
 [[ $(grep -c ' config ' "$log") == 1 ]]
-[[ $(tail -n 1 "$log") == "sudo -n $docker_installer config --user tester" ]]
+# The helpers are restored right after Docker's upgrade, before the next entry.
+awk -v expected="sudo -n $docker_installer config --user tester" '
+    $0 == "upgrade --cask docker-desktop" { docker = 1; next }
+    docker && /^upgrade / { exit }
+    docker && $0 == expected { found = 1 }
+    END { exit !found }
+' "$log"
 
 # Other casks never touch Docker's privileged setup.
 : >"$log"
-HOMEBREW_OUTDATED_CASKS=$'slack\n' homebrew_upgrade_individually
+HOMEBREW_OUTDATED_CASKS=$'slack\n' homebrew_upgrade_individually >/dev/null
 if grep -q '^sudo ' "$log"; then exit 1; fi
 
 # A failed Docker upgrade leaves the old helpers alone.
 : >"$log"
 if HOMEBREW_OUTDATED_CASKS=$'docker-desktop\n' HOMEBREW_UPGRADE_FAILURE='cask docker-desktop' \
-    homebrew_upgrade_individually 2>/dev/null; then
+    homebrew_upgrade_individually >/dev/null 2>&1; then
     exit 1
 fi
 if grep -q '^sudo ' "$log"; then exit 1; fi
@@ -90,7 +119,7 @@ if grep -q '^sudo ' "$log"; then exit 1; fi
 # Without passwordless sudo, Docker falls back to its own prompt; warn only.
 : >"$log"
 HOMEBREW_OUTDATED_CASKS=$'docker-desktop\n' HOMEBREW_TEST_SUDO_DENIED=1 \
-    homebrew_upgrade_individually 2>"$fixture/stderr"
+    homebrew_upgrade_individually >/dev/null 2>"$fixture/stderr"
 grep -Fq 'Docker Desktop will ask for an administrator password' "$fixture/stderr"
 
 printf 'Homebrew resilient reconciliation tests passed.\n'

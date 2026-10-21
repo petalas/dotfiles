@@ -349,4 +349,39 @@ if grep -Rqi flatpak \
     exit 1
 fi
 
+
+# Version snapshots list explicit packages, include dependencies unlisted so
+# their upgrades still appear, and skip packages that are not installed.
+mkdir -p "$fixture/versions-bin"
+cat >"$fixture/versions-bin/apt-mark" <<'EOF'
+#!/usr/bin/env bash
+[[ "$*" == showmanual ]] && printf '%s\n' git vim
+EOF
+cat >"$fixture/versions-bin/dpkg-query" <<'EOF'
+#!/usr/bin/env bash
+printf 'ii \t%s\t%s\n' git 1:2.47.0-1 libc6 2.40-1 vim 2:9.1-1
+printf 'rc \t%s\t%s\n' removed 1.0
+EOF
+cat >"$fixture/versions-bin/pacman" <<'EOF'
+#!/usr/bin/env bash
+case "$*" in
+    -Qqe) printf '%s\n' neovim ;;
+    -Q) printf '%s\n' 'glibc 2.40-1' 'neovim 0.11.0-1' ;;
+    *) exit 2 ;;
+esac
+EOF
+chmod +x "$fixture/versions-bin"/*
+debian_versions=$(
+    export PATH="$fixture/versions-bin:/usr/bin:/bin" DOTFILES_OS_OVERRIDE=debian
+    source "$repo_dir/lib/packages.sh"
+    linux_packages_versions
+)
+[[ "$debian_versions" == $'git\t1:2.47.0-1\t1\nlibc6\t2.40-1\t0\nvim\t2:9.1-1\t1' ]]
+arch_versions=$(
+    export PATH="$fixture/versions-bin:/usr/bin:/bin" DOTFILES_OS_OVERRIDE=arch
+    source "$repo_dir/lib/packages.sh"
+    linux_packages_versions
+)
+[[ "$arch_versions" == $'glibc\t2.40-1\t0\nneovim\t0.11.0-1\t1' ]]
+
 echo "Linux package helper tests passed."

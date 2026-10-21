@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 # Homebrew helpers shared by macOS setup (Bash) and the Zsh update command.
 
+if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
+    _homebrew_file=${BASH_SOURCE[0]}
+else
+    _homebrew_file=$(print -P '%N')
+fi
+# shellcheck source=update-report.sh
+source "$(cd "$(dirname "$_homebrew_file")" && pwd)/update-report.sh"
+unset _homebrew_file
+
 _homebrew_report_failure() {
     printf 'Warning: %s failed; continuing with other Homebrew entries.\n' "$1" >&2
 }
@@ -93,29 +102,74 @@ _homebrew_restore_docker_helpers() {
     sudo -n "$installer" config --user "$USER" </dev/null
 }
 
+# Print "kind<TAB>name<TAB>installed<TAB>latest<TAB>pinned" for each entry
+# that upd would change, then "kind<TAB>name<TAB>installed" for each formula
+# installed on request and each cask. Dependencies appear only when outdated.
+_homebrew_upgrade_candidates() {
+    local outdated requested formulae casks
+    outdated=$(brew outdated --json=v2) || return 1
+    requested=$(brew list --formula --installed-on-request) || return 1
+    formulae=$(brew list --formula --versions) || return 1
+    casks=$(brew list --cask --versions) || return 1
+    printf '%s\n' "$outdated" | jq -r '
+        def newest: if type == "array" then .[-1] else . end;
+        (.formulae[] | ["formula", .name, (.installed_versions | newest), .current_version, (.pinned // false)]),
+        (.casks[] | ["cask", .name, (.installed_versions | newest), .current_version, false])
+        | map(tostring) | @tsv' || return 1
+    {
+        printf '%s\n' "$requested"
+        printf '%s\n' '--formulae--'
+        printf '%s\n' "$formulae"
+        printf '%s\n' '--casks--'
+        printf '%s\n' "$casks"
+    } | awk -v OFS='\t' '
+        $0 == "--formulae--" { section = "formula"; next }
+        $0 == "--casks--" { section = "cask"; next }
+        section == "" { if ($1 != "") requested[$1] = 1; next }
+        section == "formula" && requested[$1] { print "formula", $1, $NF }
+        section == "cask" && $1 != "" { print "cask", $1, $NF }
+    '
+}
+
+# Upgrade each outdated entry separately so one broken package cannot hide the
+# rest, and report one result line per entry.
 homebrew_upgrade_individually() {
-    local kind entries entry
+    local candidates kind name installed latest pinned
     local failed=0
 
-    for kind in formula cask; do
-        if ! entries=$(brew outdated "--$kind" --quiet); then
-            _homebrew_report_failure "listing outdated Homebrew ${kind}s"
+    if ! candidates=$(_homebrew_upgrade_candidates); then
+        _homebrew_report_failure "listing Homebrew packages"
+        update_report_result failed Homebrew
+        return 1
+    fi
+    # Outdated records come first; keep them over the plain installed record.
+    while IFS=$'\t' read -r kind name installed latest pinned; do
+        [[ -n "$name" ]] || continue
+        if [[ -z "$latest" ]]; then
+            update_report_result latest "$name" "$installed"
+            continue
+        fi
+        if [[ "$pinned" == true ]]; then
+            printf 'Skipping pinned Homebrew %s %s.\n' "$kind" "$name"
+            update_report_result skipped "$name" "$installed"
+            continue
+        fi
+        update_report_progress "$name"
+        printf '\nUpgrading Homebrew %s %s...\n' "$kind" "$name"
+        if ! brew upgrade "--$kind" "$name" </dev/null; then
+            _homebrew_report_failure "Homebrew $kind $name"
+            update_report_result failed "$name" "$installed"
             failed=1
             continue
         fi
-        while IFS= read -r entry; do
-            [[ -n "$entry" ]] || continue
-            printf '\nUpgrading Homebrew %s %s...\n' "$kind" "$entry"
-            if ! brew upgrade "--$kind" "$entry" </dev/null; then
-                _homebrew_report_failure "Homebrew $kind $entry"
-                failed=1
-            elif [[ "$kind" == cask && "$entry" == docker-desktop ]] &&
-                ! _homebrew_restore_docker_helpers; then
-                _homebrew_report_failure "Docker Desktop privileged helpers"
-                failed=1
-            fi
-        done <<<"$entries"
-    done
+        update_report_result upgraded "$name" "$installed" "$latest"
+        if [[ "$kind" == cask && "$name" == docker-desktop ]] &&
+            ! _homebrew_restore_docker_helpers; then
+            _homebrew_report_failure "Docker Desktop privileged helpers"
+            update_report_result failed "Docker Desktop privileged helpers"
+            failed=1
+        fi
+    done < <(printf '%s\n' "$candidates" | awk -F '\t' '!seen[$1 FS $2]++' | LC_ALL=C sort -f -t "$(printf '\t')" -k2,2)
 
     return "$failed"
 }

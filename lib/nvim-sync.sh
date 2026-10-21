@@ -22,8 +22,16 @@ _nvim_sync_ensure_github_auth() {
             echo "nvim sync: authenticate first with 'gh auth login --hostname github.com --git-protocol https --web'" >&2
             return 1
         fi
-        echo "GitHub CLI is not authenticated; starting browser login..."
-        gh auth login --hostname github.com --git-protocol https --web || return 1
+        # upd logs tool output; the one-time login code must reach the terminal.
+        if [ -n "${DOTFILES_UPDATE_TERMINAL_FD:-}" ]; then
+            update_report_clear
+            echo "GitHub CLI is not authenticated; starting browser login..." >&"$DOTFILES_UPDATE_TERMINAL_FD"
+            gh auth login --hostname github.com --git-protocol https --web \
+                >&"$DOTFILES_UPDATE_TERMINAL_FD" 2>&1 || return 1
+        else
+            echo "GitHub CLI is not authenticated; starting browser login..."
+            gh auth login --hostname github.com --git-protocol https --web || return 1
+        fi
         gh auth status --hostname github.com >/dev/null 2>&1 || {
             echo "nvim sync: GitHub CLI authentication did not complete" >&2
             return 1

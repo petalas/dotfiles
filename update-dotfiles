@@ -1,6 +1,7 @@
 #!/usr/bin/env zsh
 # Update the dotfiles checkout, system packages, language tools, and managed
 # Neovim state. Every independent step runs; failures are summarized at end.
+# The terminal shows one result line per item; tool output goes to the log.
 setopt pipe_fail
 
 DOTFILES_ROOT=${DOTFILES_DIR:-$HOME/git/dotfiles}
@@ -12,18 +13,20 @@ if (( $# > 1 )) || { (( $# == 1 )) && [[ $1 != --after-dotfiles-pull ]]; }; then
   print -u2 "usage: update-dotfiles"
   exit 2
 fi
+# Keep the terminal on descriptor 3 for result lines, then send all tool
+# output to the private log. Without a log, tool output stays on the terminal.
 start_update_log() {
   local state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles
   local candidate=$state_dir/latest-update.log
   local previous_umask
   previous_umask=$(umask)
   umask 077
+  export DOTFILES_UPDATE_LOG_ACTIVE=1
   if mkdir -p "$state_dir" && chmod 700 "$state_dir" && : >"$candidate" && chmod 600 "$candidate"; then
     umask "$previous_umask"
-    export DOTFILES_UPDATE_LOG_ACTIVE=1 DOTFILES_UPDATE_LOG=$candidate
+    export DOTFILES_UPDATE_LOG=$candidate DOTFILES_UPDATE_TERMINAL_FD=3
     update_log=$candidate
-    exec > >(tee -a "$update_log") 2> >(tee -a "$update_log" >&2)
-    print "Update log: $update_log"
+    exec 3>&1 >>"$update_log" 2>&1
   else
     umask "$previous_umask"
     update_log=
@@ -34,37 +37,86 @@ start_update_log() {
 update_log=${DOTFILES_UPDATE_LOG:-}
 [[ ${DOTFILES_UPDATE_LOG_ACTIVE:-0} == 1 ]] || start_update_log
 
+# Print a message to the log and, in colour, to the terminal.
+say() {
+  local color=$1
+  shift
+  print -r -- "$*"
+  [[ -n ${DOTFILES_UPDATE_TERMINAL_FD:-} ]] || return 0
+  if [[ -t 3 ]]; then
+    print -P -- "%F{$color}${*//\%/%%}%f" >&3
+  else
+    print -r -- "$*" >&3
+  fi
+}
+
+show_log_path() {
+  [[ -z $update_log ]] || say default "Update log: $update_log"
+}
+
+abort() {
+  say red "$*"
+  show_log_path
+  exit 1
+}
+
+source "$DOTFILES_ROOT/lib/update-report.sh" || exit 1
+
 if [[ ${1:-} != --after-dotfiles-pull ]]; then
-  [[ -d $DOTFILES_ROOT/.git ]] || {
-    print -u2 "Not a Git checkout: $DOTFILES_ROOT"
+  [[ -d $DOTFILES_ROOT/.git ]] || abort "Not a Git checkout: $DOTFILES_ROOT"
+  [[ -z $(git -C "$DOTFILES_ROOT" status --porcelain) ]] ||
+    abort "Dotfiles checkout is dirty; commit or stash it before updating."
+  old_revision=$(git -C "$DOTFILES_ROOT" rev-parse --short HEAD)
+  update_report_progress dotfiles
+  if ! git -C "$DOTFILES_ROOT" pull --ff-only; then
+    update_report_result failed dotfiles "$old_revision"
+    show_log_path
     exit 1
-  }
-  [[ -z $(git -C "$DOTFILES_ROOT" status --porcelain) ]] || {
-    print -u2 "Dotfiles checkout is dirty; commit or stash it before updating."
-    exit 1
-  }
-  git -C "$DOTFILES_ROOT" pull --ff-only || exit 1
+  fi
+  new_revision=$(git -C "$DOTFILES_ROOT" rev-parse --short HEAD)
+  if [[ $new_revision == "$old_revision" ]]; then
+    update_report_result latest dotfiles "$old_revision"
+  else
+    update_report_result upgraded dotfiles "$old_revision" "$new_revision"
+  fi
   exec "$DOTFILES_ROOT/update-dotfiles" --after-dotfiles-pull
 fi
 shift
 
-run_step() {
+# Run one step, logging its label and collecting its failure for the summary.
+# The command prints its own result lines.
+run_reported() {
   local label=$1
   shift
   print
-  print -P "%F{blue}:: $label%f"
+  print -r -- ":: $label"
   local result
   "$@"
   result=$?
   if (( result != 0 )); then
-    print -P "%F{red}failed: $label%f" >&2
+    print -r -- "failed: $label" >&2
     failures+=("$label")
   fi
   return $result
 }
 
+# A step without versions shows a line only when it fails.
+run_step() {
+  local label=$1
+  shift
+  run_reported "$label" update_batch "$label" update_no_versions "$@"
+}
+
+# run_versioned LABEL SNAPSHOT COMMAND...: one line per SNAPSHOT item.
+run_versioned() {
+  local label=$1 snapshot=$2
+  shift 2
+  run_reported "$label" update_batch "$label" "$snapshot" "$@"
+}
+
 record_missing() {
-  print -P "%F{red}missing: $2%f" >&2
+  print -r -- "missing: $2" >&2
+  update_report_result failed "$1"
   failures+=("$1")
 }
 
@@ -82,15 +134,34 @@ bun_github_token() {
   fi
 }
 
+bun_versions() {
+  local version
+  version=$(bun --version) || return 1
+  printf 'bun\t%s\t1\n' "$version"
+}
+
 update_bun() {
   local github_token
   github_token=$(bun_github_token) || github_token=
   if [[ -z $github_token ]]; then
     print "Skipping Bun upgrade to avoid GitHub's anonymous API rate limit."
     print "Authenticate with 'gh auth login' or set GITHUB_TOKEN to enable it."
+    update_report_result skipped bun "$(bun --version 2>/dev/null)"
     return 0
   fi
-  GITHUB_TOKEN=$github_token bun upgrade
+  update_batch bun bun_versions env GITHUB_TOKEN=$github_token bun upgrade
+}
+
+pnpm_versions() {
+  local listing
+  listing=$(env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm ls -g --depth=0 --json) || return 1
+  print -r -- "$listing" |
+    jq -r '.[] | (.dependencies // {}) | to_entries[] | [.key, .value.version, "1"] | @tsv'
+}
+
+pnpm_update_latest() {
+  [[ -n $(pnpm_versions) ]] || { print "No pnpm global packages installed."; return 0; }
+  env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm update -g --latest
 }
 
 update_pnpm_globals() {
@@ -105,13 +176,38 @@ update_pnpm_globals() {
     fi
   fi
   local -x PATH="$pnpm_home/bin:$pnpm_home:$PATH"
-  local pnpm_globals
-  pnpm_globals=$(env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm ls -g --depth=0 --parseable) || return $?
-  if [[ -n $pnpm_globals ]]; then
-    env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm update -g --latest
+  update_batch "pnpm global packages" pnpm_versions pnpm_update_latest
+}
+
+# Pi owns its own package; npm reports every other global package.
+npm_versions() {
+  local listing
+  # npm ls exits non-zero for tree problems such as invalid peers but still
+  # prints the inventory; jq rejects missing or malformed output.
+  listing=$(npm ls -g --depth=0 --json 2>/dev/null)
+  print -r -- "$listing" | jq -r '
+    .dependencies // {} | to_entries[]
+    | select(.key != "@earendil-works/pi-coding-agent" and .value.version != null)
+    | [.key, .value.version, "1"] | @tsv'
+}
+
+npm_update_outdated() {
+  local -a npm_packages
+  npm_packages=(${(f)"$(npm outdated -g --parseable 2>/dev/null | cut -d: -f4 | sed 's/@[^@]*$//' | grep -v '/\.' | sort -u)"})
+  # Pi owns its self-update; do not immediately update the same package twice.
+  (( $+commands[pi] )) && npm_packages=(${npm_packages:#@earendil-works/pi-coding-agent})
+  if (( ${#npm_packages[@]} )); then
+    npm update -g "${npm_packages[@]}"
   else
-    print "No pnpm global packages installed."
+    print "npm global packages are up to date."
   fi
+}
+
+vite_plus_versions() {
+  local version
+  version=$("$HOME/.vite-plus/bin/vp" --version </dev/null) || return 1
+  version=${${(f)version}[1]}
+  printf 'vite-plus\t%s\t1\n' "${${version##* }#v}"
 }
 
 update_vite_plus() {
@@ -119,6 +215,63 @@ update_vite_plus() {
   local -x PATH="$HOME/.vite-plus/bin:$PATH"
   env VP_HOME="$HOME/.vite-plus" CI=true VP_NODE_MANAGER=no VP_PM_MANAGER=no \
     "$HOME/.vite-plus/bin/vp" upgrade </dev/null
+}
+
+rust_versions() {
+  local host toolchain version
+  version=$(rustup --version 2>/dev/null) || return 1
+  printf 'rustup\t%s\t1\n' "${${(z)version}[2]}"
+  host=$(rustup show 2>/dev/null | sed -n 's/^Default host: //p')
+  for toolchain in ${(f)"$(rustup toolchain list)"}; do
+    toolchain=${toolchain%% *}
+    [[ $toolchain == no ]] && continue
+    version=$(rustup run "$toolchain" rustc --version) || return 1
+    printf 'rust-%s\t%s\t1\n' "${toolchain%-$host}" "${${(z)version}[2]}"
+  done
+}
+
+sdkman_self_versions() {
+  local version
+  version=$(sdk version | sed -n 's/^script: //p') || return 1
+  printf 'sdkman\t%s\t1\n' "$version"
+}
+
+sdkman_candidate_versions() {
+  local listing
+  listing=$(sdk current) || return 1
+  print -r -- "$listing" | sed $'s/\e\\[[0-9;]*m//g' |
+    awk -v OFS='\t' '{ gsub(/:/, "") } NF == 2 && $1 != "Using" { print $1, $2, 1 }'
+}
+
+pi_versions() {
+  # Zsh ties a variable named path to PATH, so the directory is package_dir.
+  local version listing package package_dir
+  version=$(pi --version) || return 1
+  printf 'pi\t%s\t1\n' "$version"
+  listing=$(pi list) || return 1
+  print -r -- "$listing" | awk -v OFS='\t' '/^  [^ ]/ { package = $1 } /^    [^ ]/ { print package, $1 }' |
+    while IFS=$'\t' read -r package package_dir; do
+      version=$(jq -r '.version // empty' "$package_dir/package.json" 2>/dev/null)
+      [[ -z $version ]] || printf '%s\t%s\t1\n' "$package" "$version"
+    done
+}
+
+nvim_config_versions() {
+  local revision
+  revision=$(git -C "$nvim_config" rev-parse --short HEAD) || return 1
+  printf 'neovim config\t%s\t1\n' "$revision"
+}
+
+nvim_plugin_versions() {
+  local lock=$nvim_config/nvim-pack-lock.json
+  [[ -f $lock ]] || return 0
+  jq -r '.plugins | to_entries[] | [.key, .value.rev[0:7], "1"] | @tsv' "$lock"
+}
+
+skill_versions() {
+  local lock=${DOTFILES_AI_SKILLS_LOCK:-$HOME/.agents/.skill-lock.json}
+  [[ -f $lock ]] || return 0
+  jq -r '.skills // {} | to_entries[] | [.key, ((.value.skillFolderHash // "unknown")[0:7]), "1"] | @tsv' "$lock"
 }
 
 linker=$DOTFILES_ROOT/link-dotfiles.sh
@@ -152,7 +305,7 @@ if [[ $OSTYPE == linux* ]]; then
     if linux_github_cli_installed; then
       run_step "GitHub CLI repository" linux_github_cli_prepare_repository
     fi
-    run_step "system packages" linux_packages_upgrade
+    run_versioned "system packages" linux_packages_versions linux_packages_upgrade
   else
     record_missing "Linux package helpers" "$package_helpers"
   fi
@@ -161,13 +314,13 @@ elif [[ $OSTYPE == darwin* ]] && (( $+commands[brew] )); then
   if [[ -r $brew_helpers ]]; then
     source "$brew_helpers"
     run_step "Homebrew metadata" brew update
-    run_step "Homebrew upgrades" homebrew_upgrade_individually
+    run_reported "Homebrew upgrades" homebrew_upgrade_individually
   else
     record_missing "Homebrew helpers" "$brew_helpers"
   fi
 fi
 
-(( $+commands[rustup] )) && run_step "Rust toolchain" rustup update
+(( $+commands[rustup] )) && run_versioned rust rust_versions rustup update
 
 if [[ -s ${SDKMAN_DIR:-$HOME/.sdkman}/bin/sdkman-init.sh ]]; then
   source "${SDKMAN_DIR:-$HOME/.sdkman}/bin/sdkman-init.sh"
@@ -177,43 +330,30 @@ if [[ -s ${SDKMAN_DIR:-$HOME/.sdkman}/bin/sdkman-init.sh ]]; then
       rm -f "$sdkman_cfg.bak"
   fi
   if [[ ${sdkman_selfupdate_feature:-false} == true ]]; then
-    run_step "SDKMAN self-update" sdk selfupdate
+    run_versioned sdkman sdkman_self_versions sdk selfupdate
   else
     print "Skipping SDKMAN self-update because sdkman_selfupdate_feature is disabled."
   fi
   run_step "SDKMAN candidate metadata" sdk update
-  run_step "SDKMAN candidates" sdk upgrade
+  run_versioned "SDKMAN candidates" sdkman_candidate_versions sdk upgrade
 fi
 
-(( $+commands[bun] )) && run_step "Bun" update_bun
+(( $+commands[bun] )) && run_reported bun update_bun
 
 # Only the managed global installation owns self-updates, not a project's vp.
-[[ -x $HOME/.vite-plus/bin/vp ]] && run_step "Vite+" update_vite_plus
+[[ -x $HOME/.vite-plus/bin/vp ]] && run_versioned vite-plus vite_plus_versions update_vite_plus
 
-if (( $+commands[npm] )); then
-  npm_packages=(${(f)"$(npm outdated -g --parseable 2>/dev/null | cut -d: -f4 | sed 's/@[^@]*$//' | grep -v '/\.' | sort -u)"})
-  # Pi owns its self-update; do not immediately update the same package twice.
-  (( $+commands[pi] )) && npm_packages=(${npm_packages:#@earendil-works/pi-coding-agent})
-  if (( ${#npm_packages[@]} )); then
-    run_step "npm global packages" npm update -g "${npm_packages[@]}"
-  else
-    print "npm global packages are up to date."
-  fi
-fi
-
-if (( $+commands[pnpm] )); then
-  run_step "pnpm global packages" update_pnpm_globals
-fi
-
-(( $+commands[pi] )) && run_step "Pi" pi update --all
+(( $+commands[npm] )) && run_versioned "npm global packages" npm_versions npm_update_outdated
+(( $+commands[pnpm] )) && run_reported "pnpm global packages" update_pnpm_globals
+(( $+commands[pi] )) && run_versioned pi pi_versions pi update --all
 (( $+commands[tldr] )) && run_step "tldr cache" tldr -u
 
 nvim_helpers=$DOTFILES_ROOT/lib/nvim-sync.sh
 nvim_config=${XDG_CONFIG_HOME:-$HOME/.config}/nvim
 if [[ -f $nvim_helpers && -d $nvim_config/.git ]]; then
   source "$nvim_helpers"
-  if run_step "Neovim configuration" nvim_sync_fork "$nvim_config" config; then
-    run_step "Neovim plugins" nvim_update_plugins "$nvim_config"
+  if run_versioned "neovim config" nvim_config_versions nvim_sync_fork "$nvim_config" config; then
+    run_versioned "neovim plugins" nvim_plugin_versions nvim_update_plugins "$nvim_config"
   else
     print -u2 "Skipped: Neovim plugins because configuration synchronization failed."
   fi
@@ -221,7 +361,7 @@ fi
 
 skills_updater=$DOTFILES_ROOT/tools/update-ai-skills
 if [[ -x $skills_updater ]]; then
-  (( $+commands[npx] )) && run_step "global skills" "$skills_updater"
+  (( $+commands[npx] )) && run_versioned "global skills" skill_versions "$skills_updater"
 else
   record_missing "global skills" "$skills_updater"
 fi
@@ -231,8 +371,9 @@ if [[ -s $DOTFILES_UPDATE_FAILURES_FILE ]]; then
   failures+=("${(@f)$(<"$DOTFILES_UPDATE_FAILURES_FILE")}")
 fi
 if (( ${#failures[@]} )); then
-  print -P "%F{red}Failed: ${(j:, :)failures}%f" >&2
-  [[ -z $update_log ]] || print -u2 "Update log: $update_log"
+  say red "Failed: ${(j:, :)failures}"
+  show_log_path
   exit 1
 fi
-print -P "%F{green}Everything is up to date.%f"
+say green "Everything is up to date."
+show_log_path

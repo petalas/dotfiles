@@ -77,7 +77,17 @@ From Zsh, run `upd`, or invoke the underlying command directly:
 ~/git/dotfiles/update-dotfiles
 ```
 
-It fast-forwards this repository, relinks managed files from the new revision, resolves the saved installation plan, reconciles selected missing software/state, then upgrades software already present, including deselected applications, installed Pi packages, and global AI agent skills. Deselection never suppresses maintenance or triggers uninstallation. Independent failures are collected and reported at the end. The complete output is saved with mode 0600 in `${XDG_STATE_HOME:-~/.local/state}/dotfiles/latest-update.log`, and failed summaries repeat that path.
+It fast-forwards this repository, relinks managed files from the new revision, resolves the saved installation plan, reconciles selected missing software/state, then upgrades software already present, including deselected applications, installed Pi packages, and global AI agent skills. Deselection never suppresses maintenance or triggers uninstallation. Independent failures are collected and reported at the end.
+
+The terminal shows one line per item, and a transient `Updating …` line while each item or batch runs:
+
+```text
+Upgraded discord 0.0.416 ==> 0.0.418
+discord 0.0.418 ==> already latest
+discord 0.0.416 ==> failed to update
+```
+
+Items are the dotfiles and Neovim config revisions, Homebrew formulae installed on request and all casks, explicitly installed APT/Pacman packages, npm and pnpm globals, Bun, Vite+, rustup and its toolchains, SDKMAN and its candidates, Pi and its packages, Neovim plugins, and global AI skills. Dependencies appear only when their version changes. Steps without versions, such as relinking or the tldr cache, appear only when they fail. When a batch command fails, its changed items are still listed and the batch itself is reported as failed. Pinned formulae, and Bun without GitHub credentials, are reported as `skipped`. Tool output goes only to `${XDG_STATE_HOME:-~/.local/state}/dotfiles/latest-update.log` (mode 0600), together with every result line. The run ends with that path. Password prompts and GitHub browser login still reach the terminal.
 
 GitHub CLI stays package-manager-owned. Debian and Ubuntu installs configure GitHub's official signed APT repository instead of relying on the older distro release. `upd` also configures that repository for an existing `gh` package even when GitHub CLI is deselected, then upgrades it with system packages. The signing keyring is checksum-verified; the `gh` version is not pinned. macOS installs and upgrades `gh` through Homebrew.
 
@@ -85,9 +95,9 @@ Global AI agent skills come from `catalog/ai-skills.tsv` (`source<TAB>skill`, so
 
 `upd` checks installed GitHub skills by source and ref, compares their folder hashes, and installs changed skills in one batch per source/ref. It uses `gh api` when available and falls back to Git for the tree lookup. Other source types and moved skill paths use the CLI's update behavior. Failed checks and installations fail the skills step while independent sources continue. Run `./tools/update-ai-skills --check` to preview the batches without installing or pruning links. `./install ai_skills` remains the full catalog install/repair command, including skills not currently installed.
 
-Neovim updates sync the maintained `custom` branch and update its plugins. Pending Kickstart changes are reported for review; run `sync-nvim` explicitly to merge them. A failed configuration sync skips plugin updates and prints the reason. Generated setup failures are also named in the final update summary.
+Neovim updates sync the maintained `custom` branch and update its plugins. Pending Kickstart changes are recorded in the update log for review; run `sync-nvim` explicitly to merge them. A failed configuration sync skips plugin updates and logs the reason. Generated setup failures are also named in the final update summary.
 
-Bun upgrades use an existing `GITHUB_TOKEN`, `GITHUB_ACCESS_TOKEN`, or `GH_TOKEN`, or a process-scoped token from an authenticated GitHub CLI. Without one, `upd` skips Bun and prints `gh auth login` guidance rather than consuming GitHub's anonymous API quota.
+Bun upgrades use an existing `GITHUB_TOKEN`, `GITHUB_ACCESS_TOKEN`, or `GH_TOKEN`, or a process-scoped token from an authenticated GitHub CLI. Without one, `upd` reports Bun as `skipped` and logs `gh auth login` guidance rather than consuming GitHub's anonymous API quota.
 
 Vite+ installs its global `vp` CLI under `~/.vite-plus` using the [official installer](https://viteplus.dev/guide/global-cli). Fresh installs prefer the existing Node.js and package managers, leaving nvm and Bun as their owners. Existing installations at that location and their preferences are left unchanged. The managed Zsh config loads its environment, and `upd` runs `vp upgrade` for this installation even when Vite+ is deselected. Vite+ data is retained; use `vp implode` explicitly if you want to uninstall it.
 

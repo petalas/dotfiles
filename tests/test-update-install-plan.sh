@@ -6,6 +6,9 @@ fixture=$(mktemp -d /tmp/dotfiles-update-plan.XXXXXX)
 trap 'rm -rf "$fixture"' EXIT
 mkdir -p "$fixture/repo/.git" "$fixture/repo/lib" "$fixture/bin" "$fixture/home"
 cp "$repo_dir/update-dotfiles" "$fixture/repo/update-dotfiles"
+cp "$repo_dir/lib/update-report.sh" "$fixture/repo/lib/update-report.sh"
+# Version snapshots parse JSON; the restricted PATH below omits Homebrew's bin.
+ln -s "$(command -v jq)" "$fixture/bin/jq"
 cat >"$fixture/repo/link-dotfiles.sh" <<'EOF'
 #!/usr/bin/env bash
 theme_source="$DOTFILES_DIR/dot/.config/ghostty/themes/seashells-light"
@@ -43,9 +46,11 @@ cat >"$fixture/bin/git" <<'EOF'
 #!/usr/bin/env bash
 case "$*" in
     *'status --porcelain') : ;;
+    *'rev-parse --short HEAD') cat "$2/.git/fixture-revision" 2>/dev/null || printf 'aaaaaaa\n' ;;
     *'pull --ff-only')
         mkdir -p "$DOTFILES_DIR/dot/.config/ghostty/themes"
         printf 'new managed theme\n' >"$DOTFILES_DIR/dot/.config/ghostty/themes/seashells-light"
+        printf 'bbbbbbb\n' >"$DOTFILES_DIR/.git/fixture-revision"
         ;;
     *) exit 1 ;;
 esac
@@ -58,6 +63,10 @@ printf 'fixture-github-token\n'
 EOF
 cat >"$fixture/bin/pi" <<'EOF'
 #!/usr/bin/env bash
+case "$*" in
+    --version) printf '1.0.0\n'; exit 0 ;;
+    list) printf 'No packages installed.\n'; exit 0 ;;
+esac
 printf 'pi %s\n' "$*" >>"$UPDATE_TEST_LOG"
 [[ "$*" == 'update --all' ]]
 EOF
@@ -70,12 +79,17 @@ fi
 EOF
 cat >"$fixture/bin/bun" <<'EOF'
 #!/usr/bin/env bash
+if [[ "$*" == --version ]]; then
+    cat "$HOME/.bun-version" 2>/dev/null || printf '1.0.0\n'
+    exit 0
+fi
 [[ "$*" == upgrade ]] || exit 2
 [[ "${GITHUB_TOKEN:-}" == fixture-github-token ]] || {
     printf 'Bun did not receive the authenticated GitHub token\n' >&2
     exit 19
 }
 printf 'bun upgrade\n' >>"$UPDATE_TEST_LOG"
+printf '1.1.0\n' >"$HOME/.bun-version"
 printf 'bun diagnostic stdout\n'
 printf 'bun diagnostic stderr\n' >&2
 EOF
@@ -112,6 +126,10 @@ sdk() {
         print 'Invalid command: selfupdate'
         return 0
     fi
+    case $1 in
+        version) print 'SDKMAN!\nscript: 5.0.0'; return 0 ;;
+        current) print 'Current default versions:\njava 21.0.1-tem'; return 0 ;;
+    esac
     print -r -- "sdk $*" >>"$UPDATE_TEST_LOG"
     [[ ${SDK_TEST_FAIL:-} != "$1" ]]
 }
@@ -119,9 +137,9 @@ EOF
 cat >"$fixture/bin/pnpm" <<'EOF'
 #!/usr/bin/env bash
 case "$*" in
-    'ls -g --depth=0 --parseable')
+    'ls -g --depth=0 --json')
         [[ ${PNPM_TEST_FAIL:-} != list ]] || { echo 'pnpm inventory failed' >&2; exit 12; }
-        printf '%s/global/5/node_modules/example\n' "$PNPM_HOME"
+        printf '[{"path":"%s/global/5","dependencies":{"example":{"version":"2.0.0"}}}]\n' "$PNPM_HOME"
         ;;
     'update -g --latest')
         case ":$PATH:" in
@@ -140,6 +158,10 @@ export PNPM_HOME="$fixture/home/custom pnpm"
 mkdir -p "$fixture/home/.vite-plus/bin"
 cat >"$fixture/home/.vite-plus/bin/vp" <<'EOF'
 #!/usr/bin/env bash
+if [[ "$*" == --version ]]; then
+    printf 'vp v%s\n\nLocal vite-plus:\n  vite-plus  Not found\n' "$(cat "$HOME/.vite-plus/version" 2>/dev/null || echo 1.0.0)"
+    exit 0
+fi
 [[ "$*" == upgrade && "${VP_HOME:-}" == "$HOME/.vite-plus" ]] || exit 41
 [[ "${CI:-}" == true && "${VP_NODE_MANAGER:-}" == no && "${VP_PM_MANAGER:-}" == no ]] || exit 42
 [[ "$PATH" == "$VP_HOME/bin:"* ]] || exit 43
@@ -151,7 +173,7 @@ if [[ "${VP_TEST_FAIL:-0}" == 1 ]]; then
     echo 'Vite+ upgrade failed' >&2
     exit 45
 fi
-printf 'latest\n' >"$VP_HOME/version"
+printf '1.2.0\n' >"$VP_HOME/version"
 EOF
 cat >"$fixture/bin/vp" <<'EOF'
 #!/usr/bin/env bash
@@ -205,8 +227,9 @@ grep -Fxq 'nvim plugins' "$log"
 grep -Fxq 'pnpm globals updated' "$log"
 grep -Fxq 'sdk update' "$log"
 grep -Fxq 'sdk upgrade' "$log"
-grep -Fq 'Skipping SDKMAN self-update because sdkman_selfupdate_feature is disabled.' "$fixture/out"
-if grep -Fq 'Invalid command: selfupdate' "$fixture/out"; then
+latest_update_log="$fixture/state/dotfiles/latest-update.log"
+grep -Fq 'Skipping SDKMAN self-update because sdkman_selfupdate_feature is disabled.' "$latest_update_log"
+if grep -Fq 'Invalid command: selfupdate' "$latest_update_log"; then
     echo 'Updater invoked disabled SDKMAN selfupdate' >&2
     exit 1
 fi
@@ -214,13 +237,12 @@ managed_theme="$fixture/home/.config/ghostty/themes/seashells-light"
 [[ -L "$managed_theme" ]]
 [[ "$(readlink "$managed_theme")" == "$fixture/repo/dot/.config/ghostty/themes/seashells-light" ]]
 grep -Fxq 'link managed themes' "$log"
-[[ "$(cat "$fixture/home/.vite-plus/version")" == latest ]]
+[[ "$(cat "$fixture/home/.vite-plus/version")" == 1.2.0 ]]
 if grep -Eq 'project-local vp invoked|Vite\+ environment sourced' "$log"; then
     echo 'Vite+ maintenance used a project CLI or sourced runtime ownership settings' >&2
     exit 1
 fi
 
-latest_update_log="$fixture/state/dotfiles/latest-update.log"
 [[ -f "$latest_update_log" ]]
 if stat -c '%a' "$latest_update_log" >/dev/null 2>&1; then
     log_mode=$(stat -c '%a' "$latest_update_log")
@@ -228,9 +250,21 @@ else
     log_mode=$(stat -f '%Lp' "$latest_update_log")
 fi
 [[ "$log_mode" == 600 ]]
-grep -Fq "Update log: $latest_update_log" "$fixture/out"
+[[ "$(tail -n 1 "$fixture/out")" == "Update log: $latest_update_log" ]]
 grep -Fq 'bun diagnostic stdout' "$latest_update_log"
 grep -Fq 'bun diagnostic stderr' "$latest_update_log"
+# The terminal shows one result line per item and none of the tool output.
+grep -Fxq 'Upgraded dotfiles aaaaaaa ==> bbbbbbb' "$fixture/out"
+grep -Fxq 'Upgraded bun 1.0.0 ==> 1.1.0' "$fixture/out"
+grep -Fxq 'Upgraded vite-plus 1.0.0 ==> 1.2.0' "$fixture/out"
+grep -Fxq 'example 2.0.0 ==> already latest' "$fixture/out"
+grep -Fxq 'pi 1.0.0 ==> already latest' "$fixture/out"
+grep -Fxq 'java 21.0.1-tem ==> already latest' "$fixture/out"
+grep -Fxq 'Upgraded bun 1.0.0 ==> 1.1.0' "$latest_update_log"
+if grep -Fq 'bun diagnostic' "$fixture/out" "$fixture/err" || [[ -s "$fixture/err" ]]; then
+    echo 'Tool output reached the terminal instead of only the update log' >&2
+    exit 1
+fi
 if grep -Fq 'fixture-github-token' "$latest_update_log"; then
     echo "Update log exposed the GitHub token" >&2
     exit 1
@@ -249,7 +283,8 @@ if grep -Fq 'bun upgrade' "$no_auth_log"; then
     echo "Bun used GitHub anonymously" >&2
     exit 1
 fi
-grep -Fq "Skipping Bun upgrade to avoid GitHub's anonymous API rate limit." "$fixture/no-auth-out"
+grep -Fq "Skipping Bun upgrade to avoid GitHub's anonymous API rate limit." "$fixture/no-auth-state/dotfiles/latest-update.log"
+grep -Fxq 'bun 1.1.0 ==> skipped' "$fixture/no-auth-out"
 
 # An absent global CLI is skipped, even when a project-local vp is on PATH.
 mv "$fixture/home/.vite-plus/bin/vp" "$fixture/managed-vp"
@@ -277,10 +312,12 @@ if run_updater PLAN_APPLY_FAIL=1 NVIM_SYNC_FAIL=1 UPDATE_TEST_LOG="$fixture/fail
 fi
 failure_log="$failure_state/dotfiles/latest-update.log"
 grep -Fq 'fixture reconciliation detail' "$failure_log"
-grep -Fq 'Failed: selected reconciliation, Neovim configuration, Yazi packages' "$fixture/failure-err"
-grep -Fq "Update log: $failure_log" "$fixture/failure-err"
+grep -Fxq 'Failed: selected reconciliation, neovim config, Yazi packages' "$fixture/failure-out"
+grep -Fxq 'selected reconciliation ==> failed to update' "$fixture/failure-out"
+grep -Fxq 'neovim config aaaaaaa ==> failed to update' "$fixture/failure-out"
+[[ "$(tail -n 1 "$fixture/failure-out")" == "Update log: $failure_log" ]]
 
-grep -Fq 'Skipped: Neovim plugins because configuration synchronization failed.' "$fixture/failure-err"
+grep -Fq 'Skipped: Neovim plugins because configuration synchronization failed.' "$failure_log"
 if grep -Fxq 'nvim plugins' "$fixture/failure-commands.log"; then
     echo 'Plugin update ran after a failed config sync' >&2
     exit 1
@@ -296,9 +333,13 @@ fi
 grep -Fxq 'sdk selfupdate' "$fixture/tool-failures.log"
 grep -Fxq 'sdk upgrade' "$fixture/tool-failures.log"
 grep -Fxq 'update-ai-skills' "$fixture/tool-failures.log"
-grep -Fq 'pnpm inventory failed' "$fixture/tool-failures-err"
-grep -Fq 'Vite+ upgrade failed' "$fixture/tool-failures-err"
-grep -Fq 'Failed: SDKMAN self-update, Vite+, pnpm global packages' "$fixture/tool-failures-err"
+tool_failures_log="$fixture/tool-failures-state/dotfiles/latest-update.log"
+grep -Fq 'pnpm inventory failed' "$tool_failures_log"
+grep -Fq 'Vite+ upgrade failed' "$tool_failures_log"
+grep -Fxq 'Failed: sdkman, vite-plus, pnpm global packages' "$fixture/tool-failures-out"
+grep -Fxq 'sdkman 5.0.0 ==> failed to update' "$fixture/tool-failures-out"
+grep -Fxq 'vite-plus 1.2.0 ==> failed to update' "$fixture/tool-failures-out"
+grep -Fxq 'pnpm global packages ==> failed to update' "$fixture/tool-failures-out"
 
 # An installed but deselected GitHub CLI still receives repository maintenance.
 # A missing CLI does not cause installation, and repository failures remain
@@ -315,7 +356,7 @@ if [[ "$OSTYPE" == linux* ]]; then
         echo 'Expected a failed GitHub CLI repository migration to fail the updater' >&2
         exit 1
     fi
-    grep -Fq 'Failed: GitHub CLI repository' "$fixture/gh-failure-err"
+    grep -Fq 'Failed: GitHub CLI repository' "$fixture/gh-failure-out"
     grep -Fxq 'system upgrade' "$fixture/gh-failure.log"
     grep -Fxq 'pi update --all' "$fixture/gh-failure.log"
 fi
@@ -327,8 +368,13 @@ cat >"$fixture/bin/brew" <<'EOF'
 #!/usr/bin/env bash
 printf 'brew %s\n' "$*" >>"$UPDATE_TEST_LOG"
 case "$*" in
-    update|'outdated --cask --quiet') : ;;
-    'outdated --formula --quiet') printf 'gh\n' ;;
+    update) : ;;
+    'outdated --json=v2')
+        printf '{"formulae":[{"name":"gh","installed_versions":["2.0.0"],"current_version":"2.1.0","pinned":false}],"casks":[]}\n'
+        ;;
+    'list --formula --installed-on-request') printf 'gh\njq\n' ;;
+    'list --formula --versions') printf 'gh 2.0.0\njq 1.8.1\noniguruma 6.9.10\n' ;;
+    'list --cask --versions') printf 'ghostty 1.2.0\n' ;;
     'upgrade --formula gh') : ;;
     *) exit 2 ;;
 esac
@@ -342,6 +388,13 @@ env -u GITHUB_TOKEN -u GITHUB_ACCESS_TOKEN -u GH_TOKEN \
     >"$fixture/macos-out" 2>"$fixture/macos-err"
 grep -Fxq 'brew update' "$fixture/macos.log"
 grep -Fxq 'brew upgrade --formula gh' "$fixture/macos.log"
+grep -Fxq 'Upgraded gh 2.0.0 ==> 2.1.0' "$fixture/macos-out"
+grep -Fxq 'jq 1.8.1 ==> already latest' "$fixture/macos-out"
+grep -Fxq 'ghostty 1.2.0 ==> already latest' "$fixture/macos-out"
+if grep -Fq oniguruma "$fixture/macos-out"; then
+    echo 'An unchanged Homebrew dependency was listed' >&2
+    exit 1
+fi
 if grep -Eq '^(system upgrade|gh repository)$' "$fixture/macos.log"; then
     echo 'macOS updater invoked Linux package maintenance' >&2
     exit 1

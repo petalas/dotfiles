@@ -94,6 +94,30 @@ linux_packages_upgrade() {
     esac
 }
 
+# Print "name<TAB>version<TAB>listed" for each installed system package, where
+# listed is 1 for packages installed explicitly rather than as dependencies.
+linux_packages_versions() {
+    local explicit installed
+    case "$(linux_distribution)" in
+        debian|ubuntu)
+            explicit=$(apt-mark showmanual) || return 1
+            installed=$(dpkg-query -W -f='${db:Status-Abbrev}\t${Package}\t${Version}\n') || return 1
+            installed=$(printf '%s\n' "$installed" | awk -F '\t' -v OFS='\t' '$1 ~ /^ii/ { print $2, $3 }')
+            ;;
+        arch)
+            explicit=$(pacman -Qqe) || return 1
+            installed=$(pacman -Q) || return 1
+            installed=$(printf '%s\n' "$installed" | awk -v OFS='\t' 'NF == 2 { print $1, $2 }')
+            ;;
+        *) return 1 ;;
+    esac
+    { printf '%s\n' "$explicit" '--installed--' "$installed"; } | awk -F '\t' -v OFS='\t' '
+        $0 == "--installed--" { section = 1; next }
+        !section { if ($1 != "") explicit[$1] = 1; next }
+        $1 != "" { print $1, $2, (explicit[$1] ? 1 : 0) }
+    '
+}
+
 linux_package_available() {
     local package="$1"
     case "$(linux_distribution)" in
