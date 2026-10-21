@@ -45,7 +45,8 @@ EOF
 cat >"$fixture/bin/git" <<'EOF'
 #!/usr/bin/env bash
 case "$*" in
-    *'status --porcelain') : ;;
+    *'diff --name-only --no-renames -z HEAD') printf '%s\0' ${FIXTURE_CHANGED:-} ;;
+    *'ls-files --others --exclude-standard -z') printf '%s\0' ${FIXTURE_UNTRACKED:-} ;;
     *'rev-parse --short HEAD') cat "$2/.git/fixture-revision" 2>/dev/null || printf 'aaaaaaa\n' ;;
     *'pull --ff-only')
         mkdir -p "$DOTFILES_DIR/dot/.config/ghostty/themes"
@@ -199,7 +200,9 @@ run_updater() {
         VP_HOME="$fixture/home/unmanaged-vite-plus" VP_NODE_MANAGER=yes VP_PM_MANAGER=yes CI=false "$@" \
         "$zsh_bin" "$fixture/repo/update-dotfiles"
 }
-if ! run_updater UPDATE_TEST_LOG="$log" XDG_STATE_HOME="$fixture/state" <"$fixture/input" >"$fixture/out" 2>"$fixture/err"; then
+# Edits to linked configuration and documentation never block an update.
+if ! run_updater FIXTURE_CHANGED='dot/.config/obsidian/app.json README.md' FIXTURE_UNTRACKED='docs/notes.md' \
+    UPDATE_TEST_LOG="$log" XDG_STATE_HOME="$fixture/state" <"$fixture/input" >"$fixture/out" 2>"$fixture/err"; then
     cat "$fixture/out" >&2
     cat "$fixture/err" >&2
     exit 1
@@ -301,6 +304,21 @@ if grep -Eq 'project-local vp invoked|Vite\+ environment sourced' "$fixture/no-v
     exit 1
 fi
 mv "$fixture/managed-vp" "$fixture/home/.vite-plus/bin/vp"
+
+# Uncommitted or untracked files that the updater would execute stop it before
+# the pull, and every such file is named.
+if run_updater FIXTURE_CHANGED='dot/zshrc lib/install-plan' FIXTURE_UNTRACKED='installers/install_new.sh' \
+    UPDATE_TEST_LOG="$fixture/dirty.log" XDG_STATE_HOME="$fixture/dirty-state" \
+    >"$fixture/dirty-out" 2>"$fixture/dirty-err"; then
+    echo 'Expected uncommitted executable changes to stop the updater' >&2
+    exit 1
+fi
+grep -Fxq 'Commit or stash these dotfiles changes before updating: lib/install-plan, installers/install_new.sh' \
+    "$fixture/dirty-out"
+if [[ -e "$fixture/dirty.log" ]]; then
+    echo 'Updater ran steps despite uncommitted executable changes' >&2
+    exit 1
+fi
 
 # A failed step keeps its diagnostics and repeats the log path beside the final
 # failure summary.

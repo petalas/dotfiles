@@ -62,10 +62,28 @@ abort() {
 
 source "$DOTFILES_ROOT/lib/update-report.sh" || exit 1
 
+# Print changed or untracked files that this run would execute. The updater runs
+# the checkout's scripts, catalog, and installers, so those must be committed.
+# Linked configuration under dot/ (which apps write back to) and documentation
+# never run here; git pull --ff-only still refuses to overwrite their edits.
+uncommitted_executable_changes() {
+  local tracked untracked file
+  tracked=$(git -C "$DOTFILES_ROOT" diff --name-only --no-renames -z HEAD) || return 1
+  untracked=$(git -C "$DOTFILES_ROOT" ls-files --others --exclude-standard -z) || return 1
+  for file in ${(0)tracked} ${(0)untracked}; do
+    case $file in
+      dot/* | docs/* | *.md) ;;
+      *) print -r -- "$file" ;;
+    esac
+  done
+}
+
 if [[ ${1:-} != --after-dotfiles-pull ]]; then
   [[ -d $DOTFILES_ROOT/.git ]] || abort "Not a Git checkout: $DOTFILES_ROOT"
-  [[ -z $(git -C "$DOTFILES_ROOT" status --porcelain) ]] ||
-    abort "Dotfiles checkout is dirty; commit or stash it before updating."
+  blocking_changes=$(uncommitted_executable_changes) ||
+    abort "Cannot read the dotfiles checkout status."
+  [[ -z $blocking_changes ]] ||
+    abort "Commit or stash these dotfiles changes before updating: ${(j:, :)${(f)blocking_changes}}"
   old_revision=$(git -C "$DOTFILES_ROOT" rev-parse --short HEAD)
   update_report_progress dotfiles
   if ! git -C "$DOTFILES_ROOT" pull --ff-only; then

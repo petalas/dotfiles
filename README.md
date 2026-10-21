@@ -79,6 +79,8 @@ From Zsh, run `upd`, or invoke the underlying command directly:
 
 It fast-forwards this repository, relinks managed files from the new revision, resolves the saved installation plan, reconciles selected missing software/state, then upgrades software already present, including deselected applications, installed Pi packages, and global AI agent skills. Deselection never suppresses maintenance or triggers uninstallation. Independent failures are collected and reported at the end.
 
+The update runs this checkout's scripts, catalog, and installers, so it stops before pulling when any of them has uncommitted or untracked changes, and names those files. Edits under `dot/` (linked configuration that apps may write back to), `docs/`, and Markdown files never block it; `git pull --ff-only` still refuses to overwrite one that an incoming commit changes.
+
 The terminal shows one line per item, and a transient `Updating …` line while each item or batch runs:
 
 ```text
