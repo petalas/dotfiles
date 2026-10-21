@@ -231,6 +231,14 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## A self-renamed app leaves a stale Homebrew cask record
+
+- Symptom: `upd` failed on `t3-code` with `It seems the App source '/Applications/T3 Code (Alpha).app' is not there.` The app had updated itself from the Alpha channel (0.0.45) to `T3 Code (Beta).app` (0.1.0), but Homebrew's install receipt still listed the Alpha bundle, so the upgrade could not remove the old version.
+- Homebrew 7 already prevents downgrades of `auto_updates` casks. Without `--greedy`, it only reports one as outdated when the bundle at the current cask's app path is older than the cask version.
+- One-time repair, no updater logic: `brew uninstall --cask --force <cask>` removes only the stale record because its app is already gone. Then `brew install --cask --adopt <cask>` registers the existing bundle without replacing it, which is safe while the app is running. Later upgrades go through the normal path, and the app's own updater keeps installing versions between cask releases.
+
+---
+
 ## Docker Desktop cask upgrades delete its privileged helpers
 
 - Symptom: after every `upd` that upgraded `docker-desktop`, macOS showed "Allow administrator access for a script started by Docker?" on the next Docker launch.
