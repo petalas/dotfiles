@@ -231,6 +231,14 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 ---
 
+## Docker Desktop cask upgrades delete its privileged helpers
+
+- Symptom: after every `upd` that upgraded `docker-desktop`, macOS showed "Allow administrator access for a script started by Docker?" on the next Docker launch.
+- Cause: the cask's `uninstall` stanza boots out `com.docker.vmnetd` and `com.docker.socket` and deletes their binaries from `/Library/PrivilegedHelperTools`. The new app then reinstalls them through a GUI admin prompt.
+- Fix: after a successful upgrade, `homebrew_upgrade_individually` runs `sudo -n /Applications/Docker.app/Contents/MacOS/install config --user "$USER"`, Docker's headless installer for the helpers, `/var/run/docker.sock`, and `/usr/local/bin` symlinks. Without passwordless sudo it prints a note and Docker prompts as before.
+
+---
+
 ## Vite+ npm shims prompt on TTYs
 
 - Vite+ places its `npm` shim before npm in `PATH`. After `npm install -g`, the shim checks whether each package binary is reachable and prompts once per invocation before linking it into `~/.vite-plus/bin`.

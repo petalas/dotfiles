@@ -80,6 +80,19 @@ homebrew_bundle_install_resilient() {
     return "$failed"
 }
 
+# The docker-desktop cask upgrade deletes Docker's privileged helpers. Docker's
+# own installer restores them headlessly; otherwise the next launch shows an
+# administrator password dialog.
+_homebrew_restore_docker_helpers() {
+    local installer="${DOCKER_DESKTOP_INSTALLER:-/Applications/Docker.app/Contents/MacOS/install}"
+
+    if ! sudo -n true 2>/dev/null; then
+        printf 'Note: passwordless sudo is unavailable; Docker Desktop will ask for an administrator password on next launch.\n' >&2
+        return 0
+    fi
+    sudo -n "$installer" config --user "$USER" </dev/null
+}
+
 homebrew_upgrade_individually() {
     local kind entries entry
     local failed=0
@@ -95,6 +108,10 @@ homebrew_upgrade_individually() {
             printf '\nUpgrading Homebrew %s %s...\n' "$kind" "$entry"
             if ! brew upgrade "--$kind" "$entry" </dev/null; then
                 _homebrew_report_failure "Homebrew $kind $entry"
+                failed=1
+            elif [[ "$kind" == cask && "$entry" == docker-desktop ]] &&
+                ! _homebrew_restore_docker_helpers; then
+                _homebrew_report_failure "Docker Desktop privileged helpers"
                 failed=1
             fi
         done <<<"$entries"
