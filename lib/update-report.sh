@@ -12,10 +12,46 @@ _update_report_tty() {
     [ -n "${DOTFILES_UPDATE_TERMINAL_FD:-}" ] && [ -t "$DOTFILES_UPDATE_TERMINAL_FD" ]
 }
 
-# Show a transient placeholder that the next result line or clear replaces.
-update_report_progress() {
+# Show transient text that the next status, result line, or clear replaces.
+update_report_status() {
     _update_report_tty || return 0
-    printf '\r\033[K\033[2mUpdating %s...\033[0m' "$1" >&"$DOTFILES_UPDATE_TERMINAL_FD"
+    printf '\r\033[K\033[2m%s\033[0m' "$1" >&"$DOTFILES_UPDATE_TERMINAL_FD"
+}
+
+update_report_progress() {
+    update_report_status "Updating $1..."
+}
+
+# update_report_bar FINISHED TOTAL TEXT
+# Show a transient progress bar, counter, and TEXT cut to the terminal width.
+update_report_bar() {
+    _update_report_tty || return 0
+    local finished=$1 total=$2 text=$3 columns cells filled bar='' rest='' index=0 counter room
+    if [ "$total" -le 0 ]; then
+        update_report_status "$text"
+        return 0
+    fi
+    columns=$(stty size <&"$DOTFILES_UPDATE_TERMINAL_FD" 2>/dev/null)
+    columns=${columns##* }
+    # A terminal without a reported size answers 0 columns.
+    case "$columns" in '' | *[!0-9]* | 0) columns=80 ;; esac
+    cells=$((columns / 3))
+    [ "$cells" -le 24 ] || cells=24
+    filled=$((finished * cells / total))
+    while [ "$index" -lt "$cells" ]; do
+        if [ "$index" -lt "$filled" ]; then bar="$bar━"; else rest="$rest━"; fi
+        index=$((index + 1))
+    done
+    counter="$finished/$total"
+    # Two separating spaces, plus one column so the cursor never wraps.
+    room=$((columns - cells - ${#counter} - 3))
+    if [ "$room" -lt 2 ]; then
+        text=
+    elif [ "${#text}" -gt "$room" ]; then
+        text="${text:0:$((room - 1))}…"
+    fi
+    printf '\r\033[K\033[36m%s\033[2m%s\033[0m %s \033[2m%s\033[0m' \
+        "$bar" "$rest" "$counter" "$text" >&"$DOTFILES_UPDATE_TERMINAL_FD"
 }
 
 update_report_clear() {

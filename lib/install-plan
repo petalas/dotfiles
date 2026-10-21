@@ -30,6 +30,9 @@ valid_id() {
 # The AI skills module owns catalog validation, agent roots, and CLI calls.
 # shellcheck source=../installers/install_ai_skills.sh
 source "$root_dir/installers/install_ai_skills.sh"
+# Under update-dotfiles, operation starts replace its transient terminal line.
+# shellcheck source=update-report.sh
+source "$root_dir/lib/update-report.sh"
 
 find_value_index() {
     local needle=$1
@@ -1885,6 +1888,7 @@ execute_ai_skill_source_batches() {
             fi
             scan_index=$((scan_index + 1))
         done
+        show_apply_status "AI skills from $source"
         batch_result=0
         if [[ -n "${DOTFILES_INSTALL_PLAN_BATCH_ADAPTER:-}" ]]; then
             "$DOTFILES_INSTALL_PLAN_BATCH_ADAPTER" "$operation" ai-skill "$entries" || batch_result=$?
@@ -1943,6 +1947,7 @@ execute_action_batches() {
             [[ "${apply_action_kinds[$index]}" != "$kind" ]] || start_action_operation "$index"
             index=$((index + 1))
         done
+        show_apply_status "$(wc -l <"$entries" | tr -d ' ') $kind entries in one batch"
         batch_result=0
         if [[ -n "${DOTFILES_INSTALL_PLAN_BATCH_ADAPTER:-}" ]]; then
             "$DOTFILES_INSTALL_PLAN_BATCH_ADAPTER" "$operation" "$kind" "$entries" || batch_result=$?
@@ -2083,6 +2088,11 @@ start_registered_operation() {
     [[ "${event_operation_states[$index]}" == pending ]] || return 0
     event_operation_states[$index]=active
     emit_event operation-start "$id" "${event_operation_labels[$index]}" indeterminate
+    show_apply_status "${event_operation_labels[$index]}"
+}
+
+show_apply_status() {
+    update_report_bar "$event_settled" "$event_total" "$apply_verb: $1"
 }
 
 settle_registered_operation() {
@@ -2541,7 +2551,11 @@ apply_plan() {
             *) fail "unknown apply argument: $1" ;;
         esac
     done
-    case "$operation" in install|reconcile) ;; *) fail "invalid apply operation: $operation" ;; esac
+    case "$operation" in
+        install) apply_verb=Installing ;;
+        reconcile) apply_verb=Reconciling ;;
+        *) fail "invalid apply operation: $operation" ;;
+    esac
     [[ -n "$plan" ]] || fail "apply requires --plan"
     load_resolved_plan "$plan"
     report_method_apps=(); report_method_modes=(); report_method_kinds=(); report_method_targets=(); report_method_statuses=()

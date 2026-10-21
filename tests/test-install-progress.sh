@@ -72,4 +72,68 @@ grep -Fxq $'event\t1\toperation-settled\taction:0\tsucceeded\t1\t4' "$fixture/ba
 grep -Fxq $'event\t1\toperation-settled\taction:1\tsucceeded\t2\t4' "$fixture/batch-events"
 grep -Fxq $'event\t1\trun-settled\tsucceeded\t4\t4' "$fixture/batch-events"
 
+# Under update-dotfiles, each operation start redraws a transient progress bar
+# on the updater's descriptor, cut to the terminal width, while tool output
+# stays in the log.
+PLAN_ENGINE="$repo_dir/lib/install-plan" FIXTURE="$fixture" python3 <<'PY'
+import fcntl
+import os
+import pty
+import struct
+import termios
+
+fixture = os.environ["FIXTURE"]
+
+
+def reconcile(columns):
+    pid, descriptor = pty.fork()
+    if pid == 0:
+        fcntl.ioctl(0, termios.TIOCSWINSZ, struct.pack("HHHH", 24, columns, 0, 0))
+        os.dup2(1, 3)
+        log = os.open(f"{fixture}/terminal-log", os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
+        os.dup2(log, 1)
+        os.dup2(log, 2)
+        os.environ.update(
+            DOTFILES_UPDATE_TERMINAL_FD="3",
+            DOTFILES_INSTALL_PLAN_TRUSTED_TEST_PLAN="1",
+            DOTFILES_INSTALL_PLAN_ADAPTER=f"{fixture}/adapter",
+            DOTFILES_INSTALL_PLAN_BATCH_ADAPTER=f"{fixture}/batch-adapter",
+        )
+        engine = os.environ["PLAN_ENGINE"]
+        os.execv(engine, [engine, "apply", "--operation", "reconcile", "--plan", f"{fixture}/batch-plan"])
+    output = b""
+    while True:
+        try:
+            chunk = os.read(descriptor, 65536)
+        except OSError:
+            break
+        if not chunk:
+            break
+        output += chunk
+    _, status = os.waitpid(pid, 0)
+    if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:
+        raise SystemExit("reconciliation with a terminal descriptor failed: " + repr(output))
+    if b"succeeded: one" in output:
+        raise SystemExit("plan summary leaked onto the terminal descriptor")
+    return output.decode()
+
+
+def bar(filled, empty, counter, text):
+    return f"\r\x1b[K\x1b[36m{'━' * filled}\x1b[2m{'━' * empty}\x1b[0m {counter} \x1b[2m{text}\x1b[0m"
+
+
+cases = (
+    (80, bar(0, 24, "0/4", "Reconciling: 2 apt-package entries in one batch")),
+    (80, bar(12, 12, "2/4", "Reconciling: Verify One")),
+    (80, bar(18, 6, "3/4", "Reconciling: Verify Two")),
+    (36, bar(0, 12, "0/4", "Reconciling: 2 ap…")),
+)
+outputs = {}
+for columns, expected in cases:
+    output = outputs.setdefault(columns, reconcile(columns))
+    if expected not in output:
+        raise SystemExit(f"missing {columns}-column bar {expected!r} in {output!r}")
+PY
+grep -Fxq 'succeeded: one' "$fixture/terminal-log"
+
 printf 'Operation lifecycle and progress tests passed.\n'
