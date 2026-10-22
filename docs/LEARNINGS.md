@@ -247,6 +247,9 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - Symptom: after every `upd` that upgraded `docker-desktop`, macOS showed "Allow administrator access for a script started by Docker?" on the next Docker launch.
 - Cause: the cask's `uninstall` stanza boots out `com.docker.vmnetd` and `com.docker.socket` and deletes their binaries from `/Library/PrivilegedHelperTools`. The new app then reinstalls them through a GUI admin prompt.
 - Fix: after a successful upgrade, `homebrew_upgrade_individually` runs `sudo -n /Applications/Docker.app/Contents/MacOS/install config --user "$USER"`, Docker's headless installer for the helpers, `/var/run/docker.sock`, and `/usr/local/bin` symlinks. Without passwordless sudo it prints a note and Docker prompts as before.
+- Race: since October 2026 Homebrew reopens every app it quit during `brew upgrade`, inside the upgrade command. A running Docker came back 3 seconds after the helpers were deleted and before `upd` restored them. It prompted for a password, then crashed with `repairing vmnetd configuration: configuring privileged port mapping: applescript error` because the restore had already reloaded vmnetd. Fix: if Docker is running, `upd` stops it with `docker desktop stop` before the upgrade, so Homebrew has nothing to reopen. It restores the helpers, then reopens Docker with `open -b com.docker.docker`. If Docker will not stop, its upgrade is skipped.
+- Do not quit Docker with an Apple Event (`osascript -e 'quit app id "com.docker.docker"'`). During startup it kills the VM and Docker shows "the virtualization process exited without being asked to". `docker desktop stop` waits for a clean shutdown.
+- Diagnose from `~/Library/Containers/com.docker.docker/Data/log/host/*.log`: grep for `vmnetd is not installed`, `applescript`, and `watchdog detected parent process disappeared`.
 
 ---
 

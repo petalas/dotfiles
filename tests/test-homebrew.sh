@@ -33,6 +33,8 @@ case "$*" in
     'list --cask --versions') printf '%s\n' 'zed 0.9' ;;
     'upgrade --'*)
         cat >/dev/null
+        # Homebrew reopens an app it quit, racing the helper restore.
+        [[ "$*" != 'upgrade --cask docker-desktop' || ! -e "$DOCKER_TEST_RUNNING" ]] || exit 1
         [[ "$*" != "upgrade --${HOMEBREW_UPGRADE_FAILURE:-}" ]]
         ;;
     *) exit 0 ;;
@@ -43,13 +45,30 @@ cat >"$fixture/bin/sudo" <<'EOF'
 printf 'sudo %s\n' "$*" >>"$HOMEBREW_TEST_LOG"
 [[ -z ${HOMEBREW_TEST_SUDO_DENIED:-} ]]
 EOF
-chmod +x "$fixture/bin/brew" "$fixture/bin/sudo"
+cat >"$fixture/bin/osascript" <<'EOF'
+#!/usr/bin/env bash
+[[ "$2" == *'is running' ]] || exit 1
+if [[ -e "$DOCKER_TEST_RUNNING" ]]; then echo true; else echo false; fi
+EOF
+cat >"$fixture/bin/docker" <<'EOF'
+#!/usr/bin/env bash
+printf 'docker %s\n' "$*" >>"$HOMEBREW_TEST_LOG"
+[[ "$1 $2" == 'desktop stop' && -z ${DOCKER_TEST_STUCK:-} ]] || exit 1
+rm -f "$DOCKER_TEST_RUNNING"
+EOF
+cat >"$fixture/bin/open" <<'EOF'
+#!/usr/bin/env bash
+printf 'open %s\n' "$*" >>"$HOMEBREW_TEST_LOG"
+EOF
+chmod +x "$fixture/bin/brew" "$fixture/bin/sudo" "$fixture/bin/osascript" \
+    "$fixture/bin/docker" "$fixture/bin/open"
 # Outdated entries are JSON; the restricted PATH below omits Homebrew's bin.
 ln -s "$(command -v jq)" "$fixture/bin/jq"
 PATH="$fixture/bin:/usr/bin:/bin"
 docker_installer="$fixture/Docker.app/Contents/MacOS/install"
 export PATH HOMEBREW_TEST_LOG="$log" HOMEBREW_MAIN_FILE="$fixture/Brewfile"
 export DOCKER_DESKTOP_INSTALLER="$docker_installer" USER=tester
+export DOCKER_TEST_RUNNING="$fixture/docker-running"
 # shellcheck source=../lib/homebrew.sh
 source "$repo_dir/lib/homebrew.sh"
 
@@ -102,6 +121,26 @@ awk -v expected="sudo -n $docker_installer config --user tester" '
     docker && $0 == expected { found = 1 }
     END { exit !found }
 ' "$log"
+
+# A running Docker is quit before the upgrade so Homebrew cannot reopen it
+# while the helpers are missing, and it is reopened after the restore.
+: >"$log"
+touch "$DOCKER_TEST_RUNNING"
+HOMEBREW_OUTDATED_CASKS=$'docker-desktop\n' homebrew_upgrade_individually >/dev/null
+grep -Ev '^(outdated|list|upgrade --formula) ' "$log" | diff - <(printf '%s\n' 'docker desktop stop --timeout 60' \
+    'upgrade --cask docker-desktop' 'sudo -n true' \
+    "sudo -n $docker_installer config --user tester" 'open -b com.docker.docker')
+
+# If Docker will not quit, its upgrade is skipped rather than raced.
+: >"$log"
+touch "$DOCKER_TEST_RUNNING"
+if HOMEBREW_OUTDATED_CASKS=$'docker-desktop\n' DOCKER_TEST_STUCK=1 \
+    homebrew_upgrade_individually >"$fixture/results" 2>/dev/null; then
+    exit 1
+fi
+grep -Fxq 'docker-desktop 1.0 ==> failed to update' "$fixture/results"
+if grep -Eq '^(upgrade --cask docker-desktop|open )' "$log"; then exit 1; fi
+rm -f "$DOCKER_TEST_RUNNING"
 
 # Other casks never touch Docker's privileged setup.
 : >"$log"

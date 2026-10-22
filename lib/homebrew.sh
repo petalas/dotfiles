@@ -102,6 +102,19 @@ _homebrew_restore_docker_helpers() {
     sudo -n "$installer" config --user "$USER" </dev/null
 }
 
+_homebrew_docker_running() {
+    [[ $(osascript -e 'application id "com.docker.docker" is running' 2>/dev/null) == true ]]
+}
+
+# Homebrew reopens apps it quit during an upgrade, before upd can restore
+# Docker's helpers. Docker then finds them missing, prompts for a password, and
+# its own repair collides with the restore. Stopping Docker first stops
+# Homebrew from reopening it. Docker's CLI waits for a clean VM shutdown; an
+# Apple Event quit during startup kills the VM.
+_homebrew_quit_docker() {
+    docker desktop stop --timeout 60 </dev/null && ! _homebrew_docker_running
+}
+
 # Print "kind<TAB>name<TAB>installed<TAB>latest<TAB>pinned" for each entry
 # that upd would change, then "kind<TAB>name<TAB>installed" for each formula
 # installed on request and each cask. Dependencies appear only when outdated.
@@ -134,7 +147,7 @@ _homebrew_upgrade_candidates() {
 # Upgrade each outdated entry separately so one broken package cannot hide the
 # rest, and report one result line per entry.
 homebrew_upgrade_individually() {
-    local candidates kind name installed latest pinned
+    local candidates kind name installed latest pinned is_docker reopen_docker
     local failed=0
 
     if ! candidates=$(_homebrew_upgrade_candidates); then
@@ -156,18 +169,31 @@ homebrew_upgrade_individually() {
         fi
         update_report_progress "$name"
         printf '\nUpgrading Homebrew %s %s...\n' "$kind" "$name"
+        is_docker=0 reopen_docker=0
+        [[ "$kind" == cask && "$name" == docker-desktop ]] && is_docker=1
+        if ((is_docker)) && _homebrew_docker_running; then
+            if ! _homebrew_quit_docker; then
+                _homebrew_report_failure "quitting Docker Desktop before its upgrade"
+                update_report_result failed "$name" "$installed"
+                failed=1
+                continue
+            fi
+            reopen_docker=1
+        fi
         if ! brew upgrade "--$kind" "$name" </dev/null; then
             _homebrew_report_failure "Homebrew $kind $name"
             update_report_result failed "$name" "$installed"
             failed=1
-            continue
+        else
+            update_report_result upgraded "$name" "$installed" "$latest"
+            if ((is_docker)) && ! _homebrew_restore_docker_helpers; then
+                _homebrew_report_failure "Docker Desktop privileged helpers"
+                update_report_result failed "Docker Desktop privileged helpers"
+                failed=1
+            fi
         fi
-        update_report_result upgraded "$name" "$installed" "$latest"
-        if [[ "$kind" == cask && "$name" == docker-desktop ]] &&
-            ! _homebrew_restore_docker_helpers; then
-            _homebrew_report_failure "Docker Desktop privileged helpers"
-            update_report_result failed "Docker Desktop privileged helpers"
-            failed=1
+        if ((reopen_docker)); then
+            open -b com.docker.docker || failed=1
         fi
     done < <(printf '%s\n' "$candidates" | awk -F '\t' '!seen[$1 FS $2]++' | LC_ALL=C sort -f -t "$(printf '\t')" -k2,2)
 
