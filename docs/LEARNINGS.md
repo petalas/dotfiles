@@ -222,6 +222,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 
 - Homebrew treats `claude-code` and `claude-code@latest` as conflicting casks. Changing the catalog declaration alone makes every reconciliation fail while the other channel remains registered.
 - A channel switch therefore needs a one-time step: uninstall the old registration with `--force`, install the new cask with `--force`, and restore the old one if that fails. Claude settings under `~/.claude` and `~/.claude.json` remain retained user data. The `claude-code@latest` migration was removed on 2026-10-09 once every machine had switched.
+- `t3-code` (Beta) and `t3-code@nightly` do not conflict: they install different app bundles. Changing the catalog alone would leave the Beta registration in place, and `brew bundle` fails on a machine where Nightly was installed by hand, because the app already exists. `_homebrew_migrate_t3_code_nightly` runs `brew install --cask --adopt t3-code@nightly`, which adopts an existing bundle or installs a fresh one, then `brew uninstall --cask --force t3-code`. Remove it once every machine has switched.
 
 ---
 

@@ -71,7 +71,7 @@ macos	creative.vlc	brew-cask	vlc
 macos	ai.chatgpt	brew-cask	chatgpt
 macos	editors.dbeaver	brew-cask	dbeaver-community
 macos	editors.sublime	brew-cask	sublime-text
-macos	editors.t3-code	brew-cask	t3-code
+macos	editors.t3-code	brew-cask	t3-code@nightly
 macos	editors.code	brew-cask	visual-studio-code
 macos	editors.zed	brew-cask	zed
 macos	containers.docker	brew-cask	docker-desktop

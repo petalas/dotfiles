@@ -31,6 +31,8 @@ case "$*" in
     'list --formula --installed-on-request') printf '%s\n' gh current ;;
     'list --formula --versions') printf '%s\n' 'first 1.0' 'gh 1.0' 'current 3.0' 'dependency 4.0' ;;
     'list --cask --versions') printf '%s\n' 'zed 0.9' ;;
+    'list --cask '*) grep -Fxq "$3" "${HOMEBREW_INSTALLED_CASKS:-/dev/null}" ;;
+    'install --cask --adopt t3-code@nightly') [[ -z ${HOMEBREW_INSTALL_FAILS:-} ]] ;;
     'upgrade --'*)
         cat >/dev/null
         # Homebrew reopens an app it quit, racing the helper restore.
@@ -160,5 +162,39 @@ if grep -q '^sudo ' "$log"; then exit 1; fi
 HOMEBREW_OUTDATED_CASKS=$'docker-desktop\n' HOMEBREW_TEST_SUDO_DENIED=1 \
     homebrew_upgrade_individually >/dev/null 2>"$fixture/stderr"
 grep -Fq 'Docker Desktop will ask for an administrator password' "$fixture/stderr"
+
+# Machines registered with the T3 Code Beta cask move to Nightly: install it
+# first (adopting a hand-installed bundle), then drop the Beta registration.
+printf 'cask "t3-code@nightly"\n' >"$fixture/t3.Brewfile"
+printf 't3-code\n' >"$fixture/installed-casks"
+: >"$log"
+HOMEBREW_INSTALLED_CASKS="$fixture/installed-casks" \
+    homebrew_bundle_install_resilient "$fixture/t3.Brewfile" >/dev/null
+grep -E '^(install|uninstall|bundle --no-upgrade) ' "$log" | diff - <(printf '%s\n' \
+    'install --cask --adopt t3-code@nightly' 'uninstall --cask --force t3-code' \
+    "bundle --no-upgrade --file=$fixture/t3.Brewfile")
+
+# A failed Nightly install keeps Beta and is reported, but reconciliation of
+# the other entries still runs.
+: >"$log"
+if HOMEBREW_INSTALLED_CASKS="$fixture/installed-casks" HOMEBREW_INSTALL_FAILS=1 \
+    homebrew_bundle_install_resilient "$fixture/t3.Brewfile" >/dev/null 2>&1; then
+    exit 1
+fi
+if grep -q '^uninstall ' "$log"; then exit 1; fi
+grep -Fxq "bundle --no-upgrade --file=$fixture/t3.Brewfile" "$log"
+
+# With Nightly already registered, only the Beta registration is removed.
+printf '%s\n' t3-code t3-code@nightly >"$fixture/installed-casks"
+: >"$log"
+HOMEBREW_INSTALLED_CASKS="$fixture/installed-casks" \
+    homebrew_bundle_install_resilient "$fixture/t3.Brewfile" >/dev/null
+if grep -q '^install ' "$log"; then exit 1; fi
+grep -Fxq 'uninstall --cask --force t3-code' "$log"
+
+# Machines without the Beta cask leave Nightly to normal reconciliation.
+: >"$log"
+homebrew_bundle_install_resilient "$fixture/t3.Brewfile" >/dev/null
+if grep -Eq '^(install|uninstall) ' "$log"; then exit 1; fi
 
 printf 'Homebrew resilient reconciliation tests passed.\n'

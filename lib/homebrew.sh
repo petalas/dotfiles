@@ -49,13 +49,33 @@ _homebrew_extract_entry() {
     ' "$brewfile" >"$destination"
 }
 
+# T3 Code moved from the Beta cask (`t3-code`) to `t3-code@nightly`. The casks
+# install different app bundles and do not conflict, so install Nightly first,
+# adopting a bundle installed by hand, then drop the Beta registration.
+_homebrew_migrate_t3_code_nightly() {
+    local brewfile="$1"
+
+    _homebrew_extract_entry "$brewfile" cask t3-code@nightly /dev/null 2>/dev/null || return 0
+    brew list --cask t3-code >/dev/null 2>&1 || return 0
+
+    printf 'Replacing the T3 Code Beta cask with t3-code@nightly...\n'
+    if ! brew list --cask t3-code@nightly >/dev/null 2>&1; then
+        brew install --cask --adopt t3-code@nightly </dev/null || return 1
+    fi
+    brew uninstall --cask --force t3-code </dev/null
+}
+
 homebrew_bundle_install_resilient() {
     local brewfile="$1"
     local kind entries entry entry_file
     local failed=0
 
+    if ! _homebrew_migrate_t3_code_nightly "$brewfile"; then
+        _homebrew_report_failure "migrating T3 Code to t3-code@nightly"
+        failed=1
+    fi
     if brew bundle --no-upgrade --file="$brewfile"; then
-        return 0
+        return "$failed"
     fi
 
     printf 'Brewfile reconciliation failed; retrying active entries individually.\n' >&2

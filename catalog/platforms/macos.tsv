@@ -84,7 +84,7 @@ creative.vlc	brew	payload	brew-cask	vlc
 ai.chatgpt	brew	payload	brew-cask	chatgpt
 editors.dbeaver	brew	payload	brew-cask	dbeaver-community
 editors.sublime	brew	payload	brew-cask	sublime-text
-editors.t3-code	brew	payload	brew-cask	t3-code
+editors.t3-code	brew	payload	brew-cask	t3-code@nightly
 editors.code	brew	payload	brew-cask	visual-studio-code
 editors.zed	brew	payload	brew-cask	zed
 containers.docker	brew	payload	brew-cask	docker-desktop
