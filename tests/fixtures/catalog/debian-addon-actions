@@ -15,6 +15,7 @@ containers.docker	direct	payload	installer	docker
 containers.lazydocker	direct	payload	installer	lazydocker
 development.cargo-edit	cargo	payload	cargo-package	cargo-edit	missing-only
 development.lazygit	direct	payload	installer	lazygit
+development.tla2tools	direct	payload	installer	tla2tools
 development.tree-sitter	cargo	payload	cargo-package	tree-sitter-cli	missing-only
 development.vite-plus	direct	payload	installer	vite_plus
 development.wasm-bindgen	cargo	payload	cargo-package	wasm-bindgen-cli	missing-only

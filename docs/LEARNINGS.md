@@ -261,6 +261,7 @@ Gotchas and insights discovered while maintaining these dotfiles.
 - npm 12 blocks unapproved lifecycle scripts, so a global package that needs its postinstall must be allowlisted with `--allow-scripts=<package>`. No current package needs it: Claude Code was the only one, and it now comes from the `claude-code` Homebrew cask on macOS and `install_claude_code` on Linux.
 - Install the standalone global CLI through `install_vite_plus`, not a global npm `vite-plus` package, which is the project-local distribution. Pin the upstream installer to `VP_HOME=$HOME/.vite-plus` to match the existing Zsh loader and updater; fresh upstream installations otherwise use split XDG directories. Use `CI=true`, `VP_NODE_MANAGER=no`, and `VP_PM_MANAGER=no` for unattended setup without replacing nvm/Bun ownership. Confirm preferences in `~/.vite-plus/config.json`; there is no `vp env status` command.
 - Probe the managed `~/.vite-plus/bin/vp` path, not any `vp` on `PATH`: a project-local Vite+ package also exposes `vp` but cannot satisfy the global installation or self-update contract.
+- The tla2tools pin (version and SHA-256) must match `TLC_TOOL` in the `statechart` skill's `scripts/run.ts` in `petalas/skills`. Setting `TLA2TOOLS` makes that skill skip its own mise checksum, so the installer's check is the only integrity gate. Probe the `~/.local/bin/tla2tools` wrapper, not the jar: the catalog probes with `command -v`, and receipt discovery calls `--version`, which the wrapper answers without starting Java.
 
 ---
 

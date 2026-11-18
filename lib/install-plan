@@ -591,6 +591,7 @@ installer_probe_command() {
         opencode) echo "$HOME/.opencode/bin/opencode" ;;
         lazydocker) echo lazydocker ;; yazi) echo yazi ;; locale) echo locale ;;
         vite_plus) echo "$HOME/.vite-plus/bin/vp" ;;
+        tla2tools) echo "$HOME/.local/bin/tla2tools" ;;
         *) echo "$1" ;;
     esac
 }
@@ -614,7 +615,7 @@ installer_receipt_version() {
         version=$(dpkg-query -W -f='${Version}' "$package" 2>/dev/null || true)
     else
         case "$installer" in
-            bun|chrome|claude_code|code|docker|ghostty|gradle|herdr|java|kotlin|lazydocker|lazygit|locale|maven|neovim|node|opencode|rust|uv|vite_plus|yazi|zed)
+            bun|chrome|claude_code|code|docker|ghostty|gradle|herdr|java|kotlin|lazydocker|lazygit|locale|maven|neovim|node|opencode|rust|tla2tools|uv|vite_plus|yazi|zed)
                 output=$("$target" --version 2>/dev/null || true)
                 version=${output%%$'\n'*}
                 ;;

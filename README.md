@@ -59,6 +59,7 @@ Only wanted/not-wanted defaults are saved in `${XDG_STATE_HOME:-~/.local/state}/
 ```sh
 ./install rust         # install Rust toolchain
 ./install vite_plus    # install the global Vite+ CLI (vp)
+./install tla2tools    # install the pinned TLA+ tools jar (TLC, SANY)
 ./install yazi         # install/upgrade a compatible yazi + ya pair
 ./install docker       # install Docker (Linux)
 ./install locale       # repair/reconfigure UTF-8 locale manually
@@ -102,6 +103,8 @@ Neovim updates sync the maintained `custom` branch and update its plugins. Pendi
 Bun upgrades use an existing `GITHUB_TOKEN`, `GITHUB_ACCESS_TOKEN`, or `GH_TOKEN`, or a process-scoped token from an authenticated GitHub CLI. Without one, `upd` reports Bun as `skipped` and logs `gh auth login` guidance rather than consuming GitHub's anonymous API quota.
 
 Vite+ installs its global `vp` CLI under `~/.vite-plus` using the [official installer](https://viteplus.dev/guide/global-cli). Fresh installs prefer the existing Node.js and package managers, leaving nvm and Bun as their owners. Existing installations at that location and their preferences are left unchanged. The managed Zsh config loads its environment, and `upd` runs `vp upgrade` for this installation even when Vite+ is deselected. Vite+ data is retained; use `vp implode` explicitly if you want to uninstall it.
+
+The TLA+ tools install a checksum-pinned `tla2tools.jar` (TLC and SANY) under `~/.local/share/tla2tools` and a `tla2tools` wrapper in `~/.local/bin` that runs it with the SDKMAN-managed Java, for example `tla2tools tlc2.TLC Spec.tla`. The managed Zsh config exports `TLA2TOOLS` when the jar exists, which the `statechart` agent skill reads instead of installing TLC through mise. A rerun replaces any jar whose checksum no longer matches the pin.
 
 ### Pi and SeaShells
 

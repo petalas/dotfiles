@@ -205,4 +205,32 @@ run_downloaded_script() { return 99; }
 install_vite_plus
 [[ $(vp) == global-vp ]]
 
+# tla2tools installs only a jar matching the pinned checksum, then skips downloads.
+tla_jar="$HOME/.local/share/tla2tools/tla2tools.jar"
+_tla2tools_sha256() {
+    if [[ "$(cat "$1")" == pinned-jar ]]; then printf '%s\n' "$TLA2TOOLS_SHA256"; else printf 'mismatch\n'; fi
+}
+download_file() {
+    [[ "$1" == "$TLA2TOOLS_URL" ]] || return 1
+    printf '%s' "$TLA_DOWNLOAD_BODY" >"$2"
+}
+TLA_DOWNLOAD_BODY=tampered-jar
+if install_tla2tools 2>/dev/null; then exit 1; fi
+[[ ! -e "$tla_jar" ]]
+[[ -z "$(find "$HOME/.local/share/tla2tools" -name '.tla2tools.*')" ]]
+TLA_DOWNLOAD_BODY=pinned-jar
+install_tla2tools >/dev/null
+[[ $(cat "$tla_jar") == pinned-jar ]]
+[[ $TLA2TOOLS == "$tla_jar" ]]
+[[ $(command -v tla2tools) == "$HOME/.local/bin/tla2tools" ]]
+[[ $(tla2tools --version) == "tla2tools $TLA2TOOLS_VERSION" ]]
+download_file() { return 99; }
+install_tla2tools
+[[ $(cat "$tla_jar") == pinned-jar ]]
+printf 'stale\n' >"$tla_jar"
+TLA_DOWNLOAD_BODY=pinned-jar
+download_file() { printf '%s' "$TLA_DOWNLOAD_BODY" >"$2"; }
+install_tla2tools >/dev/null
+[[ $(cat "$tla_jar") == pinned-jar ]]
+
 printf 'Managed toolchain installer tests passed.\n'

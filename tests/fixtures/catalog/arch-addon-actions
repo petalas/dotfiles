@@ -8,6 +8,7 @@ cli.ripgrep	cargo	payload	cargo-package	ripgrep	missing-only
 cli.tealdeer	cargo	payload	cargo-package	tealdeer	missing-only
 containers.docker	direct	payload	installer	docker
 development.cargo-edit	cargo	payload	cargo-package	cargo-edit	missing-only
+development.tla2tools	direct	payload	installer	tla2tools
 development.tree-sitter	cargo	payload	cargo-package	tree-sitter-cli	missing-only
 development.vite-plus	direct	payload	installer	vite_plus
 development.wasm-bindgen	cargo	payload	cargo-package	wasm-bindgen-cli	missing-only

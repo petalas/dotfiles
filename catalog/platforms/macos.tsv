@@ -115,6 +115,7 @@ editors.neovim	direct	payload	installer	neovim
 terminal.ghostty	direct	payload	installer	ghostty
 cli.yazi	direct	payload	installer	yazi
 development.vite-plus	direct	payload	installer	vite_plus
+development.tla2tools	direct	payload	installer	tla2tools
 languages.typescript	npm	payload	npm-package	typescript
 languages.typescript	npm	payload	npm-package	typescript-language-server
 ai.codex-cli	npm	payload	npm-package	@openai/codex

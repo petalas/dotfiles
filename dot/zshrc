@@ -353,6 +353,10 @@ if [[ -r "$SDKMAN_DIR/bin/sdkman-init.sh" ]]; then
   source "$SDKMAN_DIR/bin/sdkman-init.sh"
 fi
 
+# The tla2tools installer's pinned jar. Unset elsewhere so tools can fall back.
+[[ -r "$HOME/.local/share/tla2tools/tla2tools.jar" ]] &&
+  export TLA2TOOLS="$HOME/.local/share/tla2tools/tla2tools.jar"
+
 # Machine-specific secrets and overrides live outside this repository.
 [[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
 [[ -r "$HOME/.vite-plus/env" ]] && source "$HOME/.vite-plus/env"
