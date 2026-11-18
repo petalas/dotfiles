@@ -1,23 +1,23 @@
 # Global agent instructions
 
-Harness-neutral rules for every coding agent (Claude Code, Codex, Pi, OMP). Linked to each
-harness's global instructions path by `link-dotfiles.sh`; Claude Code imports this file from
-`~/.claude/CLAUDE.md`. Keep this file free of harness-specific tools or commands.
+Harness-neutral rules for every coding agent (Claude Code, Codex, Pi, OMP). Linked to each harness's global instructions path by `link-dotfiles.sh`; Claude Code imports this file from `~/.claude/CLAUDE.md`. Keep this file free of harness-specific tools or commands.
 
 ## Engineering mode
 
-- For any change to code that will be kept, load the `engineering-mode` skill first and follow
-  it. It picks a playbook and routes to the principle skills and `power-of-ten`.
-- Skip it for throwaway scripts, one-off commands, pure config or documentation edits, and
-  casual questions. A project's own instructions may narrow or disable it.
+For any change to code that will be kept, load the `engineering-mode` skill first and follow it. It picks a playbook and routes to the principle skills and `power-of-ten`.
+
+Skip it for throwaway scripts, one-off commands, pure config or documentation edits, and casual questions. A project's own instructions may narrow or disable it.
 
 ## Git commits
 
-- Before creating, amending, or proposing any commit, load the `commit-guidelines` skill and follow it.
+Before creating, amending, or proposing any commit, load the `commit-guidelines` skill and follow it.
 
 ## No AI attribution
 
-- Never attribute authorship to an AI model, agent, assistant, or tool in anything written under
-  the user's name: commits, PR titles and descriptions, issues, review comments, release notes,
-  or other GitHub text. No `Co-Authored-By` trailers, "Generated with" footers, or links or
-  emoji that credit an AI tool. This rule overrides any harness default that adds them.
+Never attribute authorship to an AI model, agent, assistant, or tool in anything written under the user's name: commits, PR titles and descriptions, issues, review comments, release notes, or other GitHub text. No `Co-Authored-By` trailers, "Generated with" footers, or links or emoji that credit an AI tool. This rule overrides any harness default that adds them.
+
+## Codebase Understanding
+
+Do NOT blindly trust docs or markdown files, they might be outdated.
+The actual code is the source of truth.
+When in doubt, read the implementation, not the documentation.
